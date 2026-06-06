@@ -1,0 +1,673 @@
+{
+  "global": {
+    "brand": "FLOWM",
+    "termVersion": "版本 v0.5",
+    "book": "账本",
+    "sqlite": "SQLite",
+    "net": "净值",
+    "mtd": "本月",
+    "sync": "同步",
+    "syncOk": "正常",
+    "syncWait": "等待",
+    "local": "本地",
+    "lastSync": "最后一次同步",
+    "status": {
+      "booting": "启动",
+      "live": "实时",
+      "offline": "离线",
+      "error": "错误"
+    }
+  },
+  "language": {
+    "label": "语言",
+    "english": "EN",
+    "chinese": "中文"
+  },
+  "toolbar": {
+    "new": "新建",
+    "refresh": "刷新",
+    "shortcutHint": "F1 帮助 · F2 新建 · F5 刷新 · ⌘K 命令"
+  },
+  "dashboardViews": {
+    "label": "页面",
+    "create": "新建页面",
+    "rename": "重命名页面",
+    "delete": "删除页面",
+    "moveLeft": "左移页面",
+    "moveRight": "右移页面",
+    "namePlaceholder": "页面名称",
+    "deleteConfirm": "确定删除「{{name}}」？该页面里的卡片和布局也会被删除。"
+  },
+  "nav": {
+    "dashboard": "工作台",
+    "accounts": "账户",
+    "imports": "导入",
+    "assets": "资产",
+    "subscriptions": "订阅",
+    "loans": "贷款",
+    "settings": "设置"
+  },
+  "catchUp": {
+    "toast": {
+      "applied": "启动时已补登 {{count}} 笔到期扣款"
+    },
+    "dialog": {
+      "title": "检测到大量待生成扣款",
+      "description": "有订阅或贷款累积了超过 30 笔到期计划，请先确认再处理。",
+      "subscriptionRow": "{{name}} — 待生成 {{pending}} 笔",
+      "loanRow": "{{name}} — 待还 {{pending}} 期",
+      "confirm": "全部生成",
+      "dismiss": "暂不处理"
+    }
+  },
+  "assets": {
+    "title": "资产管理",
+    "description": "手动维护现金、投资、固定资产和负债快照。这里不从流水推断余额。",
+    "empty": "暂无资产快照。",
+    "summary": {
+      "netWorth": "净资产",
+      "liquid": "现金/钱包/银行",
+      "investment": "投资资产",
+      "fixed": "固定资产",
+      "liability": "负债"
+    },
+    "list": {
+      "title": "最新资产",
+      "description": "每个资产账户只显示最新一条快照。"
+    },
+    "table": {
+      "account": "资产",
+      "type": "类型",
+      "value": "当前价值",
+      "date": "日期",
+      "actions": "操作"
+    },
+    "detail": {
+      "terms": "概览",
+      "currentValue": "当前价值",
+      "source": "来源",
+      "history": "添加记录",
+      "actions": "操作",
+      "loading": "加载中…",
+      "emptyHistory": "暂无历史快照。"
+    },
+    "form": {
+      "title": "新增资产快照",
+      "description": "正常更新会新增一条快照；删除只用于修正错误。",
+      "accountName": "名称",
+      "type": "类型",
+      "value": "当前价值",
+      "currency": "币种",
+      "snapshotAt": "快照日期",
+      "note": "备注",
+      "quantity": "数量",
+      "unit": "单位/代码",
+      "costBasis": "成本",
+      "purchaseValue": "购买价",
+      "location": "地点/说明",
+      "monthlyPayment": "月供",
+      "dueDay": "扣款日"
+    },
+    "actions": {
+      "save": "保存快照",
+      "update": "更新",
+      "delete": "删除",
+      "reset": "清空"
+    },
+    "types": {
+      "cash": "现金",
+      "bank": "银行",
+      "wallet": "钱包",
+      "investment": "投资",
+      "fixed_asset": "固定资产",
+      "liability": "负债",
+      "other": "其他"
+    }
+  },
+  "subscriptions": {
+    "title": "订阅管理",
+    "description": "查看所有订阅扣款与月度成本。",
+    "planDescription": "手动维护订阅计划，只用于预测和展示，不写入实际支出。",
+    "searchPlaceholder": "按名称或商户搜索",
+    "count": "共 {{count}} 条",
+    "empty": "暂无订阅。",
+    "listTitle": "订阅计划",
+    "listDescription": "这些计划不和导入流水匹配，也不会自动生成支出。",
+    "summary": {
+      "monthly": "月化总额",
+      "yearly": "年化总额",
+      "active": "活跃",
+      "paused": "暂停"
+    },
+    "table": {
+      "name": "名称",
+      "merchant": "商户",
+      "frequency": "频率",
+      "amount": "金额",
+      "monthly": "月化",
+      "nextDue": "下次扣款",
+      "status": "状态",
+      "actions": "操作"
+    },
+    "frequency": {
+      "weekly": "每周",
+      "monthly": "每月",
+      "yearly": "每年",
+      "custom": "自定义"
+    },
+    "status": {
+      "active": "活跃",
+      "paused": "暂停",
+      "canceled": "已取消"
+    },
+    "actions": {
+      "edit": "编辑",
+      "pause": "暂停",
+      "resume": "恢复",
+      "save": "保存",
+      "reset": "清空"
+    },
+    "form": {
+      "create": "新增订阅",
+      "edit": "编辑订阅",
+      "description": "订阅是计划层记录，不会改动实际收支。",
+      "name": "名称",
+      "merchant": "商户",
+      "amount": "金额",
+      "currency": "币种",
+      "billingCycle": "周期",
+      "nextDueDate": "下次扣款日",
+      "categoryLabel": "分类标签",
+      "status": "状态",
+      "note": "备注"
+    },
+    "detail": {
+      "loading": "加载中…",
+      "terms": "条款",
+      "merchant": "商户",
+      "category": "分类",
+      "amount": "金额",
+      "frequency": "频率",
+      "monthlyEquivalent": "月化金额",
+      "yearlyEquivalent": "年化金额",
+      "startDate": "开始日期",
+      "nextDueDate": "下次扣款",
+      "lastGenerated": "上次扣款",
+      "status": "状态",
+      "accounts": "账户",
+      "cashAccount": "扣款账户",
+      "expenseAccount": "支出类目",
+      "history": "扣款历史",
+      "noHistory": "暂无关联交易。",
+      "txnDate": "日期",
+      "txnNarration": "备注",
+      "txnAmount": "金额",
+      "note": "备注",
+      "actions": "操作",
+      "pause": "暂停",
+      "resume": "恢复",
+      "cancel": "取消订阅",
+      "cancelConfirm": "确定取消该订阅？历史扣款保留，不再自动生成新扣款。"
+    }
+  },
+  "loans": {
+    "title": "贷款管理",
+    "description": "查看贷款本金、还款计划与进度。",
+    "planDescription": "手动维护贷款概要和月供计划，不自动生成实际支出。",
+    "assetHint": "净资产里的负债来自资产页的负债快照；贷款计划不会自动更新资产负债。",
+    "searchPlaceholder": "按名称搜索",
+    "count": "共 {{count}} 条",
+    "empty": "暂无贷款。",
+    "listTitle": "贷款计划",
+    "listDescription": "这里记录还款压力，不做摊销表或流水匹配。",
+    "summary": {
+      "remaining": "剩余本金",
+      "monthly": "月供",
+      "nextDue": "下次还款",
+      "paidInterest": "已付利息",
+      "active": "活跃"
+    },
+    "table": {
+      "name": "名称",
+      "institution": "机构",
+      "principal": "本金",
+      "remaining": "剩余",
+      "monthly": "月供",
+      "rate": "利率",
+      "progress": "进度",
+      "nextDue": "下次还款",
+      "nextAmount": "金额",
+      "status": "状态",
+      "actions": "操作"
+    },
+    "status": {
+      "active": "活跃",
+      "paused": "暂停",
+      "closed": "已结清"
+    },
+    "actions": {
+      "edit": "编辑",
+      "pause": "暂停",
+      "resume": "恢复",
+      "close": "结清",
+      "save": "保存",
+      "reset": "清空"
+    },
+    "form": {
+      "create": "新增贷款",
+      "edit": "编辑贷款",
+      "description": "贷款是计划层记录；资产负债请在资产页维护。",
+      "name": "名称",
+      "institution": "机构",
+      "principalRemaining": "剩余本金",
+      "monthlyPayment": "月供",
+      "annualRate": "年利率",
+      "paymentDay": "还款日",
+      "startDate": "下次还款日",
+      "endDate": "结束日期",
+      "status": "状态",
+      "note": "备注"
+    },
+    "installmentStatus": {
+      "pending": "待还",
+      "paid": "已还",
+      "overdue": "逾期"
+    },
+    "detail": {
+      "loading": "加载中…",
+      "terms": "条款",
+      "institution": "机构",
+      "principal": "本金",
+      "rate": "年化利率",
+      "term": "期限",
+      "termSuffix": "月",
+      "startDate": "开始日期",
+      "endDate": "结束日期",
+      "paymentDay": "还款日",
+      "paymentDaySuffix": "日",
+      "monthlyPayment": "月供",
+      "progress": "进度",
+      "installments": "期数",
+      "remaining": "剩余本金",
+      "interest": "利息（已付 / 总）",
+      "nextDue": "下次还款",
+      "note": "备注",
+      "accounts": "账户",
+      "liabilityAccount": "负债账户",
+      "paymentAccount": "扣款账户",
+      "interestAccount": "利息账户",
+      "schedule": "还款计划",
+      "dueDate": "应还日期",
+      "payment": "月供",
+      "principalPart": "本金",
+      "interestPart": "利息",
+      "remainingPart": "剩余",
+      "status": "状态",
+      "expandSchedule": "展开全部（剩余 {{count}} 期）",
+      "actions": "操作",
+      "prepay": "提前还款…",
+      "prepayDialog": {
+        "title": "提前还款",
+        "amountLabel": "额外本金",
+        "amountPlaceholder": "例如 5000.00",
+        "dateLabel": "还款日期",
+        "strategyLabel": "策略",
+        "strategyReduceTerm": "缩短贷款年限（从末期开始消除）",
+        "strategyPayOff": "一次性还清剩余本金",
+        "submit": "提交",
+        "cancel": "取消",
+        "previewReduceTerm": "将完整消除 {{full}} 期{{partial}} — 实际消耗 ¥{{consumed}}",
+        "previewPartial": "，并部分消除第 #{{number}} 期",
+        "previewPayOff": "结清剩余 ¥{{consumed}} 本金"
+      }
+    }
+  },
+  "settings": {
+    "title": "设置",
+    "description": "应用偏好统一管理。",
+    "language": {
+      "title": "界面语言",
+      "description": "切换 UI 语言，本地持久化。"
+    },
+    "currency": {
+      "title": "显示币种",
+      "description": "Dashboard 汇总金额会按这个币种显示。",
+      "save": "保存",
+      "refresh": "刷新汇率",
+      "current": "当前币种",
+      "provider": "汇率源",
+      "cached": "缓存条数",
+      "table": {
+        "pair": "币种",
+        "date": "日期",
+        "rate": "汇率",
+        "sourceDate": "源日期"
+      }
+    }
+  },
+  "accounts": {
+    "title": "账户管理",
+    "description": "为每个账户的规范名（如 Assets:Cash）配置中英文显示名。",
+    "columns": {
+      "name": "账户",
+      "type": "类型",
+      "en": "English label",
+      "zh": "中文名",
+      "status": "状态",
+      "actions": "操作"
+    },
+    "status": {
+      "open": "在用",
+      "closed": "已关闭"
+    },
+    "edit": "编辑",
+    "save": "保存",
+    "cancel": "取消",
+    "labelPlaceholder": "显示名",
+    "loading": "加载账户中…",
+    "empty": "暂无账户。",
+    "search": "搜索",
+    "assets": {
+      "title": "资产快照",
+      "description": "手动记录当前余额、市值和负债，用于首页净资产与现金指标。",
+      "account": "账户",
+      "type": "类型",
+      "value": "价值",
+      "updated": "日期",
+      "note": "备注",
+      "save": "保存快照",
+      "delete": "删除快照",
+      "empty": "暂无资产快照。",
+      "types": {
+        "cash": "现金",
+        "bank": "银行",
+        "wallet": "钱包",
+        "investment": "投资",
+        "fixed_asset": "固定资产",
+        "liability": "负债",
+        "other": "其他"
+      }
+    }
+  },
+  "imports": {
+    "title": "账单导入",
+    "description": "先导入支付宝 CSV 和微信支付 XLSX，保留原始流水和候选分类，不自动合并为正式账目。",
+    "source": "来源",
+    "chooseFile": "选择账单文件",
+    "import": "导入",
+    "refresh": "刷新",
+    "importedTitle": "已导入流水",
+    "count": "共 {{count}} 条",
+    "empty": "暂无导入流水。",
+    "toast": {
+      "imported": "已导入 {{inserted}} 条，跳过 {{skipped}} 条"
+    },
+    "sources": {
+      "alipay": "支付宝 CSV",
+      "wechat": "微信支付 XLSX"
+    },
+    "metrics": {
+      "total": "总数",
+      "expense": "支出",
+      "income": "收入",
+      "neutral": "不计收支",
+      "ignored": "忽略",
+      "accounts": "账户"
+    },
+    "table": {
+      "date": "日期",
+      "source": "来源",
+      "counterparty": "对方",
+      "description": "说明",
+      "account": "账户",
+      "classification": "候选类型",
+      "amount": "金额"
+    }
+  },
+  "command": {
+    "prompt": "命令>",
+    "placeholder": "EXP 38 FOOD KFC",
+    "recent": "最近:",
+    "deterministic": "仅支持确定性命令",
+    "send": "发送",
+    "log": {
+      "boot": "FLOWM 终端启动",
+      "hint": "输入 EXP 38 FOOD KFC 或 REFRESH",
+      "syncOk": "同步完成",
+      "sqliteOffline": "SQLITE 离线: {{message}}",
+      "error": "错误: {{message}}",
+      "refreshed": "已刷新",
+      "expense": "支出已入账",
+      "income": "收入已入账",
+      "transfer": "转账已入账",
+      "loanPayment": "贷款还款已入账",
+      "investmentBuy": "买入已入账",
+      "investmentSell": "卖出已入账",
+      "dividend": "分红已入账",
+      "importConfirm": "导入已确认",
+      "subscriptionDue": "订阅到期已生成"
+    }
+  },
+  "dialog": {
+    "quickActionTitle": "快速记账",
+    "quickActionDescription": "通过 @flowm/api 写入本地实际流水。",
+    "amount": "金额",
+    "payee": "商户",
+    "cancel": "取消",
+    "commitExpense": "提交支出"
+  },
+  "panels": {
+    "dayFlow": "日流 · TICKER",
+    "netWorth": "净资产",
+    "holdings": "持仓 · 全账户",
+    "transactions": "交易 · 30日",
+    "fundFlow": "资金流 · 桑基"
+  },
+  "table": {
+    "time": "时间",
+    "symbol": "标的",
+    "category": "分类",
+    "amount": "金额",
+    "type": "类型",
+    "balance": "余额",
+    "date": "日期",
+    "payee": "商户",
+    "drCr": "借贷"
+  },
+  "netWorth": {
+    "title": "净资产",
+    "ledger": "SQLite 分析层实时派生",
+    "cash": "现金",
+    "income": "收入",
+    "expense": "支出",
+    "savings": "结余"
+  },
+  "pnl": {
+    "oneDay": "单日",
+    "cash": "现金",
+    "mtd": "本月",
+    "income": "收入",
+    "expense": "支出",
+    "net": "净值"
+  },
+  "fundFlow": {
+    "subtitle": "资金流 · 本月 SQLite 派生",
+    "wage": "工资",
+    "save": "储蓄",
+    "food": "餐饮",
+    "shop": "购物",
+    "transport": "交通",
+    "subscription": "订阅"
+  },
+  "transactions": {
+    "filter": "筛选:",
+    "allAccounts": "全账户",
+    "sort": "排序:",
+    "dateDescending": "日期↓",
+    "rowCount": "{{count}} 条 · F2 新建 · F4 导出"
+  },
+  "footer": {
+    "layout": "布局",
+    "default": "默认",
+    "panels": "面板",
+    "persist": "持久化",
+    "invariants": "页面本地记忆 · 分层财务模型"
+  },
+  "bqlColumn": {
+    "account": "账户",
+    "amount": "金额",
+    "category": "分类",
+    "date": "日期",
+    "year": "年份",
+    "month": "月份",
+    "payee": "商户",
+    "narration": "备注",
+    "currency": "币种",
+    "units": "金额",
+    "tag": "标签",
+    "sum_units": "总额",
+    "avg_units": "平均",
+    "min_units": "最小",
+    "max_units": "最大",
+    "count_units": "数量",
+    "count_all": "数量"
+  },
+  "cards": {
+    "addButton": "添加卡片",
+    "add": {
+      "title": "添加 Dashboard 卡片",
+      "description": "选择一个卡片插入到工作台。布局会写入 SQLite。",
+      "search": "搜索卡片",
+      "noMatches": "没有匹配的卡片。"
+    },
+    "category": {
+      "chart": "图表",
+      "view": "视图",
+      "other": "其他",
+      "kpi": "指标",
+      "reminder": "提醒",
+      "budget": "预算",
+      "query": "查询",
+      "panel": "面板"
+    },
+    "custom": {
+      "title": {
+        "kpi": "指标卡",
+        "table": "表格",
+        "line": "折线图",
+        "area": "面积图",
+        "bar": "柱状图",
+        "pie": "饼图",
+        "donut": "环形图",
+        "text": "文本",
+        "progress": "进度图"
+      },
+      "vizCode": {
+        "kpi": "KPI",
+        "table": "TABLE",
+        "line": "LINE",
+        "area": "AREA",
+        "bar": "BAR",
+        "pie": "PIE",
+        "donut": "DONUT",
+        "text": "TEXT",
+        "progress": "PROG"
+      },
+      "vizOption": {
+        "kpi": "指标卡 (KPI)",
+        "table": "表格",
+        "line": "折线图",
+        "area": "面积图",
+        "bar": "柱状图",
+        "pie": "饼图",
+        "donut": "环形图",
+        "text": "文本",
+        "progress": "进度图"
+      },
+      "formatKindOption": {
+        "number": "数字",
+        "currency": "货币",
+        "percent": "百分比"
+      },
+      "dialog": {
+        "title": "卡片配置",
+        "description": "编辑数据源和可视化方式。保存后立即生效。",
+        "previewRows_other": "共 {{count}} 行"
+      },
+      "sql": "BQL 查询",
+      "viz": "可视化方式",
+      "markdown": "正文",
+      "markdownPlaceholder": "在这里写笔记…",
+      "xColumn": "X 轴列",
+      "yColumns": "Y 轴列",
+      "seriesColumn": "系列列",
+      "labelColumn": "标签列",
+      "valueColumn": "数值列",
+      "formatKind": "格式",
+      "decimals": "小数位",
+      "currency": "货币符号",
+      "target": "目标值",
+      "smooth": "平滑曲线",
+      "stacked": "堆叠",
+      "on": "开",
+      "off": "关",
+      "edit": "编辑",
+      "hide": "隐藏",
+      "run": "运行",
+      "saveAndRun": "保存并运行",
+      "cancel": "取消",
+      "loading": "运行中…",
+      "empty": "运行查询以加载数据。",
+      "noRows": "查询无结果。"
+    }
+  },
+  "kpi": {
+    "title": {
+      "netWorth": "净资产",
+      "cash": "现金",
+      "incomeMtd": "本月收入",
+      "expenseMtd": "本月支出",
+      "savingsMtd": "本月结余",
+      "dayChange": "单日变动",
+      "cashRunway": "现金跑道",
+      "savingsRate": "储蓄率"
+    },
+    "metric": {
+      "netWorth": "净资产",
+      "cash": "现金",
+      "incomeMtd": "本月收入",
+      "expenseMtd": "本月支出",
+      "savingsMtd": "本月结余",
+      "dayChange": "单日变动",
+      "cashRunway": "现金跑道",
+      "savingsRate": "储蓄率"
+    }
+  },
+  "upcoming": {
+    "title": "即将到期",
+    "window": "时间窗口:",
+    "windowDays_other": "未来 {{count}} 天",
+    "count_other": "{{count}} 项",
+    "loading": "加载中…",
+    "empty": "该时间窗口内暂无事项。",
+    "kind": {
+      "subscription": "订阅",
+      "loan": "贷款",
+      "assertion": "断言"
+    }
+  },
+  "budgets": {
+    "title": "预算执行",
+    "empty": "当前周期没有预算定义。"
+  },
+  "bql": {
+    "title": "BQL 查询",
+    "edit": "编辑",
+    "hide": "隐藏",
+    "run": "运行",
+    "revert": "撤销",
+    "saveAndRun": "保存并运行",
+    "loading": "运行中…",
+    "empty": "尚无查询结果。"
+  }
+}

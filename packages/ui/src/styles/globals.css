@@ -1,0 +1,160 @@
+/* HeroUI v3 — already includes tailwindcss + tw-animate-css internally */
+@import "@heroui/styles";
+@import "@fontsource-variable/inter";
+
+@source "../components/**/*.tsx";
+
+@font-face {
+  font-family: "JetBrains Mono";
+  src:
+    local("JetBrains Mono"),
+    local("JetBrainsMono-Regular");
+  font-display: swap;
+}
+
+/* Font tokens — HeroUI doesn't define these, so we add them */
+@theme inline {
+  --font-sans: "InterVariable", "Inter", -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "SF Mono", ui-monospace, Menlo, monospace;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+/* ── HeroUI v3 theme overrides ── */
+:root {
+  /* Brand: sage green */
+  --accent:             oklch(48% 0.12 155);
+  --accent-foreground:  #ffffff;
+
+  /* Three-tier surface hierarchy */
+  --background:         oklch(91.5% 0 0);   /* grid canvas — gaps between panels */
+  --surface:            #ffffff;            /* panel body — brightest */
+  --surface-secondary:  oklch(96.5% 0 0);   /* panel header */
+  --surface-tertiary:   oklch(95.5% 0 0);   /* chrome bars / topbar */
+
+  /* Text */
+  --foreground: #1a201c;
+  --muted:      #8e9690;
+
+  /* Borders */
+  --border:    oklch(89.5% 0 0);
+  --separator: oklch(82% 0 0);
+
+  /* Form fields — visible border (HeroUI defaults to transparent/0px) */
+  --field-background:   oklch(91.5% 0 0);
+  --field-foreground:   #1a201c;
+  --field-placeholder:  #8e9690;
+  --field-border:       oklch(82% 0 0);
+  --field-border-width: 1px;
+  --field-radius:       var(--radius);      /* 6px, not HeroUI default 9px */
+
+  /* Status colors */
+  --warning: oklch(62% 0.13 70);
+  --danger:  oklch(55% 0.16 25);
+  --success: oklch(58% 0.13 155);
+
+  /* Focus ring */
+  --focus: oklch(48% 0.12 155);
+
+  /* Radius */
+  --radius: 0.375rem;   /* ≈ 6px for controls; panels use rounded-[8px] explicitly */
+
+  /* ── Backward-compat aliases ────────────────────────────────────────── */
+  /* Panel.tsx, GlobalBar.tsx, CommandBar.tsx etc. still reference --term-* */
+  /* These will be removed once full component migration is complete.       */
+  --term-bg:          var(--background);
+  --term-panel:       var(--surface);
+  --term-panel-alt:   var(--surface-secondary);
+  --term-topbar:      var(--surface-tertiary);
+  --term-input:       var(--field-background);
+  --term-border:      var(--border);
+  --term-border-hi:   var(--separator);
+  --term-accent:      var(--accent);
+  --term-accent-2:    oklch(58% 0.13 155);
+  --term-accent-soft: var(--accent-soft);
+  --term-amber:       var(--warning);
+  --term-amber-soft:  var(--warning-soft);
+  --term-red:         var(--danger);
+  --term-red-soft:    var(--danger-soft);
+  --term-blue:        oklch(55% 0.05 240);
+  --term-ink-1:       var(--foreground);
+  --term-ink-2:       #5a6660;
+  --term-ink-3:       var(--muted);
+  --term-ink-4:       #bfc4be;
+  --term-highlight:   oklch(98% 0.01 155);
+}
+
+/* ── Background theme switcher ── */
+[data-bg-theme="neutral"] {
+  --background:        oklch(92% 0.004 240);
+  --surface-secondary: oklch(96.5% 0.002 240);
+  --field-background:  oklch(92% 0.004 240);
+  --border:            oklch(85% 0.005 240);
+  --separator:         oklch(78% 0.007 240);
+}
+
+[data-bg-theme="green"] {
+  --background:        oklch(92% 0 0);
+  --surface-secondary: oklch(96.5% 0 0);
+  --field-background:  oklch(92% 0 0);
+  --border:            oklch(85% 0 0);
+  --separator:         oklch(78% 0 0);
+}
+
+[data-bg-theme="amber"] {
+  --background:        oklch(92% 0.006 70);
+  --surface-secondary: oklch(96.5% 0.003 70);
+  --field-background:  oklch(92% 0.006 70);
+  --border:            oklch(85% 0.008 70);
+  --separator:         oklch(78% 0.012 70);
+}
+
+body {
+  overflow: hidden;
+  background: var(--term-bg);
+  color: var(--term-ink-1);
+  font-family: var(--font-sans);
+  font-feature-settings: "tnum" 1;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Custom scroll area ── */
+.flowm-scroll-area {
+  scrollbar-color: transparent transparent;
+  scrollbar-width: thin;
+}
+
+.flowm-scroll-area:hover,
+.flowm-scroll-area:focus-within {
+  scrollbar-color: rgba(0, 0, 0, 0.16) transparent;
+}
+
+.flowm-scroll-area::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.flowm-scroll-area::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.flowm-scroll-area::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 999px;
+  transition: background-color 180ms ease;
+}
+
+.flowm-scroll-area:hover::-webkit-scrollbar-thumb,
+.flowm-scroll-area:focus-within::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.16);
+}
+
+.flowm-scroll-area::-webkit-scrollbar-corner {
+  background: transparent;
+}

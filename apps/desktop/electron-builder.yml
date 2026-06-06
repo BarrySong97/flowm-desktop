@@ -1,0 +1,19 @@
+appId: com.flowm.desktop
+productName: Flowm
+directories:
+  output: release
+files:
+  - out/**
+  - package.json
+asarUnpack:
+  - "**/*.node"
+npmRebuild: true
+mac:
+  target:
+    - dmg
+win:
+  target:
+    - nsis
+linux:
+  target:
+    - AppImage

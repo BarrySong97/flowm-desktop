@@ -1,0 +1,33 @@
+{
+  "name": "flowm",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "turbo -F desktop dev",
+    "build": "turbo build",
+    "check-types": "turbo check-types",
+    "typecheck": "turbo check-types",
+    "test": "vitest",
+    "package": "pnpm -F desktop package",
+    "dist": "pnpm -F desktop dist"
+  },
+  "devDependencies": {
+    "@vitest/ui": "^4.0.18",
+    "turbo": "^2.5.4",
+    "typescript": "~5.8.3",
+    "vitest": "^4.0.18"
+  },
+  "packageManager": "pnpm@10.12.1",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "better-sqlite3",
+      "electron",
+      "esbuild"
+    ]
+  }
+}

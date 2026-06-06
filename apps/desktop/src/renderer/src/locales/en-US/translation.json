@@ -1,0 +1,676 @@
+{
+  "global": {
+    "brand": "FLOWM",
+    "termVersion": "VERSION v0.5",
+    "book": "BOOK",
+    "sqlite": "SQLITE",
+    "net": "NET",
+    "mtd": "MTD",
+    "sync": "SYNC",
+    "syncOk": "OK",
+    "syncWait": "WAIT",
+    "local": "LOCAL",
+    "lastSync": "LAST SYNC",
+    "status": {
+      "booting": "BOOT",
+      "live": "LIVE",
+      "offline": "OFFLINE",
+      "error": "ERROR"
+    }
+  },
+  "language": {
+    "label": "LANG",
+    "english": "EN",
+    "chinese": "中文"
+  },
+  "toolbar": {
+    "new": "NEW",
+    "refresh": "REFRESH",
+    "shortcutHint": "F1 HELP · F2 NEW · F5 REFRESH · ⌘K CMD"
+  },
+  "dashboardViews": {
+    "label": "View",
+    "create": "New view",
+    "rename": "Rename view",
+    "delete": "Delete view",
+    "moveLeft": "Move view left",
+    "moveRight": "Move view right",
+    "namePlaceholder": "View name",
+    "deleteConfirm": "Delete “{{name}}”? Cards and layouts in this view will also be deleted."
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "accounts": "Accounts",
+    "imports": "Imports",
+    "assets": "Assets",
+    "subscriptions": "Subscriptions",
+    "loans": "Loans",
+    "settings": "Settings"
+  },
+  "catchUp": {
+    "toast": {
+      "applied": "Caught up {{count}} pending charge(s) on load."
+    },
+    "dialog": {
+      "title": "Many pending charges detected",
+      "description": "Some subscriptions or loans have more than 30 due plan items queued. Review before processing.",
+      "subscriptionRow": "{{name}} — {{pending}} pending",
+      "loanRow": "{{name}} — {{pending}} pending payment(s)",
+      "confirm": "Generate all",
+      "dismiss": "Skip for now"
+    }
+  },
+  "assets": {
+    "title": "Assets",
+    "description": "Manually maintain cash, investments, fixed assets, and liability snapshots. Balances are not inferred from statements.",
+    "empty": "No asset snapshots yet.",
+    "summary": {
+      "netWorth": "Net worth",
+      "liquid": "Cash / wallet / bank",
+      "investment": "Investments",
+      "fixed": "Fixed assets",
+      "liability": "Liabilities"
+    },
+    "list": {
+      "title": "Latest assets",
+      "description": "Only the latest snapshot for each asset account is shown."
+    },
+    "table": {
+      "account": "Asset",
+      "type": "Type",
+      "value": "Current value",
+      "date": "Date",
+      "actions": "Actions"
+    },
+    "detail": {
+      "terms": "Overview",
+      "currentValue": "Current value",
+      "source": "Source",
+      "history": "Snapshot history",
+      "actions": "Actions",
+      "loading": "Loading…",
+      "emptyHistory": "No historical snapshots yet."
+    },
+    "form": {
+      "title": "New asset snapshot",
+      "description": "Normal updates add a new snapshot; delete is only for corrections.",
+      "accountName": "Name",
+      "type": "Type",
+      "value": "Current value",
+      "currency": "Currency",
+      "snapshotAt": "Snapshot date",
+      "note": "Note",
+      "quantity": "Quantity",
+      "unit": "Unit / symbol",
+      "costBasis": "Cost basis",
+      "purchaseValue": "Purchase value",
+      "location": "Location / detail",
+      "monthlyPayment": "Monthly payment",
+      "dueDay": "Due day"
+    },
+    "actions": {
+      "save": "Save snapshot",
+      "update": "Update",
+      "delete": "Delete",
+      "reset": "Reset"
+    },
+    "types": {
+      "cash": "Cash",
+      "bank": "Bank",
+      "wallet": "Wallet",
+      "investment": "Investment",
+      "fixed_asset": "Fixed asset",
+      "liability": "Liability",
+      "other": "Other"
+    }
+  },
+  "subscriptions": {
+    "title": "Subscriptions",
+    "description": "Recurring charges across all services.",
+    "planDescription": "Manually maintain subscription plans for forecasting only; they do not create actual expenses.",
+    "searchPlaceholder": "Search by name or merchant",
+    "count": "{{count}} shown",
+    "empty": "No subscriptions yet.",
+    "listTitle": "Subscription plans",
+    "listDescription": "Plans are not matched to imported statements and do not generate expenses.",
+    "summary": {
+      "monthly": "Monthly cost",
+      "yearly": "Yearly cost",
+      "active": "Active",
+      "paused": "Paused"
+    },
+    "table": {
+      "name": "Name",
+      "merchant": "Merchant",
+      "frequency": "Frequency",
+      "amount": "Amount",
+      "monthly": "Monthly",
+      "nextDue": "Next charge",
+      "status": "Status",
+      "actions": "Actions"
+    },
+    "frequency": {
+      "weekly": "Weekly",
+      "monthly": "Monthly",
+      "yearly": "Yearly",
+      "custom": "Custom"
+    },
+    "status": {
+      "active": "Active",
+      "paused": "Paused",
+      "canceled": "Canceled"
+    },
+    "actions": {
+      "edit": "Edit",
+      "pause": "Pause",
+      "resume": "Resume",
+      "save": "Save",
+      "reset": "Reset"
+    },
+    "form": {
+      "create": "New subscription",
+      "edit": "Edit subscription",
+      "description": "Subscriptions are plan-layer records and do not change actual cashflow.",
+      "name": "Name",
+      "merchant": "Merchant",
+      "amount": "Amount",
+      "currency": "Currency",
+      "billingCycle": "Billing cycle",
+      "nextDueDate": "Next charge",
+      "categoryLabel": "Category label",
+      "status": "Status",
+      "note": "Note"
+    },
+    "detail": {
+      "loading": "Loading…",
+      "terms": "Terms",
+      "merchant": "Merchant",
+      "category": "Category",
+      "amount": "Amount",
+      "frequency": "Frequency",
+      "monthlyEquivalent": "Monthly equivalent",
+      "yearlyEquivalent": "Yearly equivalent",
+      "startDate": "Start date",
+      "nextDueDate": "Next charge",
+      "lastGenerated": "Last charged",
+      "status": "Status",
+      "accounts": "Accounts",
+      "cashAccount": "Pay from",
+      "expenseAccount": "Expense category",
+      "history": "Charge history",
+      "noHistory": "No transactions linked yet.",
+      "txnDate": "Date",
+      "txnNarration": "Note",
+      "txnAmount": "Amount",
+      "note": "Note",
+      "actions": "Actions",
+      "pause": "Pause",
+      "resume": "Resume",
+      "cancel": "Cancel subscription",
+      "cancelConfirm": "Cancel this subscription? Historical charges stay; no new ones will be generated."
+    }
+  },
+  "loans": {
+    "title": "Loans",
+    "description": "Loan principal, schedule, and progress.",
+    "planDescription": "Manually maintain loan summaries and payment plans; they do not create actual expenses.",
+    "assetHint": "Liabilities in net worth come from liability snapshots in Assets. Loan plans do not automatically update asset balances.",
+    "searchPlaceholder": "Search by name",
+    "count": "{{count}} shown",
+    "empty": "No loans yet.",
+    "listTitle": "Loan plans",
+    "listDescription": "This records repayment pressure, not amortization or statement matching.",
+    "summary": {
+      "remaining": "Remaining principal",
+      "monthly": "Monthly payment",
+      "nextDue": "Next due",
+      "paidInterest": "Paid interest",
+      "active": "Active"
+    },
+    "table": {
+      "name": "Name",
+      "institution": "Institution",
+      "principal": "Principal",
+      "remaining": "Remaining",
+      "monthly": "Monthly",
+      "rate": "Rate",
+      "progress": "Progress",
+      "nextDue": "Next due",
+      "nextAmount": "Amount",
+      "status": "Status",
+      "actions": "Actions"
+    },
+    "status": {
+      "active": "Active",
+      "paused": "Paused",
+      "closed": "Closed"
+    },
+    "actions": {
+      "edit": "Edit",
+      "pause": "Pause",
+      "resume": "Resume",
+      "close": "Close",
+      "save": "Save",
+      "reset": "Reset"
+    },
+    "form": {
+      "create": "New loan",
+      "edit": "Edit loan",
+      "description": "Loans are plan-layer records; maintain liability values in Assets.",
+      "name": "Name",
+      "institution": "Institution",
+      "principalRemaining": "Remaining principal",
+      "monthlyPayment": "Monthly payment",
+      "annualRate": "Annual rate",
+      "paymentDay": "Payment day",
+      "startDate": "Next payment date",
+      "endDate": "End date",
+      "status": "Status",
+      "note": "Note"
+    },
+    "installmentStatus": {
+      "pending": "Pending",
+      "paid": "Paid",
+      "overdue": "Overdue"
+    },
+    "detail": {
+      "loading": "Loading…",
+      "terms": "Terms",
+      "institution": "Institution",
+      "principal": "Principal",
+      "rate": "Annual rate",
+      "term": "Term",
+      "termSuffix": "months",
+      "startDate": "Start date",
+      "endDate": "End date",
+      "paymentDay": "Payment day",
+      "paymentDaySuffix": "of month",
+      "monthlyPayment": "Monthly payment",
+      "progress": "Progress",
+      "installments": "Installments",
+      "remaining": "Remaining principal",
+      "interest": "Interest (paid / total)",
+      "nextDue": "Next due",
+      "note": "Note",
+      "accounts": "Accounts",
+      "liabilityAccount": "Liability account",
+      "paymentAccount": "Pay from",
+      "interestAccount": "Interest account",
+      "schedule": "Amortization schedule",
+      "dueDate": "Due",
+      "payment": "Payment",
+      "principalPart": "Principal",
+      "interestPart": "Interest",
+      "remainingPart": "Remaining",
+      "status": "Status",
+      "expandSchedule": "Show all ({{count}} more)",
+      "actions": "Actions",
+      "prepay": "Prepay…",
+      "prepayDialog": {
+        "title": "Prepay loan",
+        "amountLabel": "Extra principal",
+        "amountPlaceholder": "e.g. 5000.00",
+        "dateLabel": "Payment date",
+        "strategyLabel": "Strategy",
+        "strategyReduceTerm": "Reduce term (consume installments from the end)",
+        "strategyPayOff": "Pay off remaining principal",
+        "submit": "Submit",
+        "cancel": "Cancel",
+        "previewReduceTerm": "Will fully prepay {{full}} installment(s){{partial}} — consumed ¥{{consumed}}",
+        "previewPartial": " plus partial #{{number}}",
+        "previewPayOff": "Settle all remaining ¥{{consumed}} principal"
+      }
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "description": "App preferences live here.",
+    "language": {
+      "title": "Language",
+      "description": "Switch UI language. Persists locally."
+    },
+    "currency": {
+      "title": "Display Currency",
+      "description": "Dashboard totals are shown in this currency.",
+      "save": "Save",
+      "refresh": "Refresh FX",
+      "current": "Current",
+      "provider": "Provider",
+      "cached": "Cached",
+      "table": {
+        "pair": "Pair",
+        "date": "Date",
+        "rate": "Rate",
+        "sourceDate": "Source"
+      }
+    }
+  },
+  "accounts": {
+    "title": "Accounts",
+    "description": "Map canonical account names to friendly bilingual labels.",
+    "columns": {
+      "name": "Account",
+      "type": "Type",
+      "en": "English label",
+      "zh": "中文名",
+      "status": "Status",
+      "actions": "Actions"
+    },
+    "status": {
+      "open": "Open",
+      "closed": "Closed"
+    },
+    "edit": "Edit",
+    "save": "Save",
+    "cancel": "Cancel",
+    "labelPlaceholder": "Display name",
+    "loading": "Loading accounts…",
+    "empty": "No accounts.",
+    "search": "Search",
+    "assets": {
+      "title": "Asset Snapshots",
+      "description": "Record current balances, valuations, and liabilities for net worth and cash metrics.",
+      "account": "Account",
+      "type": "Type",
+      "value": "Value",
+      "updated": "Date",
+      "note": "Note",
+      "save": "Save snapshot",
+      "delete": "Delete snapshot",
+      "empty": "No asset snapshots.",
+      "types": {
+        "cash": "Cash",
+        "bank": "Bank",
+        "wallet": "Wallet",
+        "investment": "Investment",
+        "fixed_asset": "Fixed asset",
+        "liability": "Liability",
+        "other": "Other"
+      }
+    }
+  },
+  "imports": {
+    "title": "Statement Imports",
+    "description": "Import Alipay CSV and WeChat Pay XLSX as raw structured entries with candidate classifications.",
+    "source": "Source",
+    "chooseFile": "Choose statement file",
+    "import": "Import",
+    "refresh": "Refresh",
+    "importedTitle": "Imported Entries",
+    "count": "{{count}} shown",
+    "empty": "No imported entries.",
+    "toast": {
+      "imported": "Imported {{inserted}}, skipped {{skipped}}"
+    },
+    "sources": {
+      "alipay": "Alipay CSV",
+      "wechat": "WeChat Pay XLSX"
+    },
+    "metrics": {
+      "total": "Total",
+      "expense": "Expense",
+      "income": "Income",
+      "neutral": "Neutral",
+      "ignored": "Ignored",
+      "accounts": "Accounts"
+    },
+    "table": {
+      "date": "Date",
+      "source": "Source",
+      "counterparty": "Counterparty",
+      "description": "Description",
+      "account": "Account",
+      "classification": "Candidate",
+      "amount": "Amount"
+    }
+  },
+  "command": {
+    "prompt": "CMD>",
+    "placeholder": "EXP 38 FOOD KFC",
+    "recent": "RECENT:",
+    "deterministic": "deterministic commands only",
+    "send": "SEND",
+    "log": {
+      "boot": "FLOWM TERMINAL BOOT",
+      "hint": "TYPE EXP 38 FOOD KFC OR REFRESH",
+      "syncOk": "SYNC OK",
+      "sqliteOffline": "SQLITE OFFLINE: {{message}}",
+      "error": "ERROR: {{message}}",
+      "refreshed": "REFRESHED",
+      "expense": "COMMITTED EXPENSE",
+      "income": "COMMITTED INCOME",
+      "transfer": "COMMITTED TRANSFER",
+      "loanPayment": "COMMITTED LOAN PAYMENT",
+      "investmentBuy": "COMMITTED BUY",
+      "investmentSell": "COMMITTED SELL",
+      "dividend": "COMMITTED DIVIDEND",
+      "importConfirm": "CONFIRMED IMPORT",
+      "subscriptionDue": "GENERATED SUBSCRIPTION DUE"
+    }
+  },
+  "dialog": {
+    "quickActionTitle": "Quick Ledger Action",
+    "quickActionDescription": "Writes local actual events through @flowm/api.",
+    "amount": "Amount",
+    "payee": "Payee",
+    "cancel": "Cancel",
+    "commitExpense": "Commit Expense"
+  },
+  "panels": {
+    "dayFlow": "DAY FLOW · TICKER",
+    "netWorth": "NET WORTH",
+    "holdings": "HOLDINGS · ALL ACCT",
+    "transactions": "TRANSACTIONS · 30D",
+    "fundFlow": "FUND FLOW · SANKEY"
+  },
+  "table": {
+    "time": "TIME",
+    "symbol": "SYM",
+    "category": "CAT",
+    "amount": "AMT",
+    "type": "TYPE",
+    "balance": "BAL",
+    "date": "DATE",
+    "payee": "PAYEE",
+    "drCr": "DR/CR"
+  },
+  "netWorth": {
+    "title": "NET WORTH",
+    "ledger": "LIVE SQLITE ANALYTICS",
+    "cash": "CASH",
+    "income": "INC",
+    "expense": "EXP",
+    "savings": "SAVE"
+  },
+  "pnl": {
+    "oneDay": "1D",
+    "cash": "CASH",
+    "mtd": "MTD",
+    "income": "INC",
+    "expense": "EXP",
+    "net": "NET"
+  },
+  "fundFlow": {
+    "subtitle": "FUND FLOW · MTD SQLITE DERIVED",
+    "wage": "WAGE",
+    "save": "SAVE",
+    "food": "FOOD",
+    "shop": "SHOP",
+    "transport": "TRANS",
+    "subscription": "SUB"
+  },
+  "transactions": {
+    "filter": "FILTER:",
+    "allAccounts": "ALL ACCT",
+    "sort": "SORT:",
+    "dateDescending": "DATE↓",
+    "rowCount": "{{count}} ROWS · NEW F2 · EXPORT F4"
+  },
+  "footer": {
+    "layout": "LAYOUT",
+    "default": "DEFAULT",
+    "panels": "PANELS",
+    "persist": "PERSIST",
+    "invariants": "LOCAL VIEW MEMORY · LAYERED FINANCE MODEL"
+  },
+  "bqlColumn": {
+    "account": "Account",
+    "amount": "Amount",
+    "category": "Category",
+    "date": "Date",
+    "year": "Year",
+    "month": "Month",
+    "payee": "Payee",
+    "narration": "Memo",
+    "currency": "Currency",
+    "units": "Amount",
+    "tag": "Tag",
+    "sum_units": "Total",
+    "avg_units": "Average",
+    "min_units": "Min",
+    "max_units": "Max",
+    "count_units": "Count",
+    "count_all": "Count"
+  },
+  "cards": {
+    "addButton": "ADD CARD",
+    "add": {
+      "title": "Add Dashboard Card",
+      "description": "Insert a card into the workbench. Layout persists in SQLite.",
+      "search": "Search cards",
+      "noMatches": "No cards match your search."
+    },
+    "category": {
+      "chart": "CHARTS",
+      "view": "VIEWS",
+      "other": "OTHERS",
+      "kpi": "KPI",
+      "reminder": "REMINDERS",
+      "budget": "BUDGETS",
+      "query": "QUERIES",
+      "panel": "PANELS"
+    },
+    "custom": {
+      "title": {
+        "kpi": "Indicator",
+        "table": "Table",
+        "line": "Line Chart",
+        "area": "Area Chart",
+        "bar": "Bar Chart",
+        "pie": "Pie Chart",
+        "donut": "Donut Chart",
+        "text": "Text",
+        "progress": "Progress"
+      },
+      "vizCode": {
+        "kpi": "KPI",
+        "table": "TABLE",
+        "line": "LINE",
+        "area": "AREA",
+        "bar": "BAR",
+        "pie": "PIE",
+        "donut": "DONUT",
+        "text": "TEXT",
+        "progress": "PROG"
+      },
+      "vizOption": {
+        "kpi": "Indicator (KPI)",
+        "table": "Table",
+        "line": "Line",
+        "area": "Area",
+        "bar": "Bar",
+        "pie": "Pie",
+        "donut": "Donut",
+        "text": "Text",
+        "progress": "Progress"
+      },
+      "formatKindOption": {
+        "number": "Number",
+        "currency": "Currency",
+        "percent": "Percent"
+      },
+      "dialog": {
+        "title": "Configure Card",
+        "description": "Edit data source and visualization. Saving updates the card immediately.",
+        "previewRows_one": "{{count}} row",
+        "previewRows_other": "{{count}} rows"
+      },
+      "sql": "BQL",
+      "viz": "Visualization",
+      "markdown": "Markdown",
+      "markdownPlaceholder": "Write any notes here…",
+      "xColumn": "X column",
+      "yColumns": "Y columns",
+      "seriesColumn": "Series column",
+      "labelColumn": "Label column",
+      "valueColumn": "Value column",
+      "formatKind": "Format",
+      "decimals": "Decimals",
+      "currency": "Currency",
+      "target": "Target",
+      "smooth": "Smooth",
+      "stacked": "Stacked",
+      "on": "On",
+      "off": "Off",
+      "edit": "EDIT",
+      "hide": "HIDE",
+      "run": "RUN",
+      "saveAndRun": "Save & Run",
+      "cancel": "Cancel",
+      "loading": "Running…",
+      "empty": "Run the query to load data.",
+      "noRows": "No rows returned."
+    }
+  },
+  "kpi": {
+    "title": {
+      "netWorth": "Net Worth",
+      "cash": "Cash",
+      "incomeMtd": "Income MTD",
+      "expenseMtd": "Expense MTD",
+      "savingsMtd": "Savings MTD",
+      "dayChange": "Day Change",
+      "cashRunway": "Cash Runway",
+      "savingsRate": "Savings Rate"
+    },
+    "metric": {
+      "netWorth": "NET WORTH",
+      "cash": "CASH",
+      "incomeMtd": "INCOME MTD",
+      "expenseMtd": "EXPENSE MTD",
+      "savingsMtd": "SAVINGS MTD",
+      "dayChange": "DAY CHANGE",
+      "cashRunway": "CASH RUNWAY",
+      "savingsRate": "SAVINGS RATE"
+    }
+  },
+  "upcoming": {
+    "title": "Upcoming",
+    "window": "Window:",
+    "windowDays_one": "{{count}} day",
+    "windowDays_other": "{{count}} days",
+    "count_one": "{{count}} item",
+    "count_other": "{{count}} items",
+    "loading": "Loading…",
+    "empty": "Nothing scheduled in this window.",
+    "kind": {
+      "subscription": "SUB",
+      "loan": "LOAN",
+      "assertion": "ASRT"
+    }
+  },
+  "budgets": {
+    "title": "Budgets",
+    "empty": "No budgets defined for this period."
+  },
+  "bql": {
+    "title": "BQL Query",
+    "edit": "EDIT",
+    "hide": "HIDE",
+    "run": "RUN",
+    "revert": "Revert",
+    "saveAndRun": "Save & Run",
+    "loading": "Running…",
+    "empty": "No query results yet."
+  }
+}

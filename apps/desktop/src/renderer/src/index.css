@@ -1,0 +1,106 @@
+@import "@flowm/ui/styles";
+@import "react-grid-layout/css/styles.css";
+
+:root {
+  --flowm-bottom-nav-height: 56px;
+  --flowm-bottom-nav-offset: 24px;
+  --flowm-bottom-nav-safe: calc(var(--flowm-bottom-nav-height) + var(--flowm-bottom-nav-offset) + 8px);
+}
+
+*[data-electron-drag-region] {
+  -webkit-app-region: drag;
+  app-region: drag;
+}
+
+*[data-electron-drag-region] * {
+  -webkit-app-region: drag;
+  app-region: drag;
+}
+
+*[data-electron-no-drag-region] {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
+*[data-electron-no-drag-region] * {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
+@keyframes term-cursor {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
+.term-cursor {
+  animation: term-cursor 1s steps(2) infinite;
+}
+
+.react-grid-layout {
+  min-height: 100%;
+}
+
+.react-grid-item {
+  min-height: 0;
+}
+
+.react-grid-item .flowm-grid-panel {
+  outline: 1px solid transparent;
+  outline-offset: -1px;
+  transition:
+    outline-color 140ms ease,
+    border-color 140ms ease;
+}
+
+.react-grid-item:hover .flowm-grid-panel,
+.react-grid-item.react-draggable-dragging .flowm-grid-panel,
+.react-grid-item.resizing .flowm-grid-panel {
+  border-color: var(--term-accent);
+  outline-color: color-mix(in oklch, var(--term-accent) 72%, transparent);
+}
+
+.react-grid-item .flowm-grid-drag-handle {
+  cursor: default;
+}
+
+.react-grid-item:hover .flowm-grid-drag-handle,
+.react-grid-item.react-draggable-dragging .flowm-grid-drag-handle {
+  cursor: move;
+}
+
+.react-grid-item.react-draggable-dragging,
+.react-grid-item.resizing {
+  z-index: 20;
+}
+
+.react-grid-item.react-grid-placeholder {
+  border: 1px solid var(--term-accent);
+  background: var(--term-highlight);
+  opacity: 0.35;
+}
+
+.react-grid-item > .react-resizable-handle {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 140ms ease;
+}
+
+.react-grid-item:hover > .react-resizable-handle,
+.react-grid-item.resizing > .react-resizable-handle {
+  opacity: 0.72;
+  pointer-events: auto;
+}
+
+.react-grid-item > .react-resizable-handle::after {
+  right: 3px;
+  bottom: 3px;
+  width: 7px;
+  height: 7px;
+  border-right: 1px solid var(--term-border-hi);
+  border-bottom: 1px solid var(--term-border-hi);
+}

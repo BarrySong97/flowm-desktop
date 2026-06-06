@@ -1,0 +1,38 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Dependencies
+node_modules
+
+# Build outputs
+dist
+dist-ssr
+out
+release
+apps/desktop/out
+apps/desktop/release
+*.local
+
+# Turborepo
+.turbo
+
+# TanStack Router temporary files
+.tanstack/tmp
+apps/*/.tanstack/tmp
+
+# Local design/session previews
+.superpowers/
+
+# Generated dbs (dev)
+*.db
+*.db-journal
+
+# Editor / OS
+.DS_Store
+*.swp
+*.swo

@@ -1,0 +1,7 @@
+{
+  "entry": "src/locales/en-US/translation.json",
+  "entryLocale": "en-US",
+  "output": "src/locales",
+  "outputLocales": ["zh-CN"],
+  "reference": "Flowm is a light-mode terminal-style personal finance ledger app. Keep labels concise, finance-oriented, and suitable for dense table UI."
+}

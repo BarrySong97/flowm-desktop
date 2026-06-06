@@ -1,0 +1,57 @@
+export { SqliteStorageAdapter } from "./adapters/sqlite"
+export { ElectronSqlExecutor } from "./adapters/sql/executor"
+export { MIGRATION_STATEMENTS } from "./adapters/sql/migrations"
+export type {
+  SqlExecutor,
+  SqlParam,
+  SqlRow,
+  SqlStatement,
+  SqlStatementResult,
+} from "./adapters/sql/executor"
+
+// Drizzle schema — new No-Ledger model
+export * as schema from "./schema"
+export {
+  importBatches,
+  importedEntries,
+  assetSnapshots,
+  currencySettings,
+  exchangeRates,
+  dashboardCards,
+  dashboardLayouts,
+  categories,
+  classificationRules,
+  financialEvents,
+  plans,
+  planOccurrences,
+  budgets,
+  budgetScopes,
+  type ImportBatchInsert,
+  type ImportBatchRow,
+  type ImportedEntryInsert,
+  type ImportedEntryRow,
+  type AssetSnapshotInsert,
+  type AssetSnapshotRow,
+  type CurrencySettingsInsert,
+  type CurrencySettingsRow,
+  type ExchangeRateInsert,
+  type ExchangeRateRow,
+  type DashboardCardInsert,
+  type DashboardCardRow,
+  type DashboardLayoutInsert,
+  type DashboardLayoutRow,
+  type CategoryInsert,
+  type CategoryRow,
+  type ClassificationRuleInsert,
+  type ClassificationRuleRow,
+  type FinancialEventInsert,
+  type FinancialEventRow,
+  type PlanInsert,
+  type PlanRow,
+  type PlanOccurrenceInsert,
+  type PlanOccurrenceRow,
+  type BudgetInsert,
+  type BudgetRow,
+  type BudgetScopeInsert,
+  type BudgetScopeRow,
+} from "./schema"
