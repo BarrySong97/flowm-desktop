@@ -115,7 +115,7 @@ function createWindow(): BrowserWindow {
     process.platform === "darwin"
       ? ({
           backgroundColor: "#00000000",
-          trafficLightPosition: { x: 12, y: 17 },
+          trafficLightPosition: { x: 12, y: 8 },
           transparent: true,
           vibrancy: "sidebar",
           visualEffectState: "active",
@@ -141,7 +141,7 @@ function createWindow(): BrowserWindow {
 
   mainWindow.on("ready-to-show", () => {
     mainWindow.show()
-    if (is.dev && process.env.OPEN_DEVTOOLS === "1") {
+    if (is.dev) {
       mainWindow.webContents.openDevTools({ mode: "detach" })
     }
   })

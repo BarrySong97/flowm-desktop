@@ -1,19 +1,8 @@
 @import "@flowm/ui/styles";
 
-/* Electron drag regions */
-*[data-electron-drag-region] {
-  -webkit-app-region: drag;
-  app-region: drag;
-}
-*[data-electron-drag-region] * {
-  -webkit-app-region: drag;
-  app-region: drag;
-}
-*[data-electron-no-drag-region] {
-  -webkit-app-region: no-drag;
-  app-region: no-drag;
-}
-*[data-electron-no-drag-region] * {
-  -webkit-app-region: no-drag;
-  app-region: no-drag;
+/* Remove focus ring from recharts SVG elements */
+.recharts-wrapper,
+.recharts-wrapper svg,
+.recharts-surface {
+  outline: none !important;
 }

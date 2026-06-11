@@ -5,6 +5,11 @@
 @source "../components/**/*.tsx";
 @source "../../apps/desktop/src/renderer/src/**/*.tsx";
 
+/* App shell background — transparent so macOS vibrancy shows through */
+:root {
+  --bg: transparent;
+}
+
 /* Flowm brand — HeroUI Layer 1 semantic overrides */
 :root {
   --accent: #14794a;
@@ -25,8 +30,8 @@
   --ink-5: #c8d3ce;
 
   --hair:   #e6eae6;
-  --hair-2: #d8dfd8;
-  --hair-3: #cdd6cd;
+  --hair-2: #eef1ee;
+  --hair-3: #f3f5f3;
 
   --surface-2: #f7f9f7;
   --surface-3: #f1f4f1;
@@ -38,5 +43,9 @@
   --accent-soft: color-mix(in srgb, #14794a 12%, transparent);
 }
 
-*[data-electron-drag-region] { -webkit-app-region: drag; }
-*[data-electron-no-drag-region] { -webkit-app-region: no-drag; }
+/* Electron drag-region utilities */
+.drag-region    { -webkit-app-region: drag;    app-region: drag; }
+.no-drag-region { -webkit-app-region: no-drag; app-region: no-drag; }
+
+*[data-electron-drag-region]    { -webkit-app-region: drag;    app-region: drag; }
+*[data-electron-no-drag-region] { -webkit-app-region: no-drag; app-region: no-drag; }

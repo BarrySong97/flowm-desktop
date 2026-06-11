@@ -1,18 +1,11 @@
 import { useMemo } from "react"
 import { useFlowmStore } from "../lib/stores/flowmStore"
 import { Shell } from "../components/layout/Shell"
+import { BudgetBar } from "../components/ui/BudgetBar"
+import { categoryColor } from "../components/ui/TransactionTable"
 
 function fmt(n: number, d = 0) {
   return n.toLocaleString("zh-CN", { minimumFractionDigits: d, maximumFractionDigits: d })
-}
-
-function categoryColor(name: string): string {
-  const map: Record<string, string> = {
-    餐饮: "var(--c-food)", 交通: "var(--c-trans)", 购物: "var(--c-shop)",
-    订阅: "var(--c-sub)", 娱乐: "var(--c-fun)", 居住: "var(--c-live)",
-    理财: "var(--c-invest)", 其他: "var(--c-other)", 转账: "var(--c-xfer)",
-  }
-  return map[name] ?? "var(--c-other)"
 }
 
 const DEFAULT_LIMITS: Record<string, number> = {
@@ -20,7 +13,7 @@ const DEFAULT_LIMITS: Record<string, number> = {
   娱乐: 600, 居住: 3000, 其他: 500,
 }
 
-function Bar({ pct, color, h }: { pct: number; color: string; h: number }) {
+function ProgressBar({ pct, color, h }: { pct: number; color: string; h: number }) {
   return (
     <div style={{ height: h, background: "var(--surface-3)", borderRadius: h / 2, overflow: "hidden", flex: 1 }}>
       <div style={{ height: "100%", width: Math.min(pct, 100) + "%", background: color, borderRadius: h / 2, transition: "width 0.3s ease" }} />
@@ -54,7 +47,7 @@ export function BudgetPage() {
         cat,
         spent: spendMap.get(cat) ?? 0,
         limit: DEFAULT_LIMITS[cat] ?? 500,
-        color: categoryColor(cat),
+        color: categoryColor(cat),  // now uses shared hex colors
       }))
       .filter((b) => b.spent > 0 || DEFAULT_LIMITS[b.cat] !== undefined)
   }, [snapshot, ym])
@@ -84,7 +77,7 @@ export function BudgetPage() {
             <span className="dim" style={{ fontSize: 10.5 }}>整体进度</span>
             <span className="mono" style={{ fontSize: 11, fontWeight: 600 }}>{Math.round(pctTotal)}%</span>
           </div>
-          <Bar pct={pctTotal} color={pctTotal > 100 ? "var(--red)" : "var(--accent)"} h={8} />
+          <ProgressBar pct={pctTotal} color={pctTotal > 100 ? "var(--red)" : "var(--accent)"} h={8} />
         </div>
       </div>
 
@@ -99,39 +92,16 @@ export function BudgetPage() {
           <div className="es-sub">先在"流水"页面导入账单，预算页面会自动统计本月各类别消费。</div>
         </div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 0, marginTop: 14, overflow: "hidden" }}>
-          {budgets.map((b, i) => {
-            const p = b.limit > 0 ? (b.spent / b.limit) * 100 : 0
-            const over = b.spent > b.limit
-            return (
-              <div
-                key={b.cat}
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "120px 1fr 160px",
-                  gap: 18,
-                  alignItems: "center",
-                  padding: "13px 0",
-                  borderTop: i ? "1px solid var(--hair-3)" : "none",
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span className="cdot" style={{ background: b.color, width: 9, height: 9 }} />
-                  <span style={{ fontSize: 13, fontWeight: 500 }}>{b.cat}</span>
-                </div>
-                <Bar pct={Math.min(p, 100)} color={over ? "var(--red)" : "var(--accent)"} h={7} />
-                <div style={{ textAlign: "right" }}>
-                  <span className="mono" style={{ fontSize: 13, fontWeight: 500, color: over ? "var(--red)" : "var(--ink)" }}>
-                    ¥{fmt(b.spent)}
-                  </span>
-                  <span className="mono dim" style={{ fontSize: 11 }}> / {fmt(b.limit)}</span>
-                  <span className="mono" style={{ fontSize: 11, marginLeft: 8, color: over ? "var(--red)" : "var(--ink-3)" }}>
-                    {over ? "超 ¥" + fmt(b.spent - b.limit) : "剩 ¥" + fmt(b.limit - b.spent)}
-                  </span>
-                </div>
-              </div>
-            )
-          })}
+        <div style={{ display: "flex", flexDirection: "column", gap: 11, marginTop: 14, overflow: "hidden" }}>
+          {budgets.map((b, i) => (
+            <BudgetBar
+              key={i}
+              color={b.color}
+              spent={b.spent}
+              limit={b.limit}
+              label={b.cat}
+            />
+          ))}
         </div>
       )}
 

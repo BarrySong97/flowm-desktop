@@ -1,16 +1,21 @@
 import { useEffect, useMemo, useState } from "react"
-import { Button, Input } from "@heroui/react"
+import { Button } from "@heroui/react"
 import type { AssetSnapshotSummary, AssetSnapshotType } from "@flowm/api"
 import { useFlowmStore } from "../lib/stores/flowmStore"
 import { Shell } from "../components/layout/Shell"
+import { ScrollArea } from "../components/ui/ScrollArea"
+import { Kicker } from "../components/ui/Kicker"
+import { BigNumber } from "../components/ui/BigNumber"
+import { StatBlock } from "../components/ui/StatBlock"
+import { SectionTitle } from "../components/ui/SectionTitle"
+import { ColorDot } from "../components/ui/ColorDot"
+import { Dim } from "../components/ui/Dim"
+import { AssetTreemap } from "../components/charts/AssetTreemap"
+import { AddAssetModal, TYPE_LABEL } from "./AddAssetModal"
+import type { AssetForm } from "./AddAssetModal"
 
 function fmt(n: number, d = 0) {
   return n.toLocaleString("zh-CN", { minimumFractionDigits: d, maximumFractionDigits: d })
-}
-
-const TYPE_LABEL: Record<AssetSnapshotType, string> = {
-  cash: "现金", bank: "银行", wallet: "钱包", investment: "投资",
-  fixed_asset: "不动产", liability: "负债", other: "其他",
 }
 
 const GROUP_MAP: Record<AssetSnapshotType, string> = {
@@ -20,23 +25,14 @@ const GROUP_MAP: Record<AssetSnapshotType, string> = {
 }
 
 const GROUP_COLOR: Record<string, string> = {
-  "现金": "var(--accent)", "投资": "var(--c-invest)",
-  "不动产": "var(--c-live)", "负债": "var(--red)", "其他": "var(--c-other)",
+  "现金": "var(--accent)",
+  "投资": "#6c72cb",
+  "不动产": "#e07b39",
+  "负债": "var(--red)",
+  "其他": "#8c8fa0",
 }
 
-const ASSET_TYPES: AssetSnapshotType[] = ["cash", "bank", "wallet", "investment", "fixed_asset", "liability", "other"]
-
-interface Form {
-  id?: number
-  accountName: string
-  assetType: AssetSnapshotType
-  valueNumber: string
-  valueCurrency: string
-  snapshotAt: string
-  note: string
-}
-
-const EMPTY: Form = {
+const EMPTY: AssetForm = {
   accountName: "", assetType: "bank", valueNumber: "",
   valueCurrency: "CNY", snapshotAt: new Date().toISOString().slice(0, 10), note: "",
 }
@@ -47,7 +43,7 @@ export function AssetsPage() {
   const upsertAssetSnapshot = useFlowmStore((s) => s.upsertAssetSnapshot)
   const removeAssetSnapshot = useFlowmStore((s) => s.removeAssetSnapshot)
 
-  const [form, setForm] = useState<Form>(EMPTY)
+  const [form, setForm] = useState<AssetForm>(EMPTY)
   const [showForm, setShowForm] = useState(false)
   const [saving, setSaving] = useState(false)
 
@@ -78,17 +74,14 @@ export function AssetsPage() {
       .map((g) => ({
         name: g,
         sum: (groups.get(g) ?? []).reduce((s, a) => s + Math.abs(Number(a.valueNumber || 0)), 0),
-        accounts: (groups.get(g) ?? []).sort((a, b) => Math.abs(Number(b.valueNumber)) - Math.abs(Number(a.valueNumber))),
-        color: GROUP_COLOR[g] ?? "var(--c-other)",
+        color: GROUP_COLOR[g] ?? "#8c8fa0",
       }))
       .filter((g) => g.sum > 0)
   }, [groups])
 
   const lastUpdated = useMemo(() => {
     if (assetSnapshots.length === 0) return "—"
-    const latest = assetSnapshots.reduce((a, b) =>
-      a.snapshotAt > b.snapshotAt ? a : b,
-    )
+    const latest = assetSnapshots.reduce((a, b) => a.snapshotAt > b.snapshotAt ? a : b)
     return latest.snapshotAt.slice(0, 10).slice(5)
   }, [assetSnapshots])
 
@@ -126,16 +119,16 @@ export function AssetsPage() {
       {/* Header */}
       <div style={{ display: "flex", alignItems: "flex-start", gap: 36, paddingBottom: 16, borderBottom: "1px solid var(--hair-2)" }}>
         <div>
-          <div className="dm-kick" style={{ marginBottom: 6 }}>资产 · 现在有多少钱</div>
-          <div className="dm-num" style={{ fontSize: 40 }}>
-            <span className="cu" style={{ fontSize: 18, marginRight: 6 }}>¥</span>{fmt(totalAssets)}
-          </div>
+          <Kicker className="mb-1.5">资产 · 现在有多少钱</Kicker>
+          <BigNumber style={{ fontSize: 40 }}>
+            <span style={{ fontSize: 18, marginRight: 6, fontWeight: 400 }}>¥</span>{fmt(totalAssets)}
+          </BigNumber>
         </div>
         <div style={{ marginLeft: "auto", display: "flex", gap: 30, paddingTop: 20, alignItems: "center" }}>
-          <div className="dm-stat"><div className="l">流动资产</div><div className="v">¥{fmt(liquidAssets)}</div></div>
-          <div className="dm-stat"><div className="l">负债</div><div className="v neg">¥{fmt(totalLiab)}</div></div>
-          <div className="dm-stat"><div className="l">账户数</div><div className="v">{assetSnapshots.length}</div></div>
-          <div className="dm-stat"><div className="l">上次更新</div><div className="v">{lastUpdated}</div></div>
+          <StatBlock label="流动资产" value={`¥${fmt(liquidAssets)}`} />
+          <StatBlock label="负债" value={<span style={{ color: "var(--red)" }}>¥{fmt(totalLiab)}</span>} />
+          <StatBlock label="账户数" value={assetSnapshots.length} />
+          <StatBlock label="上次更新" value={lastUpdated} />
           <Button size="sm" variant="primary" onPress={openAdd}>＋ 添加账户</Button>
         </div>
       </div>
@@ -156,28 +149,33 @@ export function AssetsPage() {
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 380px", gap: 30, flex: 1, minHeight: 0, marginTop: 16 }}>
           {/* Asset list */}
-          <div style={{ overflow: "hidden" }}>
+          <ScrollArea style={{ flex: 1, minHeight: 0 }}>
             {(["现金", "投资", "不动产", "负债", "其他"] as const).map((g) => {
               const items = groups.get(g)
               if (!items || items.length === 0) return null
               return (
                 <div key={g}>
-                  <div className="da-sub-h">{g}</div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: "var(--ink-4)", textTransform: "uppercase", letterSpacing: "0.1em", padding: "10px 0 4px" }}>
+                    {g}
+                  </div>
                   {items.map((a) => {
                     const val = Number(a.valueNumber || 0)
                     return (
-                      <div className="da-row" key={a.id} style={{ padding: "10px 0", gap: 14 }}>
+                      <div
+                        key={a.id}
+                        style={{ display: "flex", alignItems: "center", padding: "10px 0", gap: 14, borderBottom: "1px solid var(--hair-3)" }}
+                      >
                         <div style={{ width: 180, flex: "0 0 180px", minWidth: 0 }}>
-                          <div className="nm">{a.accountName}</div>
-                          <div className="dim" style={{ fontSize: 10.5, marginTop: 1 }}>
+                          <div style={{ fontSize: 13, fontWeight: 500, color: "var(--ink)" }}>{a.accountName}</div>
+                          <Dim style={{ fontSize: 10.5, marginTop: 1 }}>
                             {TYPE_LABEL[a.assetType]} · {a.snapshotAt.slice(0, 10).slice(5)}
-                          </div>
+                          </Dim>
                         </div>
                         <div style={{ marginLeft: "auto", textAlign: "right" }}>
-                          <div className="mono" style={{ fontSize: 14, fontWeight: 500, color: val < 0 ? "var(--red)" : "var(--ink)" }}>
+                          <div style={{ fontFamily: "IBM Plex Mono, monospace", fontSize: 14, fontWeight: 500, color: val < 0 ? "var(--red)" : "var(--ink)" }}>
                             {val < 0 ? "−" : ""}¥{fmt(Math.abs(val))}
                           </div>
-                          {a.note && <div className="dim" style={{ fontSize: 10.5, marginTop: 1 }}>{a.note}</div>}
+                          {a.note && <Dim style={{ fontSize: 10.5, marginTop: 1 }}>{a.note}</Dim>}
                         </div>
                         <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
                           <Button size="sm" variant="secondary" onPress={() => openEdit(a)}>更新</Button>
@@ -192,48 +190,24 @@ export function AssetsPage() {
             <div style={{ marginTop: 16, paddingTop: 12, borderTop: "1px solid var(--hair)", fontSize: 11, color: "var(--ink-4)", lineHeight: 1.6 }}>
               余额自己手动记录，不从流水推算。允许和流水之间有误差。
             </div>
-          </div>
+          </ScrollArea>
 
-          {/* Treemap */}
+          {/* Treemap + legend */}
           <div style={{ alignSelf: "stretch", display: "flex", flexDirection: "column" }}>
-            <div className="dm-sec">资产构成</div>
-            <div className="dim" style={{ fontSize: 10.5, marginTop: 2 }}>面积 = 占总资产比例</div>
-            <div style={{ marginTop: 12, flex: 1, minHeight: 220, display: "flex", flexDirection: "column", gap: 4 }}>
-              {treemapGroups.map((g) => (
-                <div key={g.name} style={{ flex: g.sum, minHeight: 26, display: "flex", gap: 3 }}>
-                  {g.accounts.map((a, i) => {
-                    const v = Math.abs(Number(a.valueNumber || 0))
-                    const showLabel = v / totalAssets > 0.03
-                    return (
-                      <div
-                        key={a.id}
-                        style={{
-                          flex: v, position: "relative", borderRadius: 5, overflow: "hidden",
-                          background: g.color, opacity: 1 - i * 0.12, padding: "7px 9px", minWidth: 0,
-                          display: "flex", flexDirection: "column", justifyContent: "space-between",
-                        }}
-                      >
-                        <div style={{ fontSize: 10, color: "#fff", fontWeight: 600, lineHeight: 1.2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", opacity: .96 }}>
-                          {i === 0 ? g.name : a.accountName.split(" ")[0]}
-                        </div>
-                        {showLabel && (
-                          <div className="mono" style={{ fontSize: 10.5, color: "#fff", fontWeight: 600 }}>
-                            ¥{fmt(v)}
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
-              ))}
+            <SectionTitle>资产构成</SectionTitle>
+            <Dim style={{ fontSize: 10.5, marginTop: 2 }}>面积 = 占总资产比例</Dim>
+            <div style={{ marginTop: 12, flex: 1, minHeight: 220 }}>
+              <AssetTreemap groups={treemapGroups} total={totalAssets} height={220} />
             </div>
             <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 6 }}>
               {treemapGroups.map((g) => (
-                <div className="legend-r" key={g.name}>
-                  <span className="cdot" style={{ background: g.color }} />
-                  <span className="nm">{g.name}</span>
-                  <span className="vl">¥{fmt(g.sum)}</span>
-                  <span className="pc">{totalAssets > 0 ? Math.round((g.sum / totalAssets) * 100) : 0}%</span>
+                <div key={g.name} className="legend-r">
+                  <ColorDot color={g.color} />
+                  <span style={{ fontSize: 12, color: "var(--ink-2)" }}>{g.name}</span>
+                  <span style={{ marginLeft: "auto", fontFamily: "IBM Plex Mono, monospace", fontSize: 12 }}>¥{fmt(g.sum)}</span>
+                  <span style={{ fontSize: 11, color: "var(--ink-4)", width: 32, textAlign: "right" }}>
+                    {totalAssets > 0 ? Math.round((g.sum / totalAssets) * 100) : 0}%
+                  </span>
                 </div>
               ))}
             </div>
@@ -241,87 +215,14 @@ export function AssetsPage() {
         </div>
       )}
 
-      {/* Add/Edit modal */}
-      {showForm && (
-        <div className="wf-scrim" onClick={(e) => { if (e.target === e.currentTarget) setShowForm(false) }}>
-          <div className="wf-modal">
-            <div className="wf-head">
-              <div>
-                <div className="wf-title">{form.id ? "更新余额" : "添加账户"}</div>
-                <div className="wf-sub">手动记录账户当前余额</div>
-              </div>
-              <Button isIconOnly size="sm" variant="secondary" onPress={() => setShowForm(false)}>✕</Button>
-            </div>
-            <div className="wf-body">
-              <div className="wf-field nb">
-                <div className="wf-flabel">账户名称</div>
-                <Input
-                  variant="primary"
-                  value={form.accountName}
-                  placeholder="例如：招商银行储蓄卡"
-                  onChange={(e) => setForm((f) => ({ ...f, accountName: e.target.value }))}
-                />
-              </div>
-              <div className="wf-field">
-                <div className="wf-flabel">类型</div>
-                <div className="wf-chips">
-                  {ASSET_TYPES.map((t) => (
-                    <Button
-                      key={t}
-                      size="sm"
-                      variant={form.assetType === t ? "primary" : "outline"}
-                      onPress={() => setForm((f) => ({ ...f, assetType: t }))}
-                    >
-                      {TYPE_LABEL[t]}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-              <div className="wf-field">
-                <div className="wf-flabel">当前余额</div>
-                <div style={{ display: "flex", gap: 8 }}>
-                  <Input
-                    variant="primary"
-                    style={{ flex: 1 }}
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={form.valueNumber}
-                    placeholder="0.00"
-                    onChange={(e) => setForm((f) => ({ ...f, valueNumber: e.target.value }))}
-                  />
-                  <Input
-                    variant="primary"
-                    style={{ width: 72 }}
-                    value={form.valueCurrency}
-                    onChange={(e) => setForm((f) => ({ ...f, valueCurrency: e.target.value.toUpperCase() }))}
-                  />
-                </div>
-              </div>
-              <div className="wf-field">
-                <div className="wf-flabel">日期</div>
-                <input className="wf-input" type="date" value={form.snapshotAt}
-                  onChange={(e) => setForm((f) => ({ ...f, snapshotAt: e.target.value }))} />
-              </div>
-              <div className="wf-field">
-                <div className="wf-flabel">备注 <span className="opt">可选</span></div>
-                <Input
-                  variant="primary"
-                  value={form.note}
-                  placeholder="银行名称、账号后四位等"
-                  onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))}
-                />
-              </div>
-            </div>
-            <div className="wf-foot">
-              <Button variant="primary" isDisabled={saving} onPress={() => void save()}>
-                {saving ? "保存中…" : "保存"}
-              </Button>
-              <Button variant="outline" onPress={() => setShowForm(false)}>取消</Button>
-            </div>
-          </div>
-        </div>
-      )}
+      <AddAssetModal
+        open={showForm}
+        form={form}
+        saving={saving}
+        onSave={() => void save()}
+        onClose={() => setShowForm(false)}
+        onChange={(patch) => setForm((f) => ({ ...f, ...patch }))}
+      />
     </Shell>
   )
 }
