@@ -23,6 +23,19 @@
     "english": "EN",
     "chinese": "中文"
   },
+  "dashboard": {
+    "default": {
+      "netWorth": "Net Worth",
+      "liquid": "Liquid Cash",
+      "expenseMtd": "Expense (MTD)",
+      "cashflow": "Monthly Cashflow",
+      "recent": "Recent Transactions",
+      "emptyTitle": "Dashboard is empty",
+      "emptyDescription": "Add cards manually, or load the default template to get started.",
+      "loadTemplate": "Load default template",
+      "loading": "Loading..."
+    }
+  },
   "toolbar": {
     "new": "NEW",
     "refresh": "REFRESH",

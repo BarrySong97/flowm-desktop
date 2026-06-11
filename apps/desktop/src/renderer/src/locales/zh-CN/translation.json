@@ -23,6 +23,19 @@
     "english": "EN",
     "chinese": "中文"
   },
+  "dashboard": {
+    "default": {
+      "netWorth": "净资产",
+      "liquid": "可用现金",
+      "expenseMtd": "本月支出",
+      "cashflow": "月度收支",
+      "recent": "近期流水",
+      "emptyTitle": "仪表盘是空的",
+      "emptyDescription": "手动添加卡片，或加载默认模板快速开始。",
+      "loadTemplate": "加载默认模板",
+      "loading": "加载中..."
+    }
+  },
   "toolbar": {
     "new": "新建",
     "refresh": "刷新",

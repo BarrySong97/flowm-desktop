@@ -8,141 +8,187 @@
 // You should NOT make any changes in this file as it will be overwritten.
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
-import { Route as rootRouteImport } from "./routes/__root"
-import { Route as SubscriptionsRouteImport } from "./routes/subscriptions"
-import { Route as SettingsRouteImport } from "./routes/settings"
-import { Route as LoansRouteImport } from "./routes/loans"
-import { Route as ImportsRouteImport } from "./routes/imports"
-import { Route as AssetsRouteImport } from "./routes/assets"
-import { Route as IndexRouteImport } from "./routes/index"
+import { Route as rootRouteImport } from './routes/__root'
+import { Route as SubscriptionsRouteImport } from './routes/subscriptions'
+import { Route as SettingsCategoriesRouteImport } from './routes/settings-categories'
+import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as LoansRouteImport } from './routes/loans'
+import { Route as ImportsRouteImport } from './routes/imports'
+import { Route as BudgetRouteImport } from './routes/budget'
+import { Route as AssetsRouteImport } from './routes/assets'
+import { Route as IndexRouteImport } from './routes/index'
 
 const SubscriptionsRoute = SubscriptionsRouteImport.update({
-  id: "/subscriptions",
-  path: "/subscriptions",
+  id: '/subscriptions',
+  path: '/subscriptions',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsCategoriesRoute = SettingsCategoriesRouteImport.update({
+  id: '/settings-categories',
+  path: '/settings-categories',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SettingsRoute = SettingsRouteImport.update({
-  id: "/settings",
-  path: "/settings",
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoansRoute = LoansRouteImport.update({
-  id: "/loans",
-  path: "/loans",
+  id: '/loans',
+  path: '/loans',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ImportsRoute = ImportsRouteImport.update({
-  id: "/imports",
-  path: "/imports",
+  id: '/imports',
+  path: '/imports',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BudgetRoute = BudgetRouteImport.update({
+  id: '/budget',
+  path: '/budget',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AssetsRoute = AssetsRouteImport.update({
-  id: "/assets",
-  path: "/assets",
+  id: '/assets',
+  path: '/assets',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
-  id: "/",
-  path: "/",
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 
 export interface FileRoutesByFullPath {
-  "/": typeof IndexRoute
-  "/assets": typeof AssetsRoute
-  "/imports": typeof ImportsRoute
-  "/loans": typeof LoansRoute
-  "/settings": typeof SettingsRoute
-  "/subscriptions": typeof SubscriptionsRoute
+  '/': typeof IndexRoute
+  '/assets': typeof AssetsRoute
+  '/budget': typeof BudgetRoute
+  '/imports': typeof ImportsRoute
+  '/loans': typeof LoansRoute
+  '/settings': typeof SettingsRoute
+  '/settings-categories': typeof SettingsCategoriesRoute
+  '/subscriptions': typeof SubscriptionsRoute
 }
 export interface FileRoutesByTo {
-  "/": typeof IndexRoute
-  "/assets": typeof AssetsRoute
-  "/imports": typeof ImportsRoute
-  "/loans": typeof LoansRoute
-  "/settings": typeof SettingsRoute
-  "/subscriptions": typeof SubscriptionsRoute
+  '/': typeof IndexRoute
+  '/assets': typeof AssetsRoute
+  '/budget': typeof BudgetRoute
+  '/imports': typeof ImportsRoute
+  '/loans': typeof LoansRoute
+  '/settings': typeof SettingsRoute
+  '/settings-categories': typeof SettingsCategoriesRoute
+  '/subscriptions': typeof SubscriptionsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  "/": typeof IndexRoute
-  "/assets": typeof AssetsRoute
-  "/imports": typeof ImportsRoute
-  "/loans": typeof LoansRoute
-  "/settings": typeof SettingsRoute
-  "/subscriptions": typeof SubscriptionsRoute
+  '/': typeof IndexRoute
+  '/assets': typeof AssetsRoute
+  '/budget': typeof BudgetRoute
+  '/imports': typeof ImportsRoute
+  '/loans': typeof LoansRoute
+  '/settings': typeof SettingsRoute
+  '/settings-categories': typeof SettingsCategoriesRoute
+  '/subscriptions': typeof SubscriptionsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    | "/"
-    | "/assets"
-    | "/imports"
-    | "/loans"
-    | "/settings"
-    | "/subscriptions"
+    | '/'
+    | '/assets'
+    | '/budget'
+    | '/imports'
+    | '/loans'
+    | '/settings'
+    | '/settings-categories'
+    | '/subscriptions'
   fileRoutesByTo: FileRoutesByTo
-  to: "/" | "/assets" | "/imports" | "/loans" | "/settings" | "/subscriptions"
+  to:
+    | '/'
+    | '/assets'
+    | '/budget'
+    | '/imports'
+    | '/loans'
+    | '/settings'
+    | '/settings-categories'
+    | '/subscriptions'
   id:
-    | "__root__"
-    | "/"
-    | "/assets"
-    | "/imports"
-    | "/loans"
-    | "/settings"
-    | "/subscriptions"
+    | '__root__'
+    | '/'
+    | '/assets'
+    | '/budget'
+    | '/imports'
+    | '/loans'
+    | '/settings'
+    | '/settings-categories'
+    | '/subscriptions'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AssetsRoute: typeof AssetsRoute
+  BudgetRoute: typeof BudgetRoute
   ImportsRoute: typeof ImportsRoute
   LoansRoute: typeof LoansRoute
   SettingsRoute: typeof SettingsRoute
+  SettingsCategoriesRoute: typeof SettingsCategoriesRoute
   SubscriptionsRoute: typeof SubscriptionsRoute
 }
 
-declare module "@tanstack/react-router" {
+declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    "/subscriptions": {
-      id: "/subscriptions"
-      path: "/subscriptions"
-      fullPath: "/subscriptions"
+    '/subscriptions': {
+      id: '/subscriptions'
+      path: '/subscriptions'
+      fullPath: '/subscriptions'
       preLoaderRoute: typeof SubscriptionsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    "/settings": {
-      id: "/settings"
-      path: "/settings"
-      fullPath: "/settings"
+    '/settings-categories': {
+      id: '/settings-categories'
+      path: '/settings-categories'
+      fullPath: '/settings-categories'
+      preLoaderRoute: typeof SettingsCategoriesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
       preLoaderRoute: typeof SettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    "/loans": {
-      id: "/loans"
-      path: "/loans"
-      fullPath: "/loans"
+    '/loans': {
+      id: '/loans'
+      path: '/loans'
+      fullPath: '/loans'
       preLoaderRoute: typeof LoansRouteImport
       parentRoute: typeof rootRouteImport
     }
-    "/imports": {
-      id: "/imports"
-      path: "/imports"
-      fullPath: "/imports"
+    '/imports': {
+      id: '/imports'
+      path: '/imports'
+      fullPath: '/imports'
       preLoaderRoute: typeof ImportsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    "/assets": {
-      id: "/assets"
-      path: "/assets"
-      fullPath: "/assets"
+    '/budget': {
+      id: '/budget'
+      path: '/budget'
+      fullPath: '/budget'
+      preLoaderRoute: typeof BudgetRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/assets': {
+      id: '/assets'
+      path: '/assets'
+      fullPath: '/assets'
       preLoaderRoute: typeof AssetsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    "/": {
-      id: "/"
-      path: "/"
-      fullPath: "/"
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
@@ -152,9 +198,11 @@ declare module "@tanstack/react-router" {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AssetsRoute: AssetsRoute,
+  BudgetRoute: BudgetRoute,
   ImportsRoute: ImportsRoute,
   LoansRoute: LoansRoute,
   SettingsRoute: SettingsRoute,
+  SettingsCategoriesRoute: SettingsCategoriesRoute,
   SubscriptionsRoute: SubscriptionsRoute,
 }
 export const routeTree = rootRouteImport
