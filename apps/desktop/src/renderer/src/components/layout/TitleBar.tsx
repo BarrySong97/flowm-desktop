@@ -1,3 +1,3 @@
 export function TitleBar() {
-  return <div className="flex-none h-9 w-full drag-region bg-white" />
+  return <div className="drag-region" style={{ position: "absolute", top: 0, left: 0, right: 0, height: 18, zIndex: 9999 }} />
 }

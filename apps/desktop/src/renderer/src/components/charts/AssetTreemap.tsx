@@ -27,7 +27,7 @@ function Cell({ x, y, width, height, name, value, color, total }: {
   return (
     <g>
       <rect x={_x + 1} y={_y + 1} width={_w - 2} height={_h - 2}
-        fill={color ?? "var(--accent)"} rx={5} style={{ outline: "none" }} />
+        fill={color ?? "transparent"} rx={5} style={{ outline: "none" }} />
       {showName && (
         <text x={_x + 9} y={_y + 16} fill="rgba(255,255,255,0.92)" fontSize={10} fontWeight={600}
           style={{ fontFamily: "Noto Sans SC, sans-serif" }}>

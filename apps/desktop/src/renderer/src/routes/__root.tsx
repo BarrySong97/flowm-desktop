@@ -18,7 +18,7 @@ function RootLayout() {
   return (
     <div style={{ height: "100vh", width: "100vw", overflow: "hidden", background: "var(--bg)" }}>
       <TitleBar />
-      <div style={{ height: "calc(100vh - 36px)", overflow: "hidden" }}>
+      <div style={{ height: "100vh", overflow: "hidden" }}>
         <Outlet />
       </div>
       <Toaster />

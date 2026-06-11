@@ -1,4 +1,6 @@
-import { Button, Input } from "@heroui/react"
+import { Button, Calendar, DateField, DatePicker, Input, Label, ListBox, Modal, Select } from "@heroui/react"
+import type { DateValue } from "@internationalized/date"
+import { parseDate } from "@internationalized/date"
 import type { AssetSnapshotType } from "@flowm/api"
 
 export const TYPE_LABEL: Record<AssetSnapshotType, string> = {
@@ -28,85 +30,144 @@ interface Props {
 }
 
 export function AddAssetModal({ open, form, saving, onSave, onClose, onChange }: Props) {
-  if (!open) return null
   return (
-    <div className="wf-scrim" onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
-      <div className="wf-modal">
-        <div className="wf-head">
-          <div>
-            <div className="wf-title">{form.id ? "更新余额" : "添加账户"}</div>
-            <div className="wf-sub">手动记录账户当前余额</div>
-          </div>
-          <Button isIconOnly size="sm" variant="secondary" onPress={onClose}>✕</Button>
-        </div>
-        <div className="wf-body">
-          <div className="wf-field nb">
-            <div className="wf-flabel">账户名称</div>
-            <Input
-              variant="primary"
-              value={form.accountName}
-              placeholder="例如：招商银行储蓄卡"
-              onChange={(e) => onChange({ accountName: e.target.value })}
-            />
-          </div>
-          <div className="wf-field">
-            <div className="wf-flabel">类型</div>
-            <div className="wf-chips">
-              {ASSET_TYPES.map((t) => (
-                <Button
-                  key={t}
-                  size="sm"
-                  variant={form.assetType === t ? "primary" : "outline"}
-                  onPress={() => onChange({ assetType: t })}
+    <Modal.Backdrop isOpen={open} onOpenChange={(v) => { if (!v) onClose() }}>
+      <Modal.Container>
+        <Modal.Dialog>
+          <Modal.CloseTrigger />
+          <Modal.Header>
+            <Modal.Heading>{form.id ? "更新余额" : "添加账户"}</Modal.Heading>
+            <p style={{ fontSize: 12, color: "var(--ink-4)", marginTop: 2 }}>手动记录账户当前余额</p>
+          </Modal.Header>
+
+          <Modal.Body>
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+
+              {/* Account name */}
+              <div>
+                <Label style={{ fontSize: 12, color: "var(--ink-3)", marginBottom: 6, display: "block" }}>账户名称</Label>
+                <Input
+                  variant="secondary"
+                  value={form.accountName}
+                  placeholder="例如：招商银行储蓄卡"
+                  onChange={(e) => onChange({ accountName: e.target.value })}
+                />
+              </div>
+
+              {/* Asset type */}
+              <div>
+                <Label style={{ fontSize: 12, color: "var(--ink-3)", marginBottom: 6, display: "block" }}>类型</Label>
+                <Select
+                  variant="secondary"
+                  selectedKey={form.assetType}
+                  onSelectionChange={(key) => onChange({ assetType: key as AssetSnapshotType })}
                 >
-                  {TYPE_LABEL[t]}
-                </Button>
-              ))}
+                  <Select.Trigger>
+                    <Select.Value />
+                    <Select.Indicator />
+                  </Select.Trigger>
+                  <Select.Popover>
+                    <ListBox>
+                      {ASSET_TYPES.map((t) => (
+                        <ListBox.Item key={t} id={t} textValue={TYPE_LABEL[t]}>
+                          {TYPE_LABEL[t]}
+                          <ListBox.ItemIndicator />
+                        </ListBox.Item>
+                      ))}
+                    </ListBox>
+                  </Select.Popover>
+                </Select>
+              </div>
+
+              {/* Balance */}
+              <div>
+                <Label style={{ fontSize: 12, color: "var(--ink-3)", marginBottom: 6, display: "block" }}>当前余额</Label>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <Input
+                    variant="secondary"
+                    style={{ flex: 1 }}
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={form.valueNumber}
+                    placeholder="0.00"
+                    onChange={(e) => onChange({ valueNumber: e.target.value })}
+                  />
+                  <Input
+                    variant="secondary"
+                    style={{ width: 72 }}
+                    value={form.valueCurrency}
+                    onChange={(e) => onChange({ valueCurrency: e.target.value.toUpperCase() })}
+                  />
+                </div>
+              </div>
+
+              {/* Date */}
+              <div>
+                <DatePicker
+                  value={parseDate(form.snapshotAt)}
+                  onChange={(v: DateValue | null) => {
+                    if (v) onChange({ snapshotAt: v.toString() })
+                  }}
+                >
+                  <Label style={{ fontSize: 12, color: "var(--ink-3)", marginBottom: 6, display: "block" }}>日期</Label>
+                  <DateField.Group fullWidth variant="secondary">
+                    <DateField.Input>
+                      {(segment) => <DateField.Segment segment={segment} />}
+                    </DateField.Input>
+                    <DateField.Suffix>
+                      <DatePicker.Trigger>
+                        <DatePicker.TriggerIndicator />
+                      </DatePicker.Trigger>
+                    </DateField.Suffix>
+                  </DateField.Group>
+                  <DatePicker.Popover placement="top" style={{ maxWidth: "none" }}>
+                    <Calendar>
+                      <Calendar.Header>
+                        <Calendar.YearPickerTrigger>
+                          <Calendar.YearPickerTriggerHeading />
+                          <Calendar.YearPickerTriggerIndicator />
+                        </Calendar.YearPickerTrigger>
+                        <Calendar.NavButton slot="previous" />
+                        <Calendar.NavButton slot="next" />
+                      </Calendar.Header>
+                      <Calendar.Grid>
+                        <Calendar.GridHeader>
+                          {(day) => <Calendar.HeaderCell>{day}</Calendar.HeaderCell>}
+                        </Calendar.GridHeader>
+                        <Calendar.GridBody>
+                          {(date) => <Calendar.Cell date={date} />}
+                        </Calendar.GridBody>
+                      </Calendar.Grid>
+                    </Calendar>
+                  </DatePicker.Popover>
+                </DatePicker>
+              </div>
+
+              {/* Note */}
+              <div>
+                <Label style={{ fontSize: 12, color: "var(--ink-3)", marginBottom: 6, display: "block" }}>
+                  备注 <span className="opt">可选</span>
+                </Label>
+                <Input
+                  variant="secondary"
+                  value={form.note}
+                  placeholder="银行名称、账号后四位等"
+                  onChange={(e) => onChange({ note: e.target.value })}
+                />
+              </div>
+
             </div>
-          </div>
-          <div className="wf-field">
-            <div className="wf-flabel">当前余额</div>
-            <div style={{ display: "flex", gap: 8 }}>
-              <Input
-                variant="primary"
-                style={{ flex: 1 }}
-                type="number"
-                min="0"
-                step="0.01"
-                value={form.valueNumber}
-                placeholder="0.00"
-                onChange={(e) => onChange({ valueNumber: e.target.value })}
-              />
-              <Input
-                variant="primary"
-                style={{ width: 72 }}
-                value={form.valueCurrency}
-                onChange={(e) => onChange({ valueCurrency: e.target.value.toUpperCase() })}
-              />
-            </div>
-          </div>
-          <div className="wf-field">
-            <div className="wf-flabel">日期</div>
-            <input className="wf-input" type="date" value={form.snapshotAt}
-              onChange={(e) => onChange({ snapshotAt: e.target.value })} />
-          </div>
-          <div className="wf-field">
-            <div className="wf-flabel">备注 <span className="opt">可选</span></div>
-            <Input
-              variant="primary"
-              value={form.note}
-              placeholder="银行名称、账号后四位等"
-              onChange={(e) => onChange({ note: e.target.value })}
-            />
-          </div>
-        </div>
-        <div className="wf-foot">
-          <Button variant="primary" isDisabled={saving} onPress={onSave}>
-            {saving ? "保存中…" : "保存"}
-          </Button>
-          <Button variant="outline" onPress={onClose}>取消</Button>
-        </div>
-      </div>
-    </div>
+          </Modal.Body>
+
+          <Modal.Footer>
+            <Button variant="primary" isDisabled={saving} onPress={onSave}>
+              {saving ? "保存中…" : "保存"}
+            </Button>
+            <Button variant="outline" slot="close">取消</Button>
+          </Modal.Footer>
+        </Modal.Dialog>
+      </Modal.Container>
+    </Modal.Backdrop>
   )
 }

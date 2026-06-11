@@ -37,7 +37,7 @@ export function DailyBars({ data, todayIndex, height = 56 }: Props) {
   return (
     <div style={{ position: "relative", outline: "none" }}>
       <ResponsiveContainer width="100%" height={height}>
-        <BarChart data={chartData} margin={{ top: 0, right: 0, bottom: 0, left: 0 }} barCategoryGap={2} style={{ outline: "none" }}>
+        <BarChart data={chartData} margin={{ top: 0, right: 0, bottom: 0, left: 0 }} barCategoryGap={2} style={{ outline: "none" }} tabIndex={-1}>
           <Tooltip
             content={<ChartTooltip lastIdx={lastIdx} />}
             cursor={{ fill: "var(--hair-3)", radius: 2 }}
