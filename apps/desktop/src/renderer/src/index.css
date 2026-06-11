@@ -14,6 +14,15 @@
 .flowm-scroller:hover::-webkit-scrollbar-thumb { background: var(--ink-5) !important; background-clip: padding-box !important; }
 .flowm-scroller:hover::-webkit-scrollbar-thumb:hover { background: var(--ink-4) !important; background-clip: padding-box !important; }
 
+/* Subscriptions calendar */
+.sub-cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
+.sub-cal .wd { font-size: 10px; font-weight: 600; letter-spacing: .06em; color: var(--ink-4); text-align: center; padding-bottom: 4px; }
+.sub-cal .cell { position: relative; aspect-ratio: 1; border: 1px solid var(--hair-2); border-radius: 8px; padding: 6px 7px; box-sizing: border-box; overflow: hidden; }
+.sub-cal .cell.empty { border: none; background: transparent; }
+.sub-cal .cell.has { background: var(--surface-2); }
+.sub-cal .cell.today { border-color: var(--accent) !important; box-shadow: inset 0 0 0 1px var(--accent); }
+.sub-cal .cell.today .dn { color: var(--accent) !important; font-weight: 700 !important; }
+
 /* Remove focus ring from recharts SVG elements */
 .recharts-wrapper,
 .recharts-wrapper svg,

@@ -1,348 +1,277 @@
-import { useEffect, useMemo, useState } from "react"
-import { Button, Input } from "@heroui/react"
-import type { PlanSummary } from "@flowm/api"
-import { useFlowmStore } from "../lib/stores/flowmStore"
-import { Shell } from "../components/layout/Shell"
+import { useState } from "react"
+import { Button, Label, Modal } from "@heroui/react"
+import { Dock } from "../components/layout/Dock"
+import { ScrollArea } from "../components/ui/ScrollArea"
 
 function fmt(n: number, d = 0) {
   return n.toLocaleString("zh-CN", { minimumFractionDigits: d, maximumFractionDigits: d })
 }
 
-interface LoanBar {
-  id: number
-  name: string
-  institution: string
-  rate: number
-  monthly: number
-  remain: number
-  total: number
-  termTotal: number
-  termLeft: number
-  paid: number
-  sched: { interest: number; principal: number }[]
+interface Loan {
+  id: string; name: string; bank: string
+  remain: number; total: number; monthly: number
+  rate: number; termLeft: number; termTotal: number
 }
 
-type TipState = {
-  li: number; k: number
-  principal: number; interest: number; monthly: number
-  paid: boolean; left: number; top: number; gw: number
-} | null
+const RAW_LOANS: Loan[] = [
+  { id: "mortgage", name: "商业房贷", bank: "招商银行",  remain: 1820000, total: 2480000, monthly: 9850,  rate: 4.15, termLeft: 246, termTotal: 360 },
+  { id: "consume",  name: "消费贷",   bank: "招联金融",  remain: 45000,   total: 80000,   monthly: 2180,  rate: 5.40, termLeft: 22,  termTotal: 36  },
+  { id: "car",      name: "车贷",     bank: "平安银行",  remain: 62000,   total: 120000,  monthly: 2350,  rate: 3.85, termLeft: 28,  termTotal: 48  },
+  { id: "edu",      name: "教育贷款", bank: "中国银行",  remain: 18000,   total: 30000,   monthly: 680,   rate: 4.75, termLeft: 28,  termTotal: 48  },
+  { id: "biz",      name: "经营贷",   bank: "工商银行",  remain: 280000,  total: 300000,  monthly: 5200,  rate: 3.60, termLeft: 55,  termTotal: 60  },
+]
+const CARD = { name: "信用卡待还", bank: "招商银行", label: "本期账单", remain: 8640 }
 
-function buildLoan(p: PlanSummary): LoanBar {
-  const meta = (p.meta ?? {}) as Record<string, unknown>
-  const monthly = Math.abs(Number(p.amount) || 0)
-  const termTotal = Number(meta.termTotal ?? 120)
-  const rate = Number(meta.annualRate ?? 4.5)
-  const total = Number(meta.principalTotal ?? monthly * termTotal * 0.6)
-  const startDate = new Date(p.startDate)
-  const now = new Date()
-  const elapsedMonths = Math.floor((now.getTime() - startDate.getTime()) / (30 * 86400000))
-  const paid = Math.min(Math.max(0, elapsedMonths), termTotal)
-  const termLeft = termTotal - paid
-  const remain = Number(meta.principalRemaining ?? total * (termLeft / Math.max(termTotal, 1)))
-
-  const r = rate / 100 / 12
-  let bal = total
+function buildSched(loan: Loan) {
+  const r = loan.rate / 100 / 12
+  let bal = loan.total
   const sched: { interest: number; principal: number }[] = []
-  for (let k = 0; k < termTotal; k++) {
-    const interest = r > 0 ? bal * r : 0
-    const principal = Math.max(monthly - interest, 0)
+  for (let k = 0; k < loan.termTotal; k++) {
+    const interest = bal * r
+    const principal = Math.max(loan.monthly - interest, 0)
     bal = Math.max(0, bal - principal)
     sched.push({ interest, principal })
   }
-
-  return {
-    id: p.id, name: p.name,
-    institution: (meta.institution as string) ?? p.counterparty ?? "—",
-    rate, monthly, remain, total, termTotal, termLeft, paid, sched,
-  }
+  return sched
 }
 
-type LoanForm = {
-  id?: number
-  name: string
-  institution: string
-  principalTotal: string
-  monthlyPayment: string
-  annualRate: string
-  termTotal: string
-  startDate: string
+const LOANS = RAW_LOANS.map((l) => ({ ...l, paid: l.termTotal - l.termLeft, sched: buildSched(l) }))
+
+const totalLiab = RAW_LOANS.reduce((s, l) => s + l.remain, 0) + CARD.remain
+const totalMonthly = RAW_LOANS.reduce((s, l) => s + l.monthly, 0)
+const monthlyFixed = totalMonthly + 557 // subs monthly
+const fixedPct = Math.round(totalMonthly / monthlyFixed * 100)
+
+type Tip = { li: number; k: number; principal: number; interest: number; monthly: number; paid: boolean; left: number; gw: number } | null
+
+type LoanForm = { name: string; bank: string; principal: string; monthly: string; rate: string; termTotal: string; startDate: string }
+const EMPTY_FORM: LoanForm = { name: "", bank: "", principal: "", monthly: "", rate: "4.5", termTotal: "120", startDate: "2026-06-11" }
+
+const inputStyle: React.CSSProperties = {
+  width: "100%", font: "500 14px var(--sans)", color: "var(--ink)",
+  padding: "10px 12px", border: "1px solid var(--hair)", borderRadius: 9,
+  background: "var(--surface)", outline: "none", boxSizing: "border-box",
 }
-const EMPTY: LoanForm = {
-  name: "", institution: "", principalTotal: "", monthlyPayment: "",
-  annualRate: "4.5", termTotal: "120", startDate: new Date().toISOString().slice(0, 10),
+
+function AddLoanModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const [form, setForm] = useState<LoanForm>(EMPTY_FORM)
+  function patch(p: Partial<LoanForm>) { setForm((f) => ({ ...f, ...p })) }
+  function handleClose() { setForm(EMPTY_FORM); onClose() }
+
+  return (
+    <Modal.Backdrop isOpen={open} onOpenChange={(v) => { if (!v) handleClose() }}>
+      <Modal.Container>
+        <Modal.Dialog style={{ maxWidth: 440 }}>
+          <Modal.CloseTrigger />
+          <Modal.Header>
+            <Modal.Heading>添加贷款</Modal.Heading>
+            <p style={{ fontSize: 12, color: "var(--ink-4)", marginTop: 2 }}>房贷、车贷或其他分期</p>
+          </Modal.Header>
+          <Modal.Body>
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              <div>
+                <Label style={{ fontSize: 12, color: "var(--ink-3)", marginBottom: 8, display: "block" }}>贷款名称</Label>
+                <input style={inputStyle} placeholder="例如：建行房贷" value={form.name} onChange={(e) => patch({ name: e.target.value })} />
+              </div>
+              <div>
+                <Label style={{ fontSize: 12, color: "var(--ink-3)", marginBottom: 8, display: "block" }}>贷款机构</Label>
+                <input style={inputStyle} placeholder="例如：中国建设银行" value={form.bank} onChange={(e) => patch({ bank: e.target.value })} />
+              </div>
+              <div>
+                <Label style={{ fontSize: 12, color: "var(--ink-3)", marginBottom: 8, display: "block" }}>贷款本金</Label>
+                <input style={inputStyle} type="number" min="0" step="1000" placeholder="0" value={form.principal} onChange={(e) => patch({ principal: e.target.value })} />
+              </div>
+              <div>
+                <Label style={{ fontSize: 12, color: "var(--ink-3)", marginBottom: 8, display: "block" }}>月供金额</Label>
+                <input style={inputStyle} type="number" min="0" step="0.01" placeholder="0.00" value={form.monthly} onChange={(e) => patch({ monthly: e.target.value })} />
+              </div>
+              <div>
+                <Label style={{ fontSize: 12, color: "var(--ink-3)", marginBottom: 8, display: "block" }}>年利率 (%)</Label>
+                <input style={inputStyle} type="number" min="0" step="0.01" placeholder="4.5" value={form.rate} onChange={(e) => patch({ rate: e.target.value })} />
+              </div>
+              <div>
+                <Label style={{ fontSize: 12, color: "var(--ink-3)", marginBottom: 8, display: "block" }}>总期数 (月)</Label>
+                <input style={inputStyle} type="number" min="1" step="1" placeholder="120" value={form.termTotal} onChange={(e) => patch({ termTotal: e.target.value })} />
+              </div>
+              <div>
+                <Label style={{ fontSize: 12, color: "var(--ink-3)", marginBottom: 8, display: "block" }}>起始日期</Label>
+                <input style={inputStyle} type="date" value={form.startDate} onChange={(e) => patch({ startDate: e.target.value })} />
+              </div>
+            </div>
+          </Modal.Body>
+          <Modal.Footer>
+            <Button variant="primary" style={{ borderRadius: 5 }} isDisabled={!form.name.trim() || !form.monthly} onPress={handleClose}>保存</Button>
+            <Button variant="outline" style={{ borderRadius: 5 }} slot="close">取消</Button>
+          </Modal.Footer>
+        </Modal.Dialog>
+      </Modal.Container>
+    </Modal.Backdrop>
+  )
 }
 
 export function LoansPage() {
-  const plans = useFlowmStore((s) => s.plans)
-  const loadPlans = useFlowmStore((s) => s.loadPlans)
-  const createPlan = useFlowmStore((s) => s.createPlan)
-  const updatePlan = useFlowmStore((s) => s.updatePlan)
-
-  const [tip, setTip] = useState<TipState>(null)
-  const [showForm, setShowForm] = useState(false)
-  const [form, setForm] = useState<LoanForm>(EMPTY)
-  const [saving, setSaving] = useState(false)
-
-  useEffect(() => { void loadPlans() }, [loadPlans])
-
-  const loanPlans = useMemo(() => plans.filter((p) => p.planType === "loan" && p.status !== "cancelled"), [plans])
-  const loans = useMemo<LoanBar[]>(() => loanPlans.map(buildLoan), [loanPlans])
-
-  const totalLiab = loans.reduce((s, l) => s + l.remain, 0)
-  const totalMonthly = loans.reduce((s, l) => s + l.monthly, 0)
-
-  function openAdd() { setForm(EMPTY); setShowForm(true) }
-  function openEdit(p: PlanSummary) {
-    const meta = (p.meta ?? {}) as Record<string, unknown>
-    setForm({
-      id: p.id, name: p.name,
-      institution: (meta.institution as string) ?? p.counterparty ?? "",
-      principalTotal: String(meta.principalTotal ?? ""),
-      monthlyPayment: String(Math.abs(Number(p.amount) || 0)),
-      annualRate: String(meta.annualRate ?? "4.5"),
-      termTotal: String(meta.termTotal ?? "120"),
-      startDate: p.startDate?.slice(0, 10) ?? new Date().toISOString().slice(0, 10),
-    })
-    setShowForm(true)
-  }
-
-  async function save() {
-    if (!form.name.trim() || !form.monthlyPayment) return
-    setSaving(true)
-    try {
-      const payload = {
-        planType: "loan",
-        name: form.name.trim(),
-        counterparty: form.institution || undefined,
-        amount: (-Math.abs(Number(form.monthlyPayment))).toFixed(2),
-        currency: "CNY",
-        scheduleRule: "FREQ=MONTHLY",
-        startDate: form.startDate,
-        flowKind: "expense",
-        status: "active",
-        meta: {
-          institution: form.institution,
-          principalTotal: Number(form.principalTotal) || 0,
-          annualRate: Number(form.annualRate) || 4.5,
-          termTotal: Number(form.termTotal) || 120,
-        },
-      }
-      if (form.id) {
-        await updatePlan({ id: form.id, ...payload })
-      } else {
-        await createPlan(payload)
-      }
-      setShowForm(false)
-    } finally { setSaving(false) }
-  }
-
-  async function cancelLoan(id: number) {
-    await updatePlan({ id, status: "cancelled" })
-  }
+  const [tip, setTip] = useState<Tip>(null)
+  const [showAdd, setShowAdd] = useState(false)
 
   return (
-    <Shell>
-      <div style={{ display: "flex", alignItems: "flex-start", gap: 44, paddingBottom: 16, borderBottom: "1px solid var(--hair-2)" }}>
-        <div className="dm-stat">
-          <div className="l">欠款总额</div>
-          <div className="dm-num" style={{ fontSize: 34, marginTop: 3 }}>¥{fmt(totalLiab)}</div>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden", background: "white" }}>
+      {/* Fixed header */}
+      <div style={{ flexShrink: 0, padding: "28px 32px 16px", borderBottom: "1px solid var(--hair-2)" }}>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 44 }}>
+        <div>
+          <div style={{ fontSize: 11, color: "var(--ink-3)" }}>欠款总额</div>
+          <div style={{ fontFamily: "var(--mono)", fontSize: 34, fontWeight: 600, letterSpacing: "-0.03em", color: "var(--ink)", marginTop: 3 }}>
+            ¥{fmt(totalLiab)}
+          </div>
         </div>
-        <div className="dm-stat" style={{ paddingTop: 6 }}>
-          <div className="l">每月还款</div>
-          <div className="v" style={{ fontSize: 16 }}>¥{fmt(totalMonthly)}</div>
+        <div style={{ paddingTop: 6 }}>
+          <div style={{ fontSize: 11, color: "var(--ink-3)" }}>每月还款</div>
+          <div style={{ fontFamily: "var(--mono)", fontSize: 16, fontWeight: 500, color: "var(--ink)", marginTop: 3, letterSpacing: "-0.01em" }}>
+            ¥{fmt(totalMonthly)}
+          </div>
         </div>
-        <div className="dm-stat" style={{ paddingTop: 6 }}>
-          <div className="l">贷款数</div>
-          <div className="v" style={{ fontSize: 16 }}>{loans.length} 笔</div>
+        <div style={{ paddingTop: 6 }}>
+          <div style={{ fontSize: 11, color: "var(--ink-3)" }}>占每月固定支出</div>
+          <div style={{ fontFamily: "var(--mono)", fontSize: 16, fontWeight: 500, color: "var(--ink)", marginTop: 3, letterSpacing: "-0.01em" }}>
+            {fixedPct}%
+          </div>
         </div>
         <div style={{ marginLeft: "auto", paddingTop: 8 }}>
-          <Button size="sm" variant="primary" onPress={openAdd}>＋ 添加贷款</Button>
+          <Button size="sm" variant="primary" style={{ borderRadius: 5 }} onPress={() => setShowAdd(true)}>＋ 添加贷款</Button>
         </div>
       </div>
+      </div>
 
-      {loans.length === 0 ? (
-        <div className="es-wrap">
-          <div className="es-icon">
-            <svg width="28" height="28" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M2 6l6-3 6 3M3 6v6M13 6v6M6 6v6M10 6v6M2 13h12" />
-            </svg>
-          </div>
-          <div className="es-title">还没有贷款记录</div>
-          <div className="es-sub">记录房贷、车贷或其他分期，Flowm 会显示还款进度。</div>
-          <div className="es-actions">
-            <Button variant="primary" onPress={openAdd}>添加贷款</Button>
-          </div>
-        </div>
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 26, marginTop: 22 }}>
-          {loans.map((l, li) => {
-            const pct = l.termTotal > 0 ? (l.paid / l.termTotal) * 100 : 0
-            const yrsLeft = (l.termLeft / 12).toFixed(1)
-            const planItem = loanPlans.find((p) => p.id === l.id)
-            return (
-              <div key={l.id}>
-                <div style={{ display: "flex", alignItems: "baseline", marginBottom: 12 }}>
-                  <span style={{ fontSize: 14, fontWeight: 600 }}>{l.name}</span>
-                  <span className="dim" style={{ fontSize: 11, marginLeft: 8 }}>
-                    {l.institution} · {l.rate}% · 月供 ¥{fmt(l.monthly)} · 共 {l.termTotal} 期
-                  </span>
-                  <div style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: "center" }}>
-                    <span className="mono" style={{ fontSize: 18, fontWeight: 600 }}>¥{fmt(l.remain)}</span>
-                    {planItem && <Button size="sm" variant="secondary" onPress={() => openEdit(planItem)}>编辑</Button>}
-                    <Button size="sm" variant="danger-soft" onPress={() => void cancelLoan(l.id)}>删</Button>
-                  </div>
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                  <div className="lbars" style={{ flex: 1 }} onMouseLeave={() => setTip(null)}>
-                    {l.sched.map((s, k) => {
-                      const cls = "lbar" + (k < l.paid ? (k === l.paid - 1 ? " cur" : " on") : "")
-                      return (
-                        <div
-                          key={k}
-                          className={cls}
-                          onMouseEnter={(e) => {
-                            const el = e.currentTarget
-                            const gw = el.parentElement?.offsetWidth ?? 0
-                            setTip({ li, k, principal: s.principal, interest: s.interest, monthly: l.monthly, paid: k < l.paid, left: el.offsetLeft + el.offsetWidth / 2, top: el.offsetTop, gw })
-                          }}
-                        />
-                      )
-                    })}
-                    {tip?.li === li && (() => {
-                      const al = tip.left > tip.gw * 0.8 ? "r" : tip.left < tip.gw * 0.2 ? "l" : "c"
-                      const tf = (al === "r" ? "translate(-100%,-100%)" : al === "l" ? "translate(0,-100%)" : "translate(-50%,-100%)") + " translateY(-9px)"
-                      const ar = al === "r" ? "calc(100% - 14px)" : al === "l" ? "10px" : "50%"
-                      return (
-                        <div className="ltip" style={{ left: tip.left, top: tip.top, transform: tf }}>
-                          <div className="h">第 {tip.k + 1} / {l.termTotal} 期 · {tip.paid ? "已还" : "未还"}</div>
-                          <div className="row">
-                            <div className="c"><span className="k">本金</span><span className="v">¥{fmt(tip.principal)}</span></div>
-                            <div className="c"><span className="k">利息</span><span className="v">¥{fmt(tip.interest)}</span></div>
-                            <div className="c"><span className="k">月供</span><span className="v">¥{fmt(tip.monthly)}</span></div>
-                          </div>
-                          <span className="arrow" style={{ left: ar, transform: "translateX(-50%) rotate(45deg)" }} />
+      {/* Scrollable content */}
+      <ScrollArea className="h-full" style={{ flex: 1, minHeight: 0 }}>
+      <div style={{ padding: "22px 32px 112px", display: "flex", flexDirection: "column", gap: 26 }}>
+        {LOANS.map((l, li) => {
+          const pct = (l.paid / l.termTotal) * 100
+          const yrsLeft = (l.termLeft / 12).toFixed(1)
+          const paidAmt = l.total - l.remain
+
+          return (
+            <div key={l.id}>
+              {/* Title row */}
+              <div style={{ display: "flex", alignItems: "baseline", marginBottom: 12 }}>
+                <span style={{ fontSize: 14, fontWeight: 600, color: "var(--ink)" }}>{l.name}</span>
+                <span style={{ fontSize: 11, color: "var(--ink-4)", marginLeft: 8 }}>
+                  {l.bank} · {l.rate}% · 月供 ¥{fmt(l.monthly)} · 每条 1 期
+                </span>
+                <span style={{ fontFamily: "var(--mono)", fontSize: 18, fontWeight: 600, marginLeft: "auto", letterSpacing: "-0.02em" }}>
+                  ¥{fmt(l.remain)}
+                </span>
+              </div>
+
+              {/* Bars + pct */}
+              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                <div
+                  style={{ position: "relative", display: "flex", gap: 2, height: 42, flex: 1, alignItems: "stretch" }}
+                  onMouseLeave={() => setTip(null)}
+                >
+                  {l.sched.map((s, k) => {
+                    const isPaid = k < l.paid
+                    const isCur  = k === l.paid - 1
+                    const isHov  = tip?.li === li && tip.k === k
+                    return (
+                      <div
+                        key={k}
+                        style={{
+                          flex: "1 1 0", minWidth: 0, borderRadius: 2, cursor: "pointer",
+                          background: isPaid ? "var(--accent)" : "var(--surface-3)",
+                          boxShadow: isCur
+                            ? "0 0 0 2px var(--surface), 0 0 0 3.5px var(--accent)"
+                            : isPaid ? "none" : "inset 0 0 0 1px var(--hair)",
+                          zIndex: isCur ? 2 : isHov ? 3 : undefined,
+                          transform: isHov ? "scaleY(1.12)" : undefined,
+                          outline: isHov ? "1.5px solid var(--ink)" : undefined,
+                          outlineOffset: isHov ? 0 : undefined,
+                          transition: "transform .08s",
+                        }}
+                        onMouseEnter={(e) => {
+                          const el = e.currentTarget
+                          const gw = el.parentElement?.offsetWidth ?? 0
+                          setTip({ li, k, principal: s.principal, interest: s.interest, monthly: l.monthly, paid: isPaid, left: el.offsetLeft + el.offsetWidth / 2, gw })
+                        }}
+                      />
+                    )
+                  })}
+
+                  {/* Tooltip */}
+                  {tip?.li === li && (() => {
+                    const al = tip.left > tip.gw * 0.8 ? "r" : tip.left < tip.gw * 0.2 ? "l" : "c"
+                    const tf = (al === "r" ? "translate(-100%,-100%)" : al === "l" ? "translate(0,-100%)" : "translate(-50%,-100%)") + " translateY(-9px)"
+                    const arLeft = al === "r" ? "calc(100% - 14px)" : al === "l" ? "10px" : "50%"
+                    return (
+                      <div style={{
+                        position: "absolute", left: tip.left, top: 0, transform: tf,
+                        zIndex: 30, pointerEvents: "none",
+                        background: "var(--ink)", color: "var(--surface)",
+                        borderRadius: 8, padding: "8px 12px", whiteSpace: "nowrap",
+                      }}>
+                        <div style={{ fontSize: 10, fontWeight: 600, opacity: 0.65, marginBottom: 5, letterSpacing: ".03em" }}>
+                          第 {tip.k + 1} / {l.termTotal} 期 · {tip.paid ? "已还" : "未还"}
                         </div>
-                      )
-                    })()}
-                  </div>
-                  <span className="mono" style={{ fontSize: 13, fontWeight: 600, color: "var(--accent)", flex: "0 0 auto", whiteSpace: "nowrap" }}>
-                    已还 {pct.toFixed(0)}%
-                  </span>
+                        <div style={{ display: "flex", gap: 16 }}>
+                          {[["本金", tip.principal], ["利息", tip.interest], ["月供", tip.monthly]].map(([label, val]) => (
+                            <div key={label as string} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                              <span style={{ fontSize: 9, fontWeight: 500, opacity: 0.6 }}>{label}</span>
+                              <span style={{ fontFamily: "var(--mono)", fontSize: 12, fontWeight: 600 }}>¥{fmt(val as number)}</span>
+                            </div>
+                          ))}
+                        </div>
+                        <span style={{
+                          position: "absolute", bottom: -4, left: arLeft,
+                          transform: "translateX(-50%) rotate(45deg)",
+                          width: 8, height: 8, background: "var(--ink)",
+                        }} />
+                      </div>
+                    )
+                  })()}
                 </div>
-                <div style={{ display: "flex", alignItems: "center", marginTop: 12, gap: 18, fontSize: 11 }}>
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                    <span className="cdot" style={{ background: "var(--accent)", width: 8, height: 8 }} />
-                    <span className="dim">已还 {l.paid} 期</span>
-                    <b className="mono">¥{fmt(Math.max(0, l.total - l.remain))}</b>
-                  </span>
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                    <span className="cdot" style={{ background: "var(--surface-3)", width: 8, height: 8, boxShadow: "inset 0 0 0 1px var(--hair)" }} />
-                    <span className="dim">剩 {l.termLeft} 期 · 余本金</span>
-                    <b className="mono">¥{fmt(l.remain)}</b>
-                  </span>
-                  <span className="mono dim" style={{ marginLeft: "auto", whiteSpace: "nowrap" }}>
-                    已还 {pct.toFixed(0)}% · 约 {yrsLeft} 年还清
-                  </span>
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      )}
 
-      {showForm && (
-        <div className="wf-scrim" onClick={(e) => { if (e.target === e.currentTarget) setShowForm(false) }}>
-          <div className="wf-modal">
-            <div className="wf-head">
-              <div>
-                <div className="wf-title">{form.id ? "编辑贷款" : "添加贷款"}</div>
-                <div className="wf-sub">房贷、车贷或其他分期</div>
+                {/* Pct label */}
+                <span style={{
+                  fontFamily: "var(--mono)", fontSize: 13, fontWeight: 600,
+                  color: "var(--accent)", flexShrink: 0, whiteSpace: "nowrap",
+                }}>
+                  已还 {pct.toFixed(0)}%
+                </span>
               </div>
-              <Button isIconOnly size="sm" variant="secondary" onPress={() => setShowForm(false)}>✕</Button>
-            </div>
-            <div className="wf-body">
-              <div className="wf-field nb">
-                <div className="wf-flabel">贷款名称</div>
-                <Input
-                  variant="primary"
-                  value={form.name}
-                  placeholder="例如：建行房贷"
-                  onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                />
-              </div>
-              <div className="wf-field">
-                <div className="wf-flabel">贷款机构</div>
-                <Input
-                  variant="primary"
-                  value={form.institution}
-                  placeholder="例如：中国建设银行"
-                  onChange={(e) => setForm((f) => ({ ...f, institution: e.target.value }))}
-                />
-              </div>
-              <div className="wf-field">
-                <div className="wf-flabel">贷款本金</div>
-                <Input
-                  variant="primary"
-                  type="number"
-                  min="0"
-                  step="1000"
-                  value={form.principalTotal}
-                  placeholder="0"
-                  onChange={(e) => setForm((f) => ({ ...f, principalTotal: e.target.value }))}
-                />
-              </div>
-              <div className="wf-field">
-                <div className="wf-flabel">月供金额</div>
-                <Input
-                  variant="primary"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={form.monthlyPayment}
-                  placeholder="0.00"
-                  onChange={(e) => setForm((f) => ({ ...f, monthlyPayment: e.target.value }))}
-                />
-              </div>
-              <div className="wf-field">
-                <div className="wf-flabel">年利率 (%)</div>
-                <Input
-                  variant="primary"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={form.annualRate}
-                  placeholder="4.5"
-                  onChange={(e) => setForm((f) => ({ ...f, annualRate: e.target.value }))}
-                />
-              </div>
-              <div className="wf-field">
-                <div className="wf-flabel">总期数 (月)</div>
-                <Input
-                  variant="primary"
-                  type="number"
-                  min="1"
-                  step="1"
-                  value={form.termTotal}
-                  placeholder="120"
-                  onChange={(e) => setForm((f) => ({ ...f, termTotal: e.target.value }))}
-                />
-              </div>
-              <div className="wf-field">
-                <div className="wf-flabel">起始日期</div>
-                <input className="wf-input" type="date" value={form.startDate}
-                  onChange={(e) => setForm((f) => ({ ...f, startDate: e.target.value }))} />
+
+              {/* Legend row */}
+              <div style={{ display: "flex", alignItems: "center", marginTop: 12, gap: 18, fontSize: 11 }}>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: 2, background: "var(--accent)", flexShrink: 0, display: "inline-block" }} />
+                  <span style={{ color: "var(--ink-4)" }}>已还 {l.paid} 期 · 偿本金</span>
+                  <b style={{ fontFamily: "var(--mono)", fontWeight: 600 }}>¥{fmt(paidAmt)}</b>
+                </span>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: 2, background: "var(--surface-3)", boxShadow: "inset 0 0 0 1px var(--hair)", flexShrink: 0, display: "inline-block" }} />
+                  <span style={{ color: "var(--ink-4)" }}>剩 {l.termLeft} 期 · 余本金</span>
+                  <b style={{ fontFamily: "var(--mono)", fontWeight: 600 }}>¥{fmt(l.remain)}</b>
+                </span>
+                <span style={{ fontFamily: "var(--mono)", color: "var(--ink-4)", marginLeft: "auto", whiteSpace: "nowrap" }}>
+                  已还 {pct.toFixed(0)}% · 约 {yrsLeft} 年还清
+                </span>
               </div>
             </div>
-            <div className="wf-foot">
-              <Button variant="primary" isDisabled={saving} onPress={() => void save()}>
-                {saving ? "保存中…" : "保存"}
-              </Button>
-              <Button variant="outline" onPress={() => setShowForm(false)}>取消</Button>
-            </div>
-          </div>
+          )
+        })}
+
+        {/* Credit card row */}
+        <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 0", borderTop: "1px solid var(--hair-2)" }}>
+          <span style={{ fontSize: 13, fontWeight: 500, color: "var(--ink)" }}>{CARD.name}</span>
+          <span style={{ fontSize: 11, color: "var(--ink-4)" }}>{CARD.bank} · {CARD.label}</span>
+          <span style={{ fontFamily: "var(--mono)", fontSize: 16, fontWeight: 600, marginLeft: "auto", letterSpacing: "-0.02em" }}>
+            ¥{fmt(CARD.remain)}
+          </span>
         </div>
-      )}
-    </Shell>
+      </div>
+      </ScrollArea>
+
+      <Dock />
+      <AddLoanModal open={showAdd} onClose={() => setShowAdd(false)} />
+    </div>
   )
 }

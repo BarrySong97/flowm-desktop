@@ -1,187 +1,214 @@
-import { useEffect, useMemo, useState } from "react"
-import { Button, Input } from "@heroui/react"
-import type { PlanSummary } from "@flowm/api"
-import { useFlowmStore } from "../lib/stores/flowmStore"
-import { Shell } from "../components/layout/Shell"
+import { useState } from "react"
+import { Button, Label, Modal } from "@heroui/react"
+import { Dock } from "../components/layout/Dock"
+import { ScrollArea } from "../components/ui/ScrollArea"
 
 function fmt(n: number, d = 0) {
   return n.toLocaleString("zh-CN", { minimumFractionDigits: d, maximumFractionDigits: d })
 }
 
-function cycleLabel(rule: string): string {
-  if (!rule) return "月付"
-  const r = rule.toUpperCase()
-  if (r.includes("WEEKLY")) return "周付"
-  if (r.includes("YEARLY") || r.includes("ANNUAL")) return "年付"
-  return "月付"
+interface Sub {
+  id: string; name: string; cat: "fun" | "sub" | "shop"
+  cycle: "月" | "年"; amt: number; next: string
+  cur: string; raw?: string; auto: boolean
 }
 
-function monthlyAmt(plan: PlanSummary): number {
-  const amt = Math.abs(Number(plan.amount) || 0)
-  const r = (plan.scheduleRule ?? "").toUpperCase()
-  if (r.includes("YEARLY") || r.includes("ANNUAL")) return amt / 12
-  if (r.includes("WEEKLY")) return amt * 4.33
-  return amt
-}
-
-type SubForm = {
-  id?: number
-  name: string
-  amount: string
-  currency: string
-  scheduleRule: string
-  nextDueDate: string
-}
-const EMPTY: SubForm = {
-  name: "", amount: "", currency: "CNY",
-  scheduleRule: "FREQ=MONTHLY", nextDueDate: new Date().toISOString().slice(0, 10),
-}
-
-const CAT_COLORS = [
-  "var(--c-sub)", "var(--c-food)", "var(--c-trans)", "var(--c-shop)",
-  "var(--c-fun)", "var(--c-live)", "var(--c-invest)",
+const SUBS: Sub[] = [
+  { id: "fitness", name: "威尔士健身",  cat: "fun",  cycle: "月", amt: 299, next: "06-21", cur: "CNY", auto: true },
+  { id: "gpt",     name: "ChatGPT Plus", cat: "sub",  cycle: "月", amt: 145, next: "06-14", cur: "USD", raw: "$20", auto: true },
+  { id: "iqiyi",   name: "爱奇艺 黄金", cat: "fun",  cycle: "月", amt: 25,  next: "06-11", cur: "CNY", auto: true },
+  { id: "icloud",  name: "iCloud 200G", cat: "sub",  cycle: "月", amt: 21,  next: "06-19", cur: "CNY", auto: true },
+  { id: "netease", name: "网易云 黑胶", cat: "fun",  cycle: "月", amt: 18,  next: "06-27", cur: "CNY", auto: true },
+  { id: "meituan", name: "美团 会员",   cat: "sub",  cycle: "月", amt: 15,  next: "06-23", cur: "CNY", auto: true },
+  { id: "sam",     name: "山姆会员",    cat: "shop", cycle: "年", amt: 260, next: "11-08", cur: "CNY", auto: false },
+  { id: "jd",      name: "京东 PLUS",   cat: "shop", cycle: "年", amt: 149, next: "09-02", cur: "CNY", auto: true },
 ]
 
-export function SubscriptionsPage() {
-  const plans = useFlowmStore((s) => s.plans)
-  const loadPlans = useFlowmStore((s) => s.loadPlans)
-  const createPlan = useFlowmStore((s) => s.createPlan)
-  const updatePlan = useFlowmStore((s) => s.updatePlan)
+const CAT_COLOR: Record<Sub["cat"], string> = {
+  fun: "var(--c-fun)",
+  sub: "var(--c-sub)",
+  shop: "var(--c-shop)",
+}
 
-  const [showForm, setShowForm] = useState(false)
+const YEAR = 2026, MON = 6, TODAY = 11
+
+const subMonthly = SUBS.reduce((s, x) => s + (x.cycle === "年" ? x.amt / 12 : x.amt), 0)
+const subYearly  = SUBS.reduce((s, x) => s + (x.cycle === "年" ? x.amt : x.amt * 12), 0)
+
+const byDay: Record<number, Sub[]> = {}
+SUBS.forEach((s) => {
+  const [m, d] = s.next.split("-").map(Number)
+  if (m === MON) (byDay[d] = byDay[d] ?? []).push(s)
+})
+const monthCharges = Object.values(byDay).flat()
+const monthTotal = monthCharges.reduce((s, x) => s + x.amt, 0)
+
+const daysInMonth = new Date(YEAR, MON, 0).getDate()
+const firstWd = (new Date(YEAR, MON - 1, 1).getDay() + 6) % 7
+const cells: (number | null)[] = []
+for (let i = 0; i < firstWd; i++) cells.push(null)
+for (let d = 1; d <= daysInMonth; d++) cells.push(d)
+while (cells.length % 7) cells.push(null)
+
+type SubForm = { name: string; cycle: "月" | "年"; amt: string; next: string; auto: boolean }
+const EMPTY: SubForm = { name: "", cycle: "月", amt: "", next: "2026-06-11", auto: true }
+
+function AddSubModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [form, setForm] = useState<SubForm>(EMPTY)
-  const [saving, setSaving] = useState(false)
-
-  useEffect(() => { void loadPlans() }, [loadPlans])
-
-  const subs = useMemo(() => plans.filter((p) => p.planType === "subscription" && p.status !== "cancelled"), [plans])
-
-  const now = new Date()
-  const YEAR = now.getFullYear()
-  const MON = now.getMonth() + 1
-  const TODAY = now.getDate()
-
-  const yearly = subs.reduce((s, x) => s + monthlyAmt(x) * 12, 0)
-  const monthly = subs.reduce((s, x) => s + monthlyAmt(x), 0)
-
-  const byDay = useMemo(() => {
-    const map: Record<number, PlanSummary[]> = {}
-    for (const s of subs) {
-      if (!s.nextDueDate) continue
-      const d = new Date(s.nextDueDate)
-      if (d.getFullYear() === YEAR && d.getMonth() + 1 === MON) {
-        const day = d.getDate();
-        (map[day] = map[day] ?? []).push(s)
-      }
-    }
-    return map
-  }, [subs, YEAR, MON])
-
-  const monthCharges = Object.values(byDay).flat()
-  const monthTotal = monthCharges.reduce((s, p) => s + Math.abs(Number(p.amount) || 0), 0)
-
-  const daysInMonth = new Date(YEAR, MON, 0).getDate()
-  const firstWd = (new Date(YEAR, MON - 1, 1).getDay() + 6) % 7
-  const cells: (number | null)[] = []
-  for (let i = 0; i < firstWd; i++) cells.push(null)
-  for (let d = 1; d <= daysInMonth; d++) cells.push(d)
-  while (cells.length % 7) cells.push(null)
-
-  function openAdd() { setForm(EMPTY); setShowForm(true) }
-  function openEdit(p: PlanSummary) {
-    setForm({
-      id: p.id, name: p.name, amount: String(Math.abs(Number(p.amount) || 0)),
-      currency: p.currency, scheduleRule: p.scheduleRule,
-      nextDueDate: p.nextDueDate?.slice(0, 10) ?? new Date().toISOString().slice(0, 10),
-    })
-    setShowForm(true)
-  }
-
-  async function save() {
-    if (!form.name.trim() || !form.amount) return
-    setSaving(true)
-    try {
-      const payload = {
-        planType: "subscription",
-        name: form.name.trim(),
-        amount: (-Math.abs(Number(form.amount))).toFixed(2),
-        currency: form.currency,
-        scheduleRule: form.scheduleRule,
-        startDate: form.nextDueDate,
-        nextDueDate: form.nextDueDate,
-        flowKind: "expense",
-        status: "active",
-      }
-      if (form.id) {
-        await updatePlan({ id: form.id, ...payload })
-      } else {
-        await createPlan(payload)
-      }
-      setShowForm(false)
-    } finally { setSaving(false) }
-  }
-
-  async function cancelSub(id: number) {
-    await updatePlan({ id, status: "cancelled" })
-  }
+  function patch(p: Partial<SubForm>) { setForm((f) => ({ ...f, ...p })) }
+  function handleClose() { setForm(EMPTY); onClose() }
 
   return (
-    <Shell>
-      <div style={{ display: "flex", alignItems: "flex-start", gap: 40, paddingBottom: 14, borderBottom: "1px solid var(--hair-2)" }}>
-        <div className="dm-stat">
-          <div className="l">每月订阅</div>
-          <div className="dm-num" style={{ fontSize: 34, marginTop: 3 }}>¥{fmt(monthly)}</div>
-        </div>
-        <div className="dm-stat" style={{ paddingTop: 6 }}>
-          <div className="l">本月扣费</div>
-          <div className="v" style={{ fontSize: 16 }}>¥{fmt(monthTotal)} · {monthCharges.length} 笔</div>
-        </div>
-        <div className="dm-stat" style={{ paddingTop: 6 }}>
-          <div className="l">订阅数</div>
-          <div className="v" style={{ fontSize: 16 }}>{subs.length} 项</div>
-        </div>
-        <div style={{ marginLeft: "auto", paddingTop: 8 }}>
-          <Button size="sm" variant="primary" onPress={openAdd}>＋ 添加订阅</Button>
+    <Modal.Backdrop isOpen={open} onOpenChange={(v) => { if (!v) handleClose() }}>
+      <Modal.Container>
+        <Modal.Dialog style={{ maxWidth: 420 }}>
+          <Modal.CloseTrigger />
+          <Modal.Header>
+            <Modal.Heading>添加订阅</Modal.Heading>
+            <p style={{ fontSize: 12, color: "var(--ink-4)", marginTop: 2 }}>周期性自动扣费</p>
+          </Modal.Header>
+          <Modal.Body>
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              <div>
+                <Label style={{ fontSize: 12, color: "var(--ink-3)", marginBottom: 8, display: "block" }}>名称</Label>
+                <input
+                  style={{ width: "100%", font: "500 14px var(--sans)", color: "var(--ink)", padding: "10px 12px", border: "1px solid var(--hair)", borderRadius: 9, background: "var(--surface)", outline: "none", boxSizing: "border-box" }}
+                  placeholder="例如：Netflix"
+                  value={form.name}
+                  onChange={(e) => patch({ name: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label style={{ fontSize: 12, color: "var(--ink-3)", marginBottom: 8, display: "block" }}>扣费金额</Label>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, border: "1px solid var(--hair)", borderRadius: 11, padding: "12px 16px", background: "var(--surface-2)" }}>
+                  <span style={{ fontSize: 22, fontWeight: 500, fontFamily: "var(--mono)", color: "var(--ink-3)" }}>¥</span>
+                  <input
+                    type="number" min="0" step="0.01"
+                    style={{ flex: 1, minWidth: 0, font: "600 30px var(--mono)", color: "var(--ink)", border: "none", background: "transparent", outline: "none", letterSpacing: "-0.01em" }}
+                    placeholder="0.00"
+                    value={form.amt}
+                    onChange={(e) => patch({ amt: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div>
+                <Label style={{ fontSize: 12, color: "var(--ink-3)", marginBottom: 8, display: "block" }}>扣费周期</Label>
+                <div style={{ display: "flex", gap: 8 }}>
+                  {(["月", "年"] as const).map((c) => (
+                    <button
+                      key={c}
+                      onClick={() => patch({ cycle: c })}
+                      style={{
+                        padding: "7px 20px", borderRadius: 9, fontSize: 13, fontWeight: 500, cursor: "pointer",
+                        border: form.cycle === c ? "1px solid var(--accent-line)" : "1px solid var(--hair)",
+                        background: form.cycle === c ? "var(--accent-soft)" : "var(--surface)",
+                        color: form.cycle === c ? "var(--accent)" : "var(--ink-2)",
+                        transition: "all .12s",
+                      }}
+                    >{c}付</button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <Label style={{ fontSize: 12, color: "var(--ink-3)", marginBottom: 8, display: "block" }}>下次扣费日期</Label>
+                <input
+                  type="date"
+                  style={{ width: "100%", font: "500 14px var(--sans)", color: "var(--ink)", padding: "10px 12px", border: "1px solid var(--hair)", borderRadius: 9, background: "var(--surface)", outline: "none", boxSizing: "border-box" }}
+                  value={form.next}
+                  onChange={(e) => patch({ next: e.target.value })}
+                />
+              </div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <Label style={{ fontSize: 13, color: "var(--ink-2)" }}>自动续费</Label>
+                <button
+                  onClick={() => patch({ auto: !form.auto })}
+                  style={{ width: 40, height: 22, borderRadius: 11, border: "none", cursor: "pointer", background: form.auto ? "var(--accent)" : "var(--hair-2)", position: "relative", transition: "background .15s" }}
+                >
+                  <span style={{ position: "absolute", top: 2, left: form.auto ? 20 : 2, width: 18, height: 18, borderRadius: "50%", background: "white", transition: "left .15s", boxShadow: "0 1px 3px rgba(0,0,0,.2)" }} />
+                </button>
+              </div>
+            </div>
+          </Modal.Body>
+          <Modal.Footer>
+            <Button variant="primary" style={{ borderRadius: 5 }} isDisabled={!form.name.trim() || !form.amt} onPress={handleClose}>保存</Button>
+            <Button variant="outline" style={{ borderRadius: 5 }} slot="close">取消</Button>
+          </Modal.Footer>
+        </Modal.Dialog>
+      </Modal.Container>
+    </Modal.Backdrop>
+  )
+}
+
+export function SubscriptionsPage() {
+  const [showAdd, setShowAdd] = useState(false)
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden", background: "white" }}>
+
+      {/* Fixed header */}
+      <div style={{ flexShrink: 0, padding: "28px 32px 16px", borderBottom: "1px solid var(--hair-2)" }}>
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 40 }}>
+          <div>
+            <div style={{ fontSize: 11, color: "var(--ink-3)" }}>每月订阅</div>
+            <div style={{ fontFamily: "var(--mono)", fontSize: 34, fontWeight: 600, letterSpacing: "-0.03em", color: "var(--ink)", marginTop: 3 }}>
+              ¥{fmt(subMonthly)}
+            </div>
+          </div>
+          <div style={{ paddingTop: 6 }}>
+            <div style={{ fontSize: 11, color: "var(--ink-3)" }}>本月扣费</div>
+            <div style={{ fontFamily: "var(--mono)", fontSize: 16, fontWeight: 500, color: "var(--ink)", marginTop: 3, letterSpacing: "-0.01em" }}>
+              ¥{fmt(monthTotal)} · {monthCharges.length} 笔
+            </div>
+          </div>
+          <div style={{ paddingTop: 6 }}>
+            <div style={{ fontSize: 11, color: "var(--ink-3)" }}>订阅数 / 自动续费</div>
+            <div style={{ fontFamily: "var(--mono)", fontSize: 16, fontWeight: 500, color: "var(--ink)", marginTop: 3, letterSpacing: "-0.01em" }}>
+              {SUBS.length} / {SUBS.filter((s) => s.auto).length}
+            </div>
+          </div>
+          <div style={{ marginLeft: "auto", paddingTop: 8 }}>
+            <Button size="sm" variant="primary" style={{ borderRadius: 5 }} onPress={() => setShowAdd(true)}>＋ 添加订阅</Button>
+          </div>
         </div>
       </div>
 
-      {subs.length === 0 ? (
-        <div className="es-wrap">
-          <div className="es-icon">
-            <svg width="28" height="28" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M3 8a5 5 0 018-3.5M13 8a5 5 0 01-8 3.5M11 3v2H9M5 13v-2h2" />
-            </svg>
-          </div>
-          <div className="es-title">还没有订阅记录</div>
-          <div className="es-sub">记录 Netflix、Spotify 等周期性扣费，Flowm 会在日历上显示扣费时间。</div>
-          <div className="es-actions">
-            <Button variant="primary" onPress={openAdd}>添加订阅</Button>
-          </div>
-        </div>
-      ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 330px", gap: 30, flex: 1, minHeight: 0, marginTop: 16 }}>
-          {/* Calendar */}
-          <div style={{ display: "flex", flexDirection: "column", minHeight: 0 }}>
+      {/* Two independent scroll columns */}
+      <div style={{ flex: 1, minHeight: 0, display: "flex", overflow: "hidden" }}>
+
+        {/* Left: calendar */}
+        <ScrollArea className="h-full" style={{ flex: 1 }}>
+          <div style={{ padding: "20px 32px 112px" }}>
             <div style={{ display: "flex", alignItems: "baseline", marginBottom: 12 }}>
-              <span className="dm-sec" style={{ margin: 0 }}>{YEAR} 年 {MON} 月</span>
-              <span className="dim" style={{ fontSize: 10.5, marginLeft: 10, whiteSpace: "nowrap" }}>有底色的日期 = 当天有订阅扣费</span>
+              <span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--ink)" }}>{YEAR} 年 {MON} 月</span>
+              <span style={{ fontSize: 10.5, color: "var(--ink-4)", marginLeft: 10, whiteSpace: "nowrap" }}>
+                有底色的日期 = 当天有订阅扣费
+              </span>
             </div>
-            <div className="cal" style={{ flex: 1 }}>
-              {["一", "二", "三", "四", "五", "六", "日"].map((w) => <div className="wd" key={w}>{w}</div>)}
+            <div className="sub-cal">
+              {["一", "二", "三", "四", "五", "六", "日"].map((w) => (
+                <div className="wd" key={w}>{w}</div>
+              ))}
               {cells.map((d, i) => {
                 if (!d) return <div className="cell empty" key={i} />
                 const chgs = byDay[d]
                 const cls = "cell" + (d === TODAY ? " today" : "") + (chgs ? " has" : "")
                 return (
                   <div className={cls} key={i}>
-                    <span className="dn">
-                      {d}{d === TODAY && <span style={{ marginLeft: 4, fontSize: 8, fontWeight: 700 }}>今天</span>}
+                    <span className="dn" style={{ fontFamily: "var(--mono)", fontSize: 11, fontWeight: 500, color: "var(--ink-3)" }}>
+                      {d}
+                      {d === TODAY && (
+                        <span style={{ marginLeft: 4, fontSize: 8, fontWeight: 700 }}>今天</span>
+                      )}
                     </span>
                     {chgs?.map((s, j) => (
-                      <div className="chg" key={j}>
-                        <span className="d" style={{ background: CAT_COLORS[j % CAT_COLORS.length] }} />
-                        <span className="a">¥{fmt(Math.abs(Number(s.amount) || 0))}</span>
-                        <span className="nm">{s.name.split(" ")[0]}</span>
+                      <div key={j} style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 3 }}>
+                        <span style={{ width: 6, height: 6, borderRadius: 2, flexShrink: 0, background: CAT_COLOR[s.cat] }} />
+                        <span style={{ fontFamily: "var(--mono)", fontSize: 10.5, fontWeight: 600, color: "var(--ink)", letterSpacing: "-0.02em" }}>
+                          ¥{fmt(s.amt)}
+                        </span>
+                        <span style={{ fontSize: 9, color: "var(--ink-4)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                          {s.name.split(" ")[0]}
+                        </span>
                       </div>
                     ))}
                   </div>
@@ -189,115 +216,68 @@ export function SubscriptionsPage() {
               })}
             </div>
           </div>
+        </ScrollArea>
 
-          {/* Receipt list */}
-          <div style={{ display: "flex", flexDirection: "column", minHeight: 0 }}>
-            <div className="dm-sec" style={{ marginBottom: 4 }}>全部订阅</div>
-            <div style={{ overflow: "hidden", flex: 1 }}>
-              {subs.map((s) => (
-                <div className="da-row" key={s.id} style={{ padding: "8px 0", gap: 10 }}>
-                  <div style={{ minWidth: 0, flex: 1 }}>
-                    <div className="nm">{s.name}</div>
-                    <div className="dim" style={{ fontSize: 10.5, marginTop: 1 }}>下次 {s.nextDueDate?.slice(0, 10) ?? "—"}</div>
+        {/* Right: subscription list */}
+        <ScrollArea className="h-full" style={{ width: 300, flexShrink: 0 }}>
+          <div style={{ padding: "20px 24px 112px" }}>
+            <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--ink)", marginBottom: 4 }}>全部订阅</div>
+            <div>
+              {SUBS.map((s, i) => (
+                <div
+                  key={s.id}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 10, padding: "8px 0",
+                    borderTop: i === 0 ? "none" : "1px solid var(--hair-3)",
+                  }}
+                >
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      {s.name}
+                    </div>
+                    <div style={{ fontSize: 10.5, color: "var(--ink-4)", marginTop: 1 }}>
+                      下次 {s.next} · {s.auto ? "自动续费" : "手动"}
+                    </div>
                   </div>
-                  <span className="pill" style={{ padding: "2px 8px", fontSize: 9.5 }}>{cycleLabel(s.scheduleRule)}付</span>
-                  <span className="mono" style={{ width: 70, textAlign: "right", fontSize: 13, fontWeight: 500 }}>
-                    ¥{fmt(Math.abs(Number(s.amount) || 0))}
+                  <span style={{
+                    display: "inline-flex", alignItems: "center", padding: "2px 8px",
+                    borderRadius: 100, fontSize: 9.5, border: "1px solid var(--hair)",
+                    background: "var(--surface-2)", color: "var(--ink-3)", whiteSpace: "nowrap", flexShrink: 0,
+                  }}>
+                    {s.cycle}付
                   </span>
-                  <Button size="sm" variant="secondary" onPress={() => openEdit(s)}>编辑</Button>
-                  <Button size="sm" variant="danger-soft" onPress={() => void cancelSub(s.id)}>删</Button>
+                  <span style={{ fontFamily: "var(--mono)", width: 52, textAlign: "right", fontSize: 13, fontWeight: 500, letterSpacing: "-0.01em", flexShrink: 0 }}>
+                    {s.raw ?? `¥${fmt(s.amt)}`}
+                  </span>
                 </div>
               ))}
             </div>
+
+            {/* Totals */}
             <div style={{ borderTop: "1px dashed var(--ink-4)", marginTop: 6, paddingTop: 12 }}>
               <div style={{ display: "flex", alignItems: "baseline", marginBottom: 5 }}>
                 <span style={{ fontSize: 11.5, color: "var(--ink-2)" }}>每月合计</span>
-                <span className="mono" style={{ marginLeft: "auto", fontSize: 19, fontWeight: 700, letterSpacing: "-0.02em" }}>¥{fmt(monthly)}</span>
+                <span style={{ fontFamily: "var(--mono)", marginLeft: "auto", fontSize: 19, fontWeight: 700, letterSpacing: "-0.02em" }}>
+                  ¥{fmt(subMonthly)}
+                </span>
               </div>
               <div style={{ display: "flex", alignItems: "baseline" }}>
-                <span className="dim" style={{ fontSize: 10.5 }}>每年合计</span>
-                <span className="mono dim" style={{ marginLeft: "auto", fontSize: 12 }}>¥{fmt(yearly)}</span>
+                <span style={{ fontSize: 10.5, color: "var(--ink-4)" }}>每年合计</span>
+                <span style={{ fontFamily: "var(--mono)", marginLeft: "auto", fontSize: 12, color: "var(--ink-4)" }}>
+                  ¥{fmt(subYearly)}
+                </span>
               </div>
               <div style={{ borderTop: "1px dashed var(--hair)", marginTop: 10, paddingTop: 8, display: "flex", justifyContent: "space-between" }}>
-                <span className="dim" style={{ fontSize: 9.5 }}>{subs.length} 项订阅</span>
-                <span className="dim" style={{ fontSize: 9.5 }}>FLOWM · {YEAR}/{String(MON).padStart(2, "0")}</span>
+                <span style={{ fontSize: 9.5, color: "var(--ink-4)" }}>{SUBS.length} 项订阅 · 自动续费 {SUBS.filter((s) => s.auto).length}</span>
+                <span style={{ fontSize: 9.5, color: "var(--ink-4)" }}>FLOWM · {YEAR}/{MON}</span>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        </ScrollArea>
+      </div>
 
-      {showForm && (
-        <div className="wf-scrim" onClick={(e) => { if (e.target === e.currentTarget) setShowForm(false) }}>
-          <div className="wf-modal">
-            <div className="wf-head">
-              <div>
-                <div className="wf-title">{form.id ? "编辑订阅" : "添加订阅"}</div>
-                <div className="wf-sub">周期性自动扣费</div>
-              </div>
-              <Button isIconOnly size="sm" variant="secondary" onPress={() => setShowForm(false)}>✕</Button>
-            </div>
-            <div className="wf-body">
-              <div className="wf-field nb">
-                <div className="wf-flabel">名称</div>
-                <Input
-                  variant="primary"
-                  value={form.name}
-                  placeholder="例如：Netflix"
-                  onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                />
-              </div>
-              <div className="wf-field">
-                <div className="wf-flabel">扣费金额</div>
-                <div style={{ display: "flex", gap: 8 }}>
-                  <Input
-                    variant="primary"
-                    style={{ flex: 1 }}
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={form.amount}
-                    placeholder="0.00"
-                    onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))}
-                  />
-                  <Input
-                    variant="primary"
-                    style={{ width: 72 }}
-                    value={form.currency}
-                    onChange={(e) => setForm((f) => ({ ...f, currency: e.target.value.toUpperCase() }))}
-                  />
-                </div>
-              </div>
-              <div className="wf-field">
-                <div className="wf-flabel">扣费周期</div>
-                <div className="wf-chips">
-                  {(["FREQ=MONTHLY", "FREQ=YEARLY", "FREQ=WEEKLY"] as const).map((r) => (
-                    <Button
-                      key={r}
-                      size="sm"
-                      variant={form.scheduleRule === r ? "primary" : "outline"}
-                      onPress={() => setForm((f) => ({ ...f, scheduleRule: r }))}
-                    >
-                      {r === "FREQ=MONTHLY" ? "月付" : r === "FREQ=YEARLY" ? "年付" : "周付"}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-              <div className="wf-field">
-                <div className="wf-flabel">下次扣费日期</div>
-                <input className="wf-input" type="date" value={form.nextDueDate}
-                  onChange={(e) => setForm((f) => ({ ...f, nextDueDate: e.target.value }))} />
-              </div>
-            </div>
-            <div className="wf-foot">
-              <Button variant="primary" isDisabled={saving} onPress={() => void save()}>
-                {saving ? "保存中…" : "保存"}
-              </Button>
-              <Button variant="outline" onPress={() => setShowForm(false)}>取消</Button>
-            </div>
-          </div>
-        </div>
-      )}
-    </Shell>
+      <Dock />
+      <AddSubModal open={showAdd} onClose={() => setShowAdd(false)} />
+    </div>
   )
 }
