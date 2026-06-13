@@ -7,22 +7,21 @@ business packages.
 
 ```text
 React UI
-  -> Zustand store/hooks
-  -> @flowm/api
-  -> @flowm/business or @flowm/db
-  -> SqliteStorageAdapter
-  -> ElectronSqlExecutor
+  -> React Query / tRPC client
   -> Electron preload IPC
-  -> Electron main better-sqlite3 connection
+  -> Electron main tRPC router
+  -> @flowm/api
+  -> @flowm/db
+  -> better-sqlite3 connection
   -> SQLite
 ```
 
 The renderer never imports Node or Electron main-process modules directly.
 Database calls cross the preload bridge through:
 
-- `window.flowmSql.executeSingleSql(statement)`
-- `window.flowmSql.executeBatchSql(statements)`
+- `window.flowm.trpcRequest(operation)`
 - `window.flowm.getDatabasePath()`
+- `window.flowm.databaseExists()`
 
 ## Workspace Ownership
 
@@ -30,8 +29,8 @@ Database calls cross the preload bridge through:
   Vite config, and packaging config.
 - `packages/api` owns the product facade used by the UI.
 - `packages/business` owns domain services and calculations.
-- `packages/db` owns schema, migrations, SQL storage adapter, and the renderer
-  SQL executor interface.
+- `packages/db` owns schema, migrations, and SQL execution primitives used by
+  the main process.
 - `packages/shared` owns shared primitives and utilities.
 - `packages/ui` owns reusable UI primitives and global styles.
 

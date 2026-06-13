@@ -5,8 +5,8 @@ This app owns the Flowm Electron shell and React renderer.
 ## Responsibilities
 
 - Electron main process and window lifecycle
-- Preload APIs exposed on `window.flowm` and `window.flowmSql`
-- React renderer, routes, Zustand store, and feature pages
+- Preload API exposed on `window.flowm`, including tRPC IPC requests
+- React renderer, routes, Jotai UI atoms, and feature pages
 - Desktop packaging config
 
 ## Commands

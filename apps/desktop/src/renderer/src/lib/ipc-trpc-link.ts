@@ -8,15 +8,6 @@ type IPCProfile = {
   type: string
   path: string
   mainMs: number
-  sqlCount: number
-  sqlMs: number
-  slowSql: Array<{
-    durationMs: number
-    rows: number
-    rowsAffected: number
-    paramsCount: number
-    sql: string
-  }>
 }
 
 type IPCResponse =

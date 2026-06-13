@@ -5,14 +5,13 @@ import type { AssetSnapshotSummary } from "@flowm/api"
 import { AreaChart, Area, XAxis, ResponsiveContainer, Tooltip } from "recharts"
 import { trpc } from "@/lib/trpc"
 import { usePagePerf } from "@/lib/debug/perf"
+import { formatNumber } from "@/lib/format"
 import { Kicker } from "../components/ui/Kicker"
 import { Dim } from "../components/ui/Dim"
 import { SectionTitle } from "../components/ui/SectionTitle"
 import { TYPE_LABEL } from "./AddAssetModal"
 
-function fmt(n: number) {
-  return n.toLocaleString("zh-CN", { minimumFractionDigits: 0, maximumFractionDigits: 0 })
-}
+const fmt = formatNumber
 
 interface HistoryEntry { date: string; label: string; value: number }
 

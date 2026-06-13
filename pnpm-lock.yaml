@@ -95,6 +95,9 @@ importers:
       i18next:
         specifier: ^26.2.0
         version: 26.2.0(typescript@5.8.3)
+      jotai:
+        specifier: ^2.20.1
+        version: 2.20.1(@babel/core@7.29.0)(@babel/template@7.28.6)(@types/react@19.2.15)(react@19.2.6)
       lucide-react:
         specifier: ^0.562.0
         version: 0.562.0(react@19.2.6)
@@ -125,9 +128,6 @@ importers:
       tailwindcss:
         specifier: ^4.1.17
         version: 4.3.0
-      zustand:
-        specifier: ^5.0.10
-        version: 5.0.13(@types/react@19.2.15)(immer@11.1.8)(react@19.2.6)(use-sync-external-store@1.6.0(react@19.2.6))
     devDependencies:
       '@electron-toolkit/tsconfig':
         specifier: ^2.0.0
@@ -3877,6 +3877,24 @@ packages:
     resolution: {integrity: sha512-AC/7JofJvZGrrneWNaEnJeOLUx+JlGt7tNa0wZiRPT4MY1wmfKjt2+6O2p2uz2+skll8OZZmJMNqeke7kKbNgQ==}
     hasBin: true
 
+  jotai@2.20.1:
+    resolution: {integrity: sha512-dnuKfU/GLi8B28RRMjQ3AfoN7kfzP8o41+AX2FmITZqEMY8PHnjABq+VkEooomLwYaGjda+pgy0yFSjaHX/ZPg==}
+    engines: {node: '>=12.20.0'}
+    peerDependencies:
+      '@babel/core': '>=7.0.0'
+      '@babel/template': '>=7.0.0'
+      '@types/react': '>=17.0.0'
+      react: '>=17.0.0'
+    peerDependenciesMeta:
+      '@babel/core':
+        optional: true
+      '@babel/template':
+        optional: true
+      '@types/react':
+        optional: true
+      react:
+        optional: true
+
   js-tokens@4.0.0:
     resolution: {integrity: sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ==}
 
@@ -7553,7 +7571,7 @@ snapshots:
       sirv: 3.0.2
       tinyglobby: 0.2.16
       tinyrainbow: 3.1.0
-      vitest: 4.1.7(@types/node@24.12.4)(@vitest/ui@4.1.7)(jsdom@27.4.0(@noble/hashes@1.8.0))(msw@2.14.6(@types/node@24.12.4)(typescript@5.8.3))(vite@8.0.14(@types/node@24.12.4)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.3))
+      vitest: 4.1.7(@types/node@24.12.4)(@vitest/ui@4.1.7)(jsdom@27.4.0(@noble/hashes@1.8.0))(msw@2.14.6(@types/node@24.12.4)(typescript@5.8.3))(vite@7.3.3(@types/node@24.12.4)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.3))
 
   '@vitest/utils@4.1.7':
     dependencies:
@@ -8983,6 +9001,13 @@ snapshots:
       picocolors: 1.1.1
 
   jiti@2.7.0: {}
+
+  jotai@2.20.1(@babel/core@7.29.0)(@babel/template@7.28.6)(@types/react@19.2.15)(react@19.2.6):
+    optionalDependencies:
+      '@babel/core': 7.29.0
+      '@babel/template': 7.28.6
+      '@types/react': 19.2.15
+      react: 19.2.6
 
   js-tokens@4.0.0: {}
 

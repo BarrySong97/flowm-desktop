@@ -5,26 +5,13 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Outlet, useNavigate, useRouterState } from "@tanstack/react-router"
 import { trpc } from "@/lib/trpc"
 import { usePagePerf } from "@/lib/debug/perf"
+import { BUDGET_CATEGORY_COLORS } from "@/lib/domainDisplay"
+import { formatNumber } from "@/lib/format"
+import { todayKey } from "@/lib/dates"
 import { AddBudgetModal } from "./AddBudgetModal"
 import type { BudgetForm } from "./AddBudgetModal"
 
-function fmt(n: number, d = 0) {
-  return n.toLocaleString("zh-CN", { minimumFractionDigits: d, maximumFractionDigits: d })
-}
-
-const COLOR_BY_NAME: Record<string, string> = {
-  餐饮: "var(--c-food)",
-  购物: "var(--c-shop)",
-  交通: "var(--c-trans)",
-  娱乐: "var(--c-fun)",
-  其他: "var(--c-other)",
-  订阅: "var(--c-sub)",
-  居住: "var(--c-home)",
-}
-
-function todayKey(): string {
-  return new Date().toISOString().slice(0, 10)
-}
+const fmt = formatNumber
 
 function Bar({ pct, color, h }: { pct: number; color: string; h: number }) {
   return (
@@ -70,7 +57,7 @@ export function BudgetPage() {
   const budgets = (progressQuery.data ?? []).map((row) => ({
     id: row.budgetItemId,
     name: row.budgetName,
-    color: row.color ?? COLOR_BY_NAME[row.budgetName.replace(/预算$/, "")] ?? "var(--accent)",
+    color: row.color ?? BUDGET_CATEGORY_COLORS[row.budgetName.replace(/预算$/, "")] ?? "var(--accent)",
     spent: Number(row.referenceUsed),
     limit: Number(row.budgeted),
   }))

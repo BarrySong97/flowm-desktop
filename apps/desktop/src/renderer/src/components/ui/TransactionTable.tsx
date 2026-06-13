@@ -1,19 +1,10 @@
 import { DataTable, DataTableRow, DataTableCell } from "./DataTable"
 import { ColorDot } from "./ColorDot"
+import { categoryColor } from "@/lib/domainDisplay"
+import { formatNumber } from "@/lib/format"
 
-export const CAT_COLOR: Record<string, string> = {
-  餐饮: "#e07b3a", 交通: "#4a8fc4", 购物: "#c46a9e",
-  订阅: "#7c6ac4", 娱乐: "#d4a017", 居住: "#5bac8e",
-  理财: "#2e86ab", 收入: "#14794a", 其他: "#9caca3", 转账: "#6b7d72",
-}
-
-export function categoryColor(name?: string): string {
-  return name ? (CAT_COLOR[name] ?? "#9caca3") : "#9caca3"
-}
-
-function fmt(n: number, decimals = 0) {
-  return n.toLocaleString("zh-CN", { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
-}
+const fmt = formatNumber
+export { categoryColor }
 
 interface TxRow {
   date: string

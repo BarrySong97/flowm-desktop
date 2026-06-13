@@ -5,16 +5,16 @@ import { Button } from "@heroui/react"
 import { Dock } from "../components/layout/Dock"
 import { ScrollArea } from "../components/ui/ScrollArea"
 import { trpc } from "@/lib/trpc"
+import { formatNumber } from "@/lib/format"
+import { todayKey } from "@/lib/dates"
 import { Route } from "../routes/budget.$id"
 
-function fmt(n: number, d = 0) {
-  return n.toLocaleString("zh-CN", { minimumFractionDigits: d, maximumFractionDigits: d })
-}
+const fmt = formatNumber
 
 export function BudgetDetailPage() {
   const { id } = Route.useParams()
   const navigate = useNavigate()
-  const today = new Date().toISOString().slice(0, 10)
+  const today = todayKey()
   const currentMonth = today.slice(0, 7)
   const monthLabel = `${parseInt(today.slice(5, 7))}月`
 

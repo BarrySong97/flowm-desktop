@@ -1,10 +1,9 @@
 import { useState } from "react"
 import { createPortal } from "react-dom"
+import { formatNumber } from "@/lib/format"
 import type { SchedRow } from "./loanSchedule"
 
-function fmt(n: number, d = 0) {
-  return n.toLocaleString("zh-CN", { minimumFractionDigits: d, maximumFractionDigits: d })
-}
+const fmt = formatNumber
 
 interface TipState {
   k: number

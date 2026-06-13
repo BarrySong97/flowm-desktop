@@ -6,25 +6,15 @@ import { Dock } from "../components/layout/Dock"
 import { ScrollArea } from "../components/ui/ScrollArea"
 import { trpc } from "@/lib/trpc"
 import { usePagePerf } from "@/lib/debug/perf"
+import { addDays, dateKey, todayKey } from "@/lib/dates"
+import { formatNumber } from "@/lib/format"
 import { LoanScheduleBar } from "./LoanScheduleBar"
 import { buildLoanSchedule } from "./loanSchedule"
 
-function fmt(n: number, d = 0) {
-  return n.toLocaleString("zh-CN", { minimumFractionDigits: d, maximumFractionDigits: d })
-}
-
-function addDays(date: Date, days: number): Date {
-  const next = new Date(date)
-  next.setDate(next.getDate() + days)
-  return next
-}
-
-function dateKey(date: Date): string {
-  return date.toISOString().slice(0, 10)
-}
+const fmt = formatNumber
 
 type LoanForm = { name: string; bank: string; principal: string; monthly: string; rate: string; termTotal: string; startDate: string }
-const EMPTY_FORM: LoanForm = { name: "", bank: "", principal: "", monthly: "", rate: "4.5", termTotal: "120", startDate: new Date().toISOString().slice(0, 10) }
+const EMPTY_FORM: LoanForm = { name: "", bank: "", principal: "", monthly: "", rate: "4.5", termTotal: "120", startDate: todayKey() }
 
 const inputStyle: React.CSSProperties = {
   width: "100%", font: "500 14px var(--sans)", color: "var(--ink)",

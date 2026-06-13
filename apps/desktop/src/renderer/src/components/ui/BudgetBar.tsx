@@ -1,8 +1,7 @@
 import { ColorDot } from "./ColorDot"
+import { formatNumber } from "@/lib/format"
 
-function fmt(n: number) {
-  return n.toLocaleString("zh-CN", { minimumFractionDigits: 0, maximumFractionDigits: 0 })
-}
+const fmt = formatNumber
 
 interface Props {
   color: string

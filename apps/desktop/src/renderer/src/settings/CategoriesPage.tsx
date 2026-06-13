@@ -4,10 +4,9 @@ import { useQuery } from "@tanstack/react-query"
 import type { CashflowEventSummary, CategorySummary } from "@flowm/api"
 import { trpc } from "@/lib/trpc"
 import { usePagePerf } from "@/lib/debug/perf"
+import { formatNumber } from "@/lib/format"
 
-function fmt(n: number, d = 0) {
-  return n.toLocaleString("zh-CN", { minimumFractionDigits: d, maximumFractionDigits: d })
-}
+const fmt = formatNumber
 
 const KIND_COLOR: Record<string, string> = {
   expense: "var(--c-food)",

@@ -2,37 +2,10 @@ import { Button, Calendar, DateField, DatePicker, Input, Label, ListBox, Modal, 
 import type { DateValue } from "@internationalized/date"
 import { parseDate } from "@internationalized/date"
 import type { AssetSnapshotType, FlowmId } from "@flowm/api"
+import { ASSET_TYPE_LABELS, ASSET_TYPES } from "@/lib/domainDisplay"
 
-export const TYPE_LABEL: Record<AssetSnapshotType, string> = {
-  cash: "现金",
-  bank: "银行",
-  wallet: "钱包",
-  brokerage: "券商账户",
-  investment: "投资",
-  fund: "基金",
-  stock: "股票",
-  crypto: "数字资产",
-  real_estate: "不动产",
-  vehicle: "车辆",
-  fixed_asset: "固定资产",
-  liability: "负债",
-  other: "其他",
-}
-
-export const ASSET_TYPES: AssetSnapshotType[] = [
-  "cash",
-  "bank",
-  "wallet",
-  "investment",
-  "fund",
-  "stock",
-  "crypto",
-  "real_estate",
-  "vehicle",
-  "fixed_asset",
-  "liability",
-  "other",
-]
+export const TYPE_LABEL = ASSET_TYPE_LABELS
+export { ASSET_TYPES }
 
 export interface AssetForm {
   id?: FlowmId

@@ -2,9 +2,12 @@ import { memo, useMemo, useState } from "react"
 import { Group as PanelGroup, Panel, Separator as PanelResizeHandle } from "react-resizable-panels"
 import { Button } from "@heroui/react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import type { AssetSnapshotSummary, AssetSnapshotType } from "@flowm/api"
+import type { AssetSnapshotSummary } from "@flowm/api"
 import { trpc } from "@/lib/trpc"
 import { usePagePerf } from "@/lib/debug/perf"
+import { ASSET_GROUP_COLORS, ASSET_GROUPS } from "@/lib/domainDisplay"
+import { formatNumber } from "@/lib/format"
+import { todayKey } from "@/lib/dates"
 import { Dock } from "../components/layout/Dock"
 import { ScrollArea } from "../components/ui/ScrollArea"
 import { Kicker } from "../components/ui/Kicker"
@@ -18,29 +21,11 @@ import { AddAssetModal, TYPE_LABEL } from "./AddAssetModal"
 import type { AssetForm } from "./AddAssetModal"
 import { AssetDetailPanel } from "./AssetDetailPanel"
 
-function fmt(n: number, d = 0) {
-  return n.toLocaleString("zh-CN", { minimumFractionDigits: d, maximumFractionDigits: d })
-}
-
-const GROUP_MAP: Record<AssetSnapshotType, string> = {
-  cash: "现金", bank: "现金", wallet: "现金",
-  brokerage: "投资", investment: "投资", fund: "投资", stock: "投资", crypto: "投资",
-  real_estate: "不动产", fixed_asset: "固定资产", vehicle: "固定资产",
-  liability: "负债", other: "其他",
-}
-
-const GROUP_COLOR: Record<string, string> = {
-  "现金": "var(--accent)",
-  "投资": "#6c72cb",
-  "不动产": "#e07b39",
-  "固定资产": "#b37a5d",
-  "负债": "var(--red)",
-  "其他": "#8c8fa0",
-}
+const fmt = formatNumber
 
 const EMPTY: AssetForm = {
   accountName: "", assetType: "bank", valueNumber: "",
-  valueCurrency: "CNY", snapshotAt: new Date().toISOString().slice(0, 10), note: "",
+  valueCurrency: "CNY", snapshotAt: todayKey(), note: "",
 }
 
 const NO_CHANGE = { label: "—", positive: true }
@@ -145,7 +130,7 @@ export function AssetsPage() {
   const groups = useMemo(() => {
     const map = new Map<string, AssetSnapshotSummary[]>()
     for (const a of assetSnapshots) {
-      const g = GROUP_MAP[a.assetType] ?? "其他"
+      const g = ASSET_GROUPS[a.assetType] ?? "其他"
       if (!map.has(g)) map.set(g, [])
       map.get(g)!.push(a)
     }
@@ -159,7 +144,7 @@ export function AssetsPage() {
       .map((g) => ({
         name: g,
         sum: (groups.get(g) ?? []).reduce((s, a) => s + Math.abs(Number(a.valueNumber || 0)), 0),
-        color: GROUP_COLOR[g] ?? "#8c8fa0",
+        color: ASSET_GROUP_COLORS[g] ?? "#8c8fa0",
       }))
       .filter((g) => g.sum > 0)
   }, [groups])
@@ -169,7 +154,7 @@ export function AssetsPage() {
     return (groups.get(selectedGroup) ?? []).map((a) => ({
       name: a.accountName,
       sum: Math.abs(Number(a.valueNumber || 0)),
-      color: GROUP_COLOR[selectedGroup] ?? "#8c8fa0",
+      color: ASSET_GROUP_COLORS[selectedGroup] ?? "#8c8fa0",
     }))
   }, [selectedGroup, groups])
 

@@ -22,9 +22,9 @@ packages/
   ui/        Shared UI primitives and styles
 ```
 
-At runtime, the renderer calls `@flowm/api`, which uses `@flowm/db`'s
-`ElectronSqlExecutor`. The executor talks to the Electron preload bridge, and
-the main process executes SQL against:
+At runtime, the renderer talks to the Electron main process through tRPC IPC.
+The main process owns the SQLite connection, runs migrations, and serves
+product APIs backed by `@flowm/api` and `@flowm/db` against:
 
 ```text
 ~/Library/Application Support/com.flowm.desktop/flowm.sqlite3

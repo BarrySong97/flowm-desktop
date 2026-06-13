@@ -5,12 +5,13 @@ import { Button } from "@heroui/react"
 import { Dock } from "../components/layout/Dock"
 import { ScrollArea } from "../components/ui/ScrollArea"
 import { trpc } from "@/lib/trpc"
+import { CYCLE_LABELS } from "@/lib/domainDisplay"
+import { dateKey } from "@/lib/dates"
+import { formatNumber } from "@/lib/format"
 import { Route } from "../routes/subscriptions.$id"
 import type { SubscriptionOccurrenceSummary } from "@flowm/api"
 
-function fmt(n: number, d = 0) {
-  return n.toLocaleString("zh-CN", { minimumFractionDigits: d, maximumFractionDigits: d })
-}
+const fmt = formatNumber
 
 function InfoRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -21,29 +22,25 @@ function InfoRow({ label, children }: { label: string; children: React.ReactNode
   )
 }
 
-const CYCLE_LABEL: Record<string, string> = {
-  monthly: "每月", yearly: "每年", weekly: "每周", custom: "自定义",
-}
-
 export function SubscriptionDetailPage() {
   const { id } = Route.useParams()
   const navigate = useNavigate()
 
   const today = useMemo(() => {
     const d = new Date()
-    return d.toISOString().slice(0, 10)
+    return dateKey(d)
   }, [])
 
   const sixMonthsAgo = useMemo(() => {
     const d = new Date()
     d.setMonth(d.getMonth() - 6)
-    return d.toISOString().slice(0, 10)
+    return dateKey(d)
   }, [])
 
   const twoMonthsAhead = useMemo(() => {
     const d = new Date()
     d.setMonth(d.getMonth() + 2)
-    return d.toISOString().slice(0, 10)
+    return dateKey(d)
   }, [])
 
   const subscriptionsQuery = useQuery(trpc.subscriptions.list.queryOptions({ status: "active" }))
@@ -80,7 +77,7 @@ export function SubscriptionDetailPage() {
           : sub.billingCycle === "weekly" ? amount * 52
             : amount
 
-    const cycleLabel = CYCLE_LABEL[sub.billingCycle] ?? sub.billingCycle
+    const cycleLabel = CYCLE_LABELS[sub.billingCycle] ?? sub.billingCycle
     const nextDateFormatted = firstFutureOcc?.dueDate.slice(5) ?? sub.nextChargeDate.slice(5)
 
     return { pastOccs, totalPaid, startDate, monthsSubscribed, amount, yearlyAmt, cycleLabel, nextDateFormatted }

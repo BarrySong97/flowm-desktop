@@ -6,10 +6,11 @@ import { Dock } from "../components/layout/Dock"
 import { ScrollArea } from "../components/ui/ScrollArea"
 import { trpc } from "@/lib/trpc"
 import { usePagePerf } from "@/lib/debug/perf"
+import { addDays, dateKey, monthCells, todayKey } from "@/lib/dates"
+import { SUBSCRIPTION_CATEGORY_COLORS } from "@/lib/domainDisplay"
+import { formatNumber } from "@/lib/format"
 
-function fmt(n: number, d = 0) {
-  return n.toLocaleString("zh-CN", { minimumFractionDigits: d, maximumFractionDigits: d })
-}
+const fmt = formatNumber
 
 interface Sub {
   id: string; name: string; cat: "fun" | "sub" | "shop"
@@ -17,34 +18,8 @@ interface Sub {
   cur: string; raw?: string; auto: boolean
 }
 
-const CAT_COLOR: Record<Sub["cat"], string> = {
-  fun: "var(--c-fun)",
-  sub: "var(--c-sub)",
-  shop: "var(--c-shop)",
-}
-
 type SubForm = { name: string; cycle: "月" | "年"; amt: string; next: string; auto: boolean }
-const EMPTY: SubForm = { name: "", cycle: "月", amt: "", next: new Date().toISOString().slice(0, 10), auto: true }
-
-function addDays(date: Date, days: number): Date {
-  const next = new Date(date)
-  next.setDate(next.getDate() + days)
-  return next
-}
-
-function dateKey(date: Date): string {
-  return date.toISOString().slice(0, 10)
-}
-
-function monthCells(year: number, month: number): (number | null)[] {
-  const daysInMonth = new Date(year, month, 0).getDate()
-  const firstWd = (new Date(year, month - 1, 1).getDay() + 6) % 7
-  const cells: (number | null)[] = []
-  for (let i = 0; i < firstWd; i++) cells.push(null)
-  for (let d = 1; d <= daysInMonth; d++) cells.push(d)
-  while (cells.length % 7) cells.push(null)
-  return cells
-}
+const EMPTY: SubForm = { name: "", cycle: "月", amt: "", next: todayKey(), auto: true }
 
 function AddSubModal({ open, onClose, onSave }: { open: boolean; onClose: () => void; onSave: (form: SubForm) => void }) {
   const [form, setForm] = useState<SubForm>(EMPTY)
@@ -324,7 +299,7 @@ export function SubscriptionsPage() {
                     </span>
                     {chgs?.map((s, j) => (
                       <div key={j} style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 3 }}>
-                        <span style={{ width: 6, height: 6, borderRadius: 2, flexShrink: 0, background: CAT_COLOR[s.cat] }} />
+                        <span style={{ width: 6, height: 6, borderRadius: 2, flexShrink: 0, background: SUBSCRIPTION_CATEGORY_COLORS[s.cat] }} />
                         <span style={{ fontFamily: "var(--mono)", fontSize: 10.5, fontWeight: 600, color: "var(--ink)", letterSpacing: "-0.02em" }}>
                           ¥{fmt(s.amt)}
                         </span>

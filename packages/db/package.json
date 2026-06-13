@@ -21,8 +21,7 @@
     "check-types": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
-    "db:push": "drizzle-kit push",
-    "dump:fixture": "tsx tests/generate_basic_dump.ts"
+    "db:push": "drizzle-kit push"
   },
   "dependencies": {
     "@flowm/shared": "workspace:*",

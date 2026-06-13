@@ -2,26 +2,16 @@ import { useEffect, useRef } from "react"
 import { Toaster } from "@flowm/ui"
 import { createRootRoute, Outlet, useRouterState } from "@tanstack/react-router"
 import { TitleBar } from "../components/layout/TitleBar"
-import { flowmPerfLog, flowmPerfMeasure, roundMs } from "../lib/debug/perf"
-import { useFlowmStore } from "../lib/stores/flowmStore"
+import { flowmPerfLog, roundMs } from "../lib/debug/perf"
 
 export const Route = createRootRoute({
   component: RootLayout,
 })
 
 function RootLayout() {
-  const loadSnapshot = useFlowmStore((state) => state.loadSnapshot)
   const href = useRouterState({ select: (state) => state.location.href })
   const previousHref = useRef<string | null>(null)
   const previousCommitAt = useRef(performance.now())
-
-  useEffect(() => {
-    const startedAt = performance.now()
-    flowmPerfLog("root", "loadSnapshot.start", { href })
-    void loadSnapshot().finally(() => {
-      flowmPerfMeasure("root", "loadSnapshot.end", startedAt, { href })
-    })
-  }, [loadSnapshot])
 
   useEffect(() => {
     const now = performance.now()

@@ -5,13 +5,13 @@ import { Button } from "@heroui/react"
 import { Dock } from "../components/layout/Dock"
 import { ScrollArea } from "../components/ui/ScrollArea"
 import { trpc } from "@/lib/trpc"
+import { addMonths, todayKey } from "@/lib/dates"
+import { formatNumber } from "@/lib/format"
 import { Route } from "../routes/loans.$id"
 import { LoanScheduleBar } from "./LoanScheduleBar"
 import { buildLoanSchedule } from "./loanSchedule"
 
-function fmt(n: number, d = 0) {
-  return n.toLocaleString("zh-CN", { minimumFractionDigits: d, maximumFractionDigits: d })
-}
+const fmt = formatNumber
 
 function InfoRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -22,12 +22,6 @@ function InfoRow({ label, children }: { label: string; children: React.ReactNode
   )
 }
 
-function addMonths(dateStr: string, months: number): string {
-  const d = new Date(dateStr)
-  d.setMonth(d.getMonth() + months)
-  return d.toISOString().slice(0, 10)
-}
-
 const REPAYMENT_LABEL: Record<string, string> = {
   equal_installment: "等额本息",
   equal_principal: "等额本金",
@@ -36,7 +30,7 @@ const REPAYMENT_LABEL: Record<string, string> = {
 export function LoanDetailPage() {
   const { id } = Route.useParams()
   const navigate = useNavigate()
-  const today = new Date().toISOString().slice(0, 10)
+  const today = todayKey()
 
   const loanQuery = useQuery(trpc.loans.get.queryOptions({ id }))
   // Same wide window as the loans list so the schedule bar matches exactly.

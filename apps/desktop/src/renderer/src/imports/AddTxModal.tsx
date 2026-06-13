@@ -3,6 +3,7 @@ import { Button, Calendar, DateField, DatePicker, Input, Label, Modal } from "@h
 import type { DateValue } from "@internationalized/date"
 import { parseDate } from "@internationalized/date"
 import type { CategorySummary } from "@flowm/api"
+import { todayKey } from "@/lib/dates"
 
 export interface TxForm {
   flowKind: "expense" | "income"
@@ -11,10 +12,6 @@ export interface TxForm {
   categoryId: CategorySummary["id"] | null
   source: string
   date: string
-}
-
-function todayKey() {
-  return new Date().toISOString().slice(0, 10)
 }
 
 function emptyForm(): TxForm {

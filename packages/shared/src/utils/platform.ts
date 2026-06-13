@@ -1,6 +1,6 @@
 export const isElectron = (): boolean => {
   if (typeof window === "undefined") return false
-  return "flowmSql" in window
+  return "flowm" in window
 }
 
 export const isBrowser = (): boolean => {

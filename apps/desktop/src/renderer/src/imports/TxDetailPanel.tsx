@@ -1,21 +1,14 @@
 import React from "react"
 import { Button } from "@heroui/react"
+import { CATEGORY_COLORS } from "@/lib/domainDisplay"
+import { formatNumber } from "@/lib/format"
 import { Dim } from "../components/ui/Dim"
 import { ColorDot } from "../components/ui/ColorDot"
 import { SectionTitle } from "../components/ui/SectionTitle"
 
 const DAYS = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"]
 
-const CAT_COLOR: Record<string, string> = {
-  餐饮: "#e07b3a", 交通: "#4a8fc4", 购物: "#c46a9e",
-  订阅: "#7c6ac4", 娱乐: "#d4a017", 居住: "#5bac8e",
-  理财: "#2e86ab", 通讯: "#5e9e9f", 收入: "#14794a",
-  其他: "#9caca3", 转账: "#6b7d72",
-}
-
-function fmt(n: number, d = 0) {
-  return n.toLocaleString("zh-CN", { minimumFractionDigits: d, maximumFractionDigits: d })
-}
+const fmt = formatNumber
 
 export interface Tx {
   id: number
@@ -56,7 +49,7 @@ export function TxDetailPanel({ tx, allTxs, onBack }: Props) {
   const amtColor = isIncome ? "var(--accent)" : isTransfer ? "var(--ink-3)" : "var(--red)"
   const amtPrefix = isIncome ? "+" : isTransfer ? "" : "−"
   const flowLabel = isIncome ? "收入" : isTransfer ? "转账" : "支出"
-  const catColor = CAT_COLOR[tx.categoryName] ?? CAT_COLOR["其他"]
+  const catColor = CATEGORY_COLORS[tx.categoryName] ?? CATEGORY_COLORS["其他"]
 
   const dt = new Date(tx.date)
   const dayLabel = Number.isNaN(dt.getTime()) ? "" : DAYS[dt.getDay()]

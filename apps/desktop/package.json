@@ -45,6 +45,7 @@
     "better-sqlite3": "^12.4.1",
     "drizzle-orm": "^0.37.0",
     "i18next": "^26.2.0",
+    "jotai": "^2.20.1",
     "lucide-react": "^0.562.0",
     "motion": "^12.40.0",
     "react": "^19.2.0",
@@ -54,8 +55,7 @@
     "react-resizable-panels": "^4.11.2",
     "react-virtuoso": "^4.18.7",
     "recharts": "^3.8.1",
-    "tailwindcss": "^4.1.17",
-    "zustand": "^5.0.10"
+    "tailwindcss": "^4.1.17"
   },
   "devDependencies": {
     "@electron-toolkit/tsconfig": "^2.0.0",

@@ -6,6 +6,8 @@ import { useVirtualizer } from "@tanstack/react-virtual"
 import type { CashflowEventSummary } from "@flowm/api"
 import { trpc } from "@/lib/trpc"
 import { usePagePerf } from "@/lib/debug/perf"
+import { CATEGORY_COLORS, SOURCE_BADGES } from "@/lib/domainDisplay"
+import { formatNumber } from "@/lib/format"
 import { ScrollArea } from "../components/ui/ScrollArea"
 import { Dock } from "../components/layout/Dock"
 import { TxDetailPanel, type Tx } from "./TxDetailPanel"
@@ -14,28 +16,10 @@ import { ColorDot } from "../components/ui/ColorDot"
 import { Dim } from "../components/ui/Dim"
 import { DailyBars } from "../components/charts/DailyBars"
 
-function fmt(n: number, d = 0) {
-  return n.toLocaleString("zh-CN", { minimumFractionDigits: d, maximumFractionDigits: d })
-}
-
-const CAT_COLOR: Record<string, string> = {
-  餐饮: "#e07b3a", 交通: "#4a8fc4", 购物: "#c46a9e",
-  订阅: "#7c6ac4", 娱乐: "#d4a017", 居住: "#5bac8e",
-  理财: "#2e86ab", 通讯: "#5e9e9f", 收入: "#14794a",
-  其他: "#9caca3", 转账: "#6b7d72",
-}
-
-const SOURCE_STYLE: Record<string, { bg: string; char: string }> = {
-  "支付宝":  { bg: "#1677ff", char: "支" },
-  "微信":    { bg: "#07c160", char: "微" },
-  "招商银行": { bg: "#c5242a", char: "招" },
-  "工商银行": { bg: "#d4071c", char: "工" },
-  "建设银行": { bg: "#00549e", char: "建" },
-  "中国移动": { bg: "#e60012", char: "移" },
-}
+const fmt = formatNumber
 
 function SourceBadge({ source }: { source: string }) {
-  const s = SOURCE_STYLE[source]
+  const s = SOURCE_BADGES[source]
   return (
     <div style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
       {s && (
@@ -103,7 +87,7 @@ function DonutChart({ segments, size = 140, thick = 28 }: {
             <span style={{ fontSize: 12, fontWeight: 600, color: "var(--ink)" }}>{tooltip.seg.name}</span>
           </div>
           <div style={{ fontFamily: "IBM Plex Mono, monospace", fontSize: 13, color: "var(--ink)", fontWeight: 600 }}>
-            ¥{tooltip.seg.amt.toLocaleString("zh-CN", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+            ¥{fmt(tooltip.seg.amt)}
           </div>
           <div style={{ fontSize: 11, color: "var(--ink-4)", marginTop: 2 }}>
             {Math.round(tooltip.seg.frac * 100)}% 占比
@@ -128,7 +112,7 @@ const COLUMNS = [
     header: "类别", size: 80,
     cell: (c) => (
       <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11.5, color: "var(--ink-3)" }}>
-        <ColorDot color={CAT_COLOR[c.getValue()] ?? CAT_COLOR["其他"]} size={7} />
+        <ColorDot color={CATEGORY_COLORS[c.getValue()] ?? CATEGORY_COLORS["其他"]} size={7} />
         {c.getValue()}
       </span>
     ),
@@ -236,7 +220,7 @@ export function ImportsPage() {
       map.set(t.categoryName, (map.get(t.categoryName) ?? 0) + t.amount)
     }
     return [...map.entries()]
-      .map(([name, amt]) => ({ name, amt, color: CAT_COLOR[name] ?? CAT_COLOR["其他"] }))
+      .map(([name, amt]) => ({ name, amt, color: CATEGORY_COLORS[name] ?? CATEGORY_COLORS["其他"] }))
       .sort((a, b) => b.amt - a.amt)
   }, [txs])
 

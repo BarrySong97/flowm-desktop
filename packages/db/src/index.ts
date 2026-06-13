@@ -1,12 +1,12 @@
 import type { drizzle } from "drizzle-orm/better-sqlite3"
-import * as _schema from "./schema/clean"
+import * as _schema from "./schema"
 
 // Typed Drizzle database instance — the single DB type used throughout the app
 // Uses ReturnType<typeof drizzle<...>> so that $client is included in the type
 export type Database = ReturnType<typeof drizzle<typeof _schema>>
 
 // Schema tables, types, and helpers
-export * as schema from "./schema/clean"
+export * as schema from "./schema"
 export {
   assetItems,
   assetSnapshots,
@@ -65,17 +65,7 @@ export {
   type SubscriptionRow,
   type TagInsert,
   type TagRow,
-} from "./schema/clean"
+} from "./schema"
 
-// IPC protocol types — used by the preload and main process SQL bridge
 export type SqlParam = string | number | boolean | null
 export type SqlRow = Record<string, string | number | boolean | null>
-export interface SqlStatement {
-  sql: string
-  params?: SqlParam[]
-}
-export interface SqlStatementResult {
-  rows: SqlRow[]
-  rowsAffected: number
-  lastInsertId: number | null
-}

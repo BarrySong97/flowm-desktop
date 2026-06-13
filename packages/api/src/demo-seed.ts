@@ -1,5 +1,5 @@
 import { createFlowmApi, type FlowmId } from "./index"
-import type { Database, SqlParam, SqlRow, SqlStatement } from "@flowm/db"
+import type { Database, SqlParam, SqlRow } from "@flowm/db"
 
 const DEMO_PREFIX = "demo_"
 const DEFAULT_MONTHS = 6
@@ -93,7 +93,10 @@ interface SeedContext {
 
 interface DemoStatement {
   table: TargetTable
-  statement: SqlStatement
+  statement: {
+    sql: string
+    params?: SqlParam[]
+  }
 }
 
 interface DemoBuildResult {

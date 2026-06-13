@@ -1,4 +1,5 @@
 import { Treemap, ResponsiveContainer, Tooltip } from "recharts"
+import { formatNumber } from "@/lib/format"
 
 interface Group {
   name: string
@@ -12,9 +13,7 @@ interface Props {
   height?: number
 }
 
-function fmt(n: number) {
-  return n.toLocaleString("zh-CN", { minimumFractionDigits: 0, maximumFractionDigits: 0 })
-}
+const fmt = formatNumber
 
 function Cell({ x, y, width, height, name, value, color, total }: {
   x?: number; y?: number; width?: number; height?: number

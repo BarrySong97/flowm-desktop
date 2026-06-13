@@ -5,6 +5,8 @@ import { Dock } from "../components/layout/Dock"
 import type { AssetSnapshotSummary, FinancialEventSummary, LoanPaymentOccurrenceSummary, SubscriptionOccurrenceSummary } from "@flowm/api"
 import { trpc } from "@/lib/trpc"
 import { usePagePerf } from "@/lib/debug/perf"
+import { addDays, dateKey, monthStart } from "@/lib/dates"
+import { formatNumber, formatSignedCurrency } from "@/lib/format"
 import { Kicker } from "../components/ui/Kicker"
 import { BigNumber } from "../components/ui/BigNumber"
 import { StatBlock } from "../components/ui/StatBlock"
@@ -17,27 +19,8 @@ import { NetWorthTrend } from "../components/charts/NetWorthTrend"
 import { DailyBars } from "../components/charts/DailyBars"
 import { ScrollArea } from "../components/ui/ScrollArea"
 
-function fmt(n: number, decimals = 0) {
-  return n.toLocaleString("zh-CN", { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
-}
-
-function signed(n: number) {
-  return (n >= 0 ? "+" : "−") + "¥" + fmt(Math.abs(n))
-}
-
-function dateKey(date: Date): string {
-  return date.toISOString().slice(0, 10)
-}
-
-function addDays(date: Date, days: number): Date {
-  const next = new Date(date)
-  next.setDate(next.getDate() + days)
-  return next
-}
-
-function monthStart(date: Date): string {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-01`
-}
+const fmt = formatNumber
+const signed = formatSignedCurrency
 
 function useMonthStats(events: FinancialEventSummary[]) {
   return useMemo(() => {

@@ -1,4 +1,5 @@
 import { AreaChart, Area, ResponsiveContainer, Tooltip } from "recharts"
+import { formatCurrency } from "@/lib/format"
 
 interface Props {
   data: number[]
@@ -20,7 +21,7 @@ function ChartTooltip({ active, payload }: { active?: boolean; payload?: { value
       color: "var(--ink)",
       whiteSpace: "nowrap",
     }}>
-      ¥{v.toLocaleString("zh-CN", { maximumFractionDigits: 0 })}
+      {formatCurrency(v)}
     </div>
   )
 }

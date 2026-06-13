@@ -1,4 +1,5 @@
 import { BarChart, Bar, Cell, ResponsiveContainer, Tooltip } from "recharts"
+import { formatCurrency } from "@/lib/format"
 
 interface Props {
   data: number[]
@@ -24,7 +25,7 @@ function ChartTooltip({ active, payload, lastIdx }: { active?: boolean; payload?
     }}>
       <div style={{ fontSize: 10.5, color: "var(--ink-4)", marginBottom: 2 }}>{dayLabel}</div>
       <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600 }}>
-        ¥{v.toLocaleString("zh-CN", { maximumFractionDigits: 0 })}
+        {formatCurrency(v)}
       </div>
     </div>
   )

@@ -39,9 +39,9 @@ into one perfectly balanced book.
 
 ## Runtime
 
-The renderer calls `@flowm/api`, which uses `@flowm/db`'s
-`ElectronSqlExecutor`. The executor talks to Electron preload IPC, and the main
-process executes SQL with `better-sqlite3`.
+The renderer talks to the Electron main process through tRPC IPC. The main
+process owns the SQLite connection, runs migrations, and serves product APIs
+backed by `@flowm/api` and `@flowm/db`.
 
 The Electron main process sets `userData` to:
 
