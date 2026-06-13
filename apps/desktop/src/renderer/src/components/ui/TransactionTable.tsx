@@ -4,7 +4,6 @@ import { categoryColor } from "@/lib/domainDisplay"
 import { formatNumber } from "@/lib/format"
 
 const fmt = formatNumber
-export { categoryColor }
 
 interface TxRow {
   date: string

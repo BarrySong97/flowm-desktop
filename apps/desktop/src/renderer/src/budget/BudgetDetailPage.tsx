@@ -1,5 +1,5 @@
-import { useMemo } from "react"
-import { useQuery } from "@tanstack/react-query"
+import { useMemo, useState } from "react"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 import { Button } from "@heroui/react"
 import { Dock } from "../components/layout/Dock"
@@ -8,12 +8,17 @@ import { trpc } from "@/lib/trpc"
 import { formatNumber } from "@/lib/format"
 import { todayKey } from "@/lib/dates"
 import { Route } from "../routes/budget.$id"
+import { AddBudgetModal } from "./AddBudgetModal"
+import type { BudgetForm } from "./AddBudgetModal"
 
 const fmt = formatNumber
 
 export function BudgetDetailPage() {
   const { id } = Route.useParams()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const [showEdit, setShowEdit] = useState(false)
+  const [saving, setSaving] = useState(false)
   const today = todayKey()
   const currentMonth = today.slice(0, 7)
   const monthLabel = `${parseInt(today.slice(5, 7))}月`
@@ -35,6 +40,24 @@ export function BudgetDetailPage() {
   const remaining = limit - spent
   const pct = limit > 0 ? (spent / limit) * 100 : 0
   const over = spent > limit
+
+  const updateBudgetItem = useMutation(trpc.budgets.updateItem.mutationOptions())
+
+  async function handleEditSave(form: BudgetForm) {
+    if (!row) return
+    setSaving(true)
+    try {
+      await updateBudgetItem.mutateAsync({
+        id: row.budgetItemId,
+        name: form.name.trim(),
+        plannedAmount: Number(form.plannedAmount).toFixed(2),
+        currency: "CNY",
+        color: form.color || null,
+      })
+      await queryClient.invalidateQueries(trpc.budgets.progress.queryFilter())
+      setShowEdit(false)
+    } finally { setSaving(false) }
+  }
 
   // Days left in current period
   const periodEnd = currentPeriod?.periodEnd ?? today
@@ -446,8 +469,8 @@ export function BudgetDetailPage() {
 
             {/* Actions */}
             <div style={{ display: "flex", gap: 8, marginTop: 28 }}>
-              <Button variant="primary" size="sm" style={{ borderRadius: 5 }}>
-                调整预算额度
+              <Button variant="primary" size="sm" style={{ borderRadius: 5 }} isDisabled={!row} onPress={() => setShowEdit(true)}>
+                编辑预算
               </Button>
               <Button variant="outline" size="sm" style={{ borderRadius: 5 }}>
                 查看该类别流水
@@ -461,6 +484,15 @@ export function BudgetDetailPage() {
         </div>
       </ScrollArea>
       <Dock />
+      <AddBudgetModal
+        open={showEdit}
+        saving={saving}
+        title="编辑预算"
+        subtitle="修改预算名称、额度与颜色"
+        initial={{ name: budgetName, plannedAmount: limit ? String(limit) : "", color: row?.color ?? "#e07b3a" }}
+        onSave={handleEditSave}
+        onClose={() => setShowEdit(false)}
+      />
     </div>
   )
 }

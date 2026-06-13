@@ -23,7 +23,6 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@flowm/business": "workspace:*",
     "@flowm/db": "workspace:*",
     "@flowm/shared": "workspace:*"
   },

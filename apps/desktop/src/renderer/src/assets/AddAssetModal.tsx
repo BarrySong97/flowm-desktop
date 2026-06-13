@@ -5,7 +5,6 @@ import type { AssetSnapshotType, FlowmId } from "@flowm/api"
 import { ASSET_TYPE_LABELS, ASSET_TYPES } from "@/lib/domainDisplay"
 
 export const TYPE_LABEL = ASSET_TYPE_LABELS
-export { ASSET_TYPES }
 
 export interface AssetForm {
   id?: FlowmId

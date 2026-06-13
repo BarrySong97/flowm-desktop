@@ -133,7 +133,7 @@ export function BudgetPage() {
               </div>
 
               {/* Bar */}
-              <Bar pct={pct} color={over ? "var(--red)" : "var(--accent)"} h={7} />
+              <Bar pct={pct} color={over ? "var(--red)" : b.color} h={7} />
 
               {/* Amounts */}
               <div style={{ textAlign: "right" }}>

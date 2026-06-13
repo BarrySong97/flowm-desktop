@@ -1,7 +1,7 @@
 import { atom } from "jotai"
 import { atomWithStorage } from "jotai/utils"
 
-export interface CommandLogEntry {
+interface CommandLogEntry {
   time: string
   who: "USR" | "SYS" | "AI"
   message: string

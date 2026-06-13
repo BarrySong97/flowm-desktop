@@ -92,6 +92,7 @@ export interface FlowmApi {
   createBudgetPeriod(input: CreateBudgetPeriodInput): Promise<Result<BudgetPeriodSummary>>
   listBudgetItems(input?: ListBudgetItemsInput): Promise<Result<BudgetItemSummary[]>>
   createBudgetItem(input: CreateBudgetItemInput): Promise<Result<BudgetItemSummary>>
+  updateBudgetItem(input: UpdateBudgetItemInput): Promise<Result<BudgetItemSummary>>
   getBudgetReferenceProgress(input: BudgetReferenceProgressInput): Promise<Result<BudgetReferenceProgressRow[]>>
 
   listObjectLinks(input?: ListObjectLinksInput): Promise<Result<ObjectLinkSummary[]>>
@@ -875,6 +876,14 @@ export interface CreateBudgetItemInput {
   categoryId?: FlowmId | null
   color?: string | null
   scopes?: BudgetScopeInput[]
+}
+
+export interface UpdateBudgetItemInput {
+  id: FlowmId
+  name?: string
+  plannedAmount?: string
+  currency?: string
+  color?: string | null
 }
 
 export interface BudgetScopeInput {

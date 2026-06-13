@@ -24,7 +24,6 @@
     "db:push": "drizzle-kit push"
   },
   "dependencies": {
-    "@flowm/shared": "workspace:*",
     "drizzle-orm": "^0.37.0"
   },
   "devDependencies": {

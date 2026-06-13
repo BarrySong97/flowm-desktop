@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Button, Input, Label, Modal } from "@heroui/react"
 
 export interface BudgetForm {
@@ -20,11 +20,20 @@ interface Props {
   saving: boolean
   onSave: (form: BudgetForm) => void
   onClose: () => void
+  /** When provided, the modal opens in edit mode pre-filled with these values. */
+  initial?: BudgetForm
+  title?: string
+  subtitle?: string
 }
 
-export function AddBudgetModal({ open, saving, onSave, onClose }: Props) {
-  const [form, setForm] = useState<BudgetForm>(EMPTY)
+export function AddBudgetModal({ open, saving, onSave, onClose, initial, title, subtitle }: Props) {
+  const [form, setForm] = useState<BudgetForm>(initial ?? EMPTY)
   function patch(p: Partial<BudgetForm>) { setForm((f) => ({ ...f, ...p })) }
+
+  // Re-seed the form whenever the modal is (re)opened.
+  useEffect(() => {
+    if (open) setForm(initial ?? EMPTY)
+  }, [open, initial])
 
   function handleClose() { setForm(EMPTY); onClose() }
   function handleSave() {
@@ -38,8 +47,8 @@ export function AddBudgetModal({ open, saving, onSave, onClose }: Props) {
         <Modal.Dialog>
           <Modal.CloseTrigger />
           <Modal.Header>
-            <Modal.Heading>添加预算项</Modal.Heading>
-            <p style={{ fontSize: 12, color: "var(--ink-4)", marginTop: 2 }}>为当前预算周期添加一个支出限额</p>
+            <Modal.Heading>{title ?? "添加预算项"}</Modal.Heading>
+            <p style={{ fontSize: 12, color: "var(--ink-4)", marginTop: 2 }}>{subtitle ?? "为当前预算周期添加一个支出限额"}</p>
           </Modal.Header>
 
           <Modal.Body>

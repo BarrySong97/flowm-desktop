@@ -182,6 +182,7 @@ export function SubscriptionsPage() {
   const monthCharges = Object.values(byDay).flat()
   const monthTotal = monthCharges.reduce((sum, sub) => sum + sub.amt, 0)
   const subMonthly = subs.reduce((sum, sub) => sum + (sub.cycle === "年" ? sub.amt / 12 : sub.amt), 0)
+  const subYearly = subs.reduce((sum, sub) => sum + (sub.cycle === "年" ? sub.amt : sub.amt * 12), 0)
   const cells = monthCells(year, mon)
 
   function handleSave(form: SubForm) {
@@ -231,11 +232,13 @@ export function SubscriptionsPage() {
       {/* Two independent scroll columns */}
       <div style={{ flex: 1, minHeight: 0, display: "flex", overflow: "hidden" }}>
 
-        {/* Left: subscription list */}
-        <ScrollArea className="h-full" style={{ width: 300, flexShrink: 0 }}>
-          <div style={{ padding: "20px 24px 112px" }}>
-            <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--ink)", marginBottom: 4 }}>全部订阅</div>
-            <div>
+        {/* Left: subscription list — fixed header, scrollable list, pinned totals */}
+        <div style={{ width: "15%", minWidth: 200, flexShrink: 0, display: "flex", flexDirection: "column", borderRight: "1px solid var(--hair-2)" }}>
+          <div style={{ flexShrink: 0, padding: "20px 24px 8px", fontSize: 12.5, fontWeight: 600, color: "var(--ink)" }}>全部订阅</div>
+
+          {/* Scrollable list */}
+          <ScrollArea className="h-full" style={{ flex: 1, minHeight: 0 }}>
+            <div style={{ padding: "0 24px 16px" }}>
               {subs.map((s, i) => (
                 <button
                   key={s.id}
@@ -269,8 +272,28 @@ export function SubscriptionsPage() {
                 </button>
               ))}
             </div>
+          </ScrollArea>
+
+          {/* Pinned totals footer */}
+          <div style={{ flexShrink: 0, padding: "12px 24px 20px", borderTop: "1px dashed var(--ink-4)", background: "white" }}>
+            <div style={{ display: "flex", alignItems: "baseline", marginBottom: 5 }}>
+              <span style={{ fontSize: 11.5, color: "var(--ink-2)" }}>每月合计</span>
+              <span style={{ fontFamily: "var(--mono)", marginLeft: "auto", fontSize: 19, fontWeight: 700, letterSpacing: "-0.02em" }}>
+                ¥{fmt(subMonthly)}
+              </span>
+            </div>
+            <div style={{ display: "flex", alignItems: "baseline" }}>
+              <span style={{ fontSize: 10.5, color: "var(--ink-4)" }}>每年合计</span>
+              <span style={{ fontFamily: "var(--mono)", marginLeft: "auto", fontSize: 12, color: "var(--ink-4)" }}>
+                ¥{fmt(subYearly)}
+              </span>
+            </div>
+            <div style={{ borderTop: "1px dashed var(--hair)", marginTop: 10, paddingTop: 8, display: "flex", justifyContent: "space-between" }}>
+              <span style={{ fontSize: 9.5, color: "var(--ink-4)" }}>{subs.length} 项订阅 · 自动续费 {subs.filter((s) => s.auto).length}</span>
+              <span style={{ fontSize: 9.5, color: "var(--ink-4)" }}>FLOWM · {year}/{mon}</span>
+            </div>
           </div>
-        </ScrollArea>
+        </div>
 
         {/* Right: calendar */}
         <ScrollArea className="h-full" style={{ flex: 1 }}>

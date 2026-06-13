@@ -95,6 +95,7 @@ export const appRouter = router({
     createSet: publicProcedure.input(apiInput<"createBudgetSet">()).mutation(({ ctx, input }) => callApi(ctx, (api) => api.createBudgetSet(requiredInput<"createBudgetSet">(input)))),
     createPeriod: publicProcedure.input(apiInput<"createBudgetPeriod">()).mutation(({ ctx, input }) => callApi(ctx, (api) => api.createBudgetPeriod(requiredInput<"createBudgetPeriod">(input)))),
     createItem: publicProcedure.input(apiInput<"createBudgetItem">()).mutation(({ ctx, input }) => callApi(ctx, (api) => api.createBudgetItem(requiredInput<"createBudgetItem">(input)))),
+    updateItem: publicProcedure.input(apiInput<"updateBudgetItem">()).mutation(({ ctx, input }) => callApi(ctx, (api) => api.updateBudgetItem(requiredInput<"updateBudgetItem">(input)))),
   }),
   links: router({
     list: publicProcedure.input(apiInput<"listObjectLinks">()).query(({ ctx, input }) => callApi(ctx, (api) => api.listObjectLinks(inputOrEmpty<"listObjectLinks">(input)))),

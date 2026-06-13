@@ -1,6 +1,6 @@
 import type { SqlParam } from "@flowm/db"
 import type { Result } from "@flowm/shared"
-import type { BudgetItemSummary, BudgetPeriodSummary, BudgetProgressRow, BudgetReferenceProgressInput, BudgetReferenceProgressRow, BudgetSetSummary, BusinessRecord, CreateBudgetInput, CreateBudgetItemInput, CreateBudgetPeriodInput, CreateBudgetSetInput, ListBudgetItemsInput, ListBudgetPeriodsInput } from "../index"
+import type { BudgetItemSummary, BudgetPeriodSummary, BudgetProgressRow, BudgetReferenceProgressInput, BudgetReferenceProgressRow, BudgetSetSummary, BusinessRecord, CreateBudgetInput, CreateBudgetItemInput, CreateBudgetPeriodInput, CreateBudgetSetInput, ListBudgetItemsInput, ListBudgetPeriodsInput, UpdateBudgetItemInput } from "../index"
 import { LoansApi } from "./loans"
 import { fail, monthBounds, newId, normalizeCurrency, nowIso, ok, toSqlId } from "./base"
 
@@ -87,6 +87,26 @@ export abstract class BudgetsApi extends LoansApi {
         )
       }
       return ok(this.mapBudgetItem((await this.one("select * from budget_items where id = ?", [id]))!))
+    } catch (error) {
+      return fail(error)
+    }
+  }
+
+  async updateBudgetItem(input: UpdateBudgetItemInput): Promise<Result<BudgetItemSummary>> {
+    try {
+      const sets: string[] = []
+      const params: SqlParam[] = []
+      if (input.name !== undefined) { sets.push("name = ?"); params.push(input.name) }
+      if (input.plannedAmount !== undefined) { sets.push("planned_amount = ?"); params.push(input.plannedAmount) }
+      if (input.currency !== undefined) { sets.push("currency = ?"); params.push(normalizeCurrency(input.currency)) }
+      if (input.color !== undefined) { sets.push("color = ?"); params.push(input.color) }
+      if (sets.length) {
+        params.push(toSqlId(input.id))
+        await this.run(`update budget_items set ${sets.join(", ")} where id = ?`, params)
+      }
+      const row = await this.one("select * from budget_items where id = ?", [toSqlId(input.id)])
+      if (!row) throw new Error(`Budget item ${input.id} not found`)
+      return ok(this.mapBudgetItem(row))
     } catch (error) {
       return fail(error)
     }

@@ -23,7 +23,7 @@ type PageQuery = {
 const installedQueryClients = new WeakSet<QueryClient>()
 const queryProfiles = new WeakMap<object, { cycle: number; fetchStatus?: string; startedAt?: number; status?: string }>()
 
-export function flowmPerfEnabled(): boolean {
+function flowmPerfEnabled(): boolean {
   if (typeof window === "undefined") return false
   try {
     const flag = window.localStorage.getItem("flowm:perf")

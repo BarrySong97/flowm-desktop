@@ -14,7 +14,8 @@ import { SectionTitle } from "../components/ui/SectionTitle"
 import { Dim } from "../components/ui/Dim"
 import { UpcomingRow } from "../components/ui/UpcomingRow"
 import { BudgetBar } from "../components/ui/BudgetBar"
-import { TransactionTable, categoryColor } from "../components/ui/TransactionTable"
+import { TransactionTable } from "../components/ui/TransactionTable"
+import { BUDGET_CATEGORY_COLORS } from "@/lib/domainDisplay"
 import { NetWorthTrend } from "../components/charts/NetWorthTrend"
 import { DailyBars } from "../components/charts/DailyBars"
 import { ScrollArea } from "../components/ui/ScrollArea"
@@ -166,7 +167,7 @@ export function OverviewPage() {
 
   const budgets = (budgetProgressQuery.data ?? []).map((row) => ({
     cat: row.budgetName,
-    color: row.color,
+    color: row.color ?? BUDGET_CATEGORY_COLORS[row.budgetName.replace(/预算$/, "")] ?? "var(--accent)",
     spent: Number(row.referenceUsed),
     limit: Number(row.budgeted),
   }))
@@ -275,7 +276,7 @@ export function OverviewPage() {
                   {budgets.map((b, i) => (
                     <BudgetBar
                       key={i}
-                      color={b.color ?? categoryColor(b.cat)}
+                      color={b.color}
                       spent={b.spent}
                       limit={b.limit}
                       label={b.cat}

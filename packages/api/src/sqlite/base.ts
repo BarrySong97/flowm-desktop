@@ -5,7 +5,7 @@ import type { ActiveStatus, AssetItemSummary, AssetSnapshotSummary, AssetSnapsho
 export const DEFAULT_CURRENCY = "CNY"
 export const CURRENCY_SETTINGS_ID = "default"
 
-export const DEFAULT_CATEGORIES: Array<{ name: string; categoryKind: string; color: string; icon: string; displayOrder: number }> = [
+const DEFAULT_CATEGORIES: Array<{ name: string; categoryKind: string; color: string; icon: string; displayOrder: number }> = [
   { name: "餐饮", categoryKind: "expense", color: "#e07b3a", icon: "food", displayOrder: 1 },
   { name: "购物", categoryKind: "expense", color: "#c46a9e", icon: "shopping-bag", displayOrder: 2 },
   { name: "交通", categoryKind: "expense", color: "#4a8fc4", icon: "train", displayOrder: 3 },

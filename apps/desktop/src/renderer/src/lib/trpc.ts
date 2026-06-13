@@ -1,7 +1,7 @@
 import { QueryClient } from "@tanstack/react-query"
 import { createTRPCClient } from "@trpc/client"
 import { createTRPCOptionsProxy } from "@trpc/tanstack-react-query"
-import type { inferRouterInputs, inferRouterOutputs } from "@trpc/server"
+import type { inferRouterOutputs } from "@trpc/server"
 import type { AppRouter } from "../../../main/trpc/router"
 import { installQueryClientPerfLogger } from "./debug/perf"
 import { ipcTRPCLink } from "./ipc-trpc-link"
@@ -18,7 +18,7 @@ export const queryClient = new QueryClient({
 
 installQueryClientPerfLogger(queryClient)
 
-export const trpcClient = createTRPCClient<AppRouter>({
+const trpcClient = createTRPCClient<AppRouter>({
   links: [ipcTRPCLink()],
 })
 
@@ -27,5 +27,4 @@ export const trpc = createTRPCOptionsProxy<AppRouter>({
   queryClient,
 })
 
-export type RouterInputs = inferRouterInputs<AppRouter>
 export type RouterOutputs = inferRouterOutputs<AppRouter>

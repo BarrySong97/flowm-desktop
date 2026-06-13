@@ -8,7 +8,7 @@ export const supportedLanguages = [
   { label: "中文", name: "简体中文", value: "zh-CN" },
 ] as const
 
-export type SupportedLanguage = (typeof supportedLanguages)[number]["value"]
+type SupportedLanguage = (typeof supportedLanguages)[number]["value"]
 
 function detectLanguage(): SupportedLanguage {
   if (typeof navigator === "undefined") return "en-US"
