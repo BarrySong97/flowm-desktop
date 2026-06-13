@@ -1,17 +1,42 @@
 import { Button, Calendar, DateField, DatePicker, Input, Label, ListBox, Modal, Select } from "@heroui/react"
 import type { DateValue } from "@internationalized/date"
 import { parseDate } from "@internationalized/date"
-import type { AssetSnapshotType } from "@flowm/api"
+import type { AssetSnapshotType, FlowmId } from "@flowm/api"
 
 export const TYPE_LABEL: Record<AssetSnapshotType, string> = {
-  cash: "现金", bank: "银行", wallet: "钱包", investment: "投资",
-  fixed_asset: "不动产", liability: "负债", other: "其他",
+  cash: "现金",
+  bank: "银行",
+  wallet: "钱包",
+  brokerage: "券商账户",
+  investment: "投资",
+  fund: "基金",
+  stock: "股票",
+  crypto: "数字资产",
+  real_estate: "不动产",
+  vehicle: "车辆",
+  fixed_asset: "固定资产",
+  liability: "负债",
+  other: "其他",
 }
 
-const ASSET_TYPES: AssetSnapshotType[] = ["cash", "bank", "wallet", "investment", "fixed_asset", "liability", "other"]
+export const ASSET_TYPES: AssetSnapshotType[] = [
+  "cash",
+  "bank",
+  "wallet",
+  "investment",
+  "fund",
+  "stock",
+  "crypto",
+  "real_estate",
+  "vehicle",
+  "fixed_asset",
+  "liability",
+  "other",
+]
 
 export interface AssetForm {
-  id?: number
+  id?: FlowmId
+  assetItemId?: FlowmId
   accountName: string
   assetType: AssetSnapshotType
   valueNumber: string
@@ -23,27 +48,40 @@ export interface AssetForm {
 interface Props {
   open: boolean
   form: AssetForm
+  mode?: "add" | "balance" | "account"
   saving: boolean
   onSave: () => void
   onClose: () => void
   onChange: (patch: Partial<AssetForm>) => void
 }
 
-export function AddAssetModal({ open, form, saving, onSave, onClose, onChange }: Props) {
+const TITLE: Record<NonNullable<Props["mode"]>, string> = {
+  add: "添加账户",
+  balance: "更新余额",
+  account: "编辑账户",
+}
+
+export function AddAssetModal({ open, form, mode = "add", saving, onSave, onClose, onChange }: Props) {
+  const showNameType = mode === "add" || mode === "account"
+  const showBalance = mode === "add" || mode === "balance"
+
   return (
     <Modal.Backdrop isOpen={open} onOpenChange={(v) => { if (!v) onClose() }}>
       <Modal.Container>
         <Modal.Dialog>
           <Modal.CloseTrigger />
           <Modal.Header>
-            <Modal.Heading>{form.id ? "更新余额" : "添加账户"}</Modal.Heading>
-            <p style={{ fontSize: 12, color: "var(--ink-4)", marginTop: 2 }}>手动记录账户当前余额</p>
+            <Modal.Heading>{TITLE[mode]}</Modal.Heading>
+            <p style={{ fontSize: 12, color: "var(--ink-4)", marginTop: 2 }}>
+              {mode === "balance" ? "记录账户当前最新余额" : mode === "account" ? "修改账户名称或类型" : "手动记录账户当前余额"}
+            </p>
           </Modal.Header>
 
           <Modal.Body>
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
 
               {/* Account name */}
+              {showNameType && (
               <div>
                 <Label style={{ fontSize: 12, color: "var(--ink-3)", marginBottom: 6, display: "block" }}>账户名称</Label>
                 <Input
@@ -53,8 +91,10 @@ export function AddAssetModal({ open, form, saving, onSave, onClose, onChange }:
                   onChange={(e) => onChange({ accountName: e.target.value })}
                 />
               </div>
+              )}
 
               {/* Asset type */}
+              {showNameType && (
               <div>
                 <Label style={{ fontSize: 12, color: "var(--ink-3)", marginBottom: 6, display: "block" }}>类型</Label>
                 <Select
@@ -78,8 +118,10 @@ export function AddAssetModal({ open, form, saving, onSave, onClose, onChange }:
                   </Select.Popover>
                 </Select>
               </div>
+              )}
 
               {/* Balance */}
+              {showBalance && (
               <div>
                 <Label style={{ fontSize: 12, color: "var(--ink-3)", marginBottom: 6, display: "block" }}>当前余额</Label>
                 <div style={{ display: "flex", gap: 8 }}>
@@ -101,8 +143,10 @@ export function AddAssetModal({ open, form, saving, onSave, onClose, onChange }:
                   />
                 </div>
               </div>
+              )}
 
               {/* Date */}
+              {showBalance && (
               <div>
                 <DatePicker
                   value={parseDate(form.snapshotAt)}
@@ -143,6 +187,7 @@ export function AddAssetModal({ open, form, saving, onSave, onClose, onChange }:
                   </DatePicker.Popover>
                 </DatePicker>
               </div>
+              )}
 
               {/* Note */}
               <div>

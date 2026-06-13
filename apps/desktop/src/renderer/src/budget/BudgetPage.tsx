@@ -1,22 +1,30 @@
+import { useState } from "react"
 import { Shell } from "../components/layout/Shell"
+import { Button } from "@heroui/react"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { Outlet, useNavigate, useRouterState } from "@tanstack/react-router"
+import { trpc } from "@/lib/trpc"
+import { usePagePerf } from "@/lib/debug/perf"
+import { AddBudgetModal } from "./AddBudgetModal"
+import type { BudgetForm } from "./AddBudgetModal"
 
 function fmt(n: number, d = 0) {
   return n.toLocaleString("zh-CN", { minimumFractionDigits: d, maximumFractionDigits: d })
 }
 
-const BUDGETS = [
-  { name: "餐饮", color: "var(--c-food)",  spent: 3284, limit: 4000 },
-  { name: "购物", color: "var(--c-shop)",  spent: 1940, limit: 1800 },
-  { name: "交通", color: "var(--c-trans)", spent: 1150, limit: 1400 },
-  { name: "娱乐", color: "var(--c-fun)",   spent: 680,  limit: 1200 },
-  { name: "其他", color: "var(--c-other)", spent: 612,  limit: 900  },
-  { name: "订阅", color: "var(--c-sub)",   spent: 206,  limit: 600  },
-]
+const COLOR_BY_NAME: Record<string, string> = {
+  餐饮: "var(--c-food)",
+  购物: "var(--c-shop)",
+  交通: "var(--c-trans)",
+  娱乐: "var(--c-fun)",
+  其他: "var(--c-other)",
+  订阅: "var(--c-sub)",
+  居住: "var(--c-home)",
+}
 
-const budgetSpent = BUDGETS.reduce((s, b) => s + b.spent, 0)
-const budgetTotal = BUDGETS.reduce((s, b) => s + b.limit, 0)
-const remain = budgetTotal - budgetSpent
-const pctTotal = (budgetSpent / budgetTotal) * 100
+function todayKey(): string {
+  return new Date().toISOString().slice(0, 10)
+}
 
 function Bar({ pct, color, h }: { pct: number; color: string; h: number }) {
   return (
@@ -27,6 +35,53 @@ function Bar({ pct, color, h }: { pct: number; color: string; h: number }) {
 }
 
 export function BudgetPage() {
+  const queryClient = useQueryClient()
+  const navigate = useNavigate()
+  const [showAdd, setShowAdd] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const today = todayKey()
+  const periodsQuery = useQuery(trpc.budgets.periods.queryOptions({ status: "active" }))
+  const currentPeriod = periodsQuery.data?.find((period) => period.periodStart <= today && period.periodEnd >= today)
+  const progressQuery = useQuery({
+    ...trpc.budgets.progress.queryOptions({ budgetPeriodId: currentPeriod?.id ?? "" }),
+    enabled: Boolean(currentPeriod),
+  })
+  usePagePerf("budget", [
+    { name: "budgets.periods", query: periodsQuery },
+    { name: "budgets.progress", query: progressQuery },
+  ])
+  const createBudgetItem = useMutation(trpc.budgets.createItem.mutationOptions())
+
+  async function handleAddBudget(form: BudgetForm) {
+    if (!currentPeriod) return
+    setSaving(true)
+    try {
+      await createBudgetItem.mutateAsync({
+        budgetPeriodId: currentPeriod.id,
+        name: form.name.trim(),
+        plannedAmount: Number(form.plannedAmount).toFixed(2),
+        currency: "CNY",
+        color: form.color || null,
+      })
+      await queryClient.invalidateQueries(trpc.budgets.progress.queryFilter())
+      setShowAdd(false)
+    } finally { setSaving(false) }
+  }
+  const budgets = (progressQuery.data ?? []).map((row) => ({
+    id: row.budgetItemId,
+    name: row.budgetName,
+    color: row.color ?? COLOR_BY_NAME[row.budgetName.replace(/预算$/, "")] ?? "var(--accent)",
+    spent: Number(row.referenceUsed),
+    limit: Number(row.budgeted),
+  }))
+  const budgetSpent = budgets.reduce((s, b) => s + b.spent, 0)
+  const budgetTotal = budgets.reduce((s, b) => s + b.limit, 0)
+  const remain = budgetTotal - budgetSpent
+  const pctTotal = budgetTotal > 0 ? budgetSpent / budgetTotal * 100 : 0
+
+  const pathname = useRouterState({ select: (s) => s.location.pathname })
+  if (pathname !== "/budget") return <Outlet />
+
   return (
     <Shell>
       {/* Header */}
@@ -49,27 +104,39 @@ export function BudgetPage() {
             ¥{fmt(remain)}
           </div>
         </div>
-        <div style={{ marginLeft: "auto", width: 300, paddingTop: 8 }}>
+        <div style={{ width: 300, paddingTop: 8 }}>
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
             <span style={{ fontSize: 10.5, color: "var(--ink-4)" }}>整体进度</span>
             <span style={{ fontFamily: "var(--mono)", fontSize: 11, fontWeight: 600 }}>{Math.round(pctTotal)}%</span>
           </div>
           <Bar pct={pctTotal} color={pctTotal > 100 ? "var(--red)" : "var(--accent)"} h={8} />
         </div>
+        <div style={{ marginLeft: "auto", paddingTop: 8, alignSelf: "flex-start" }}>
+          <Button
+            size="sm" variant="primary" style={{ borderRadius: 5 }}
+            onPress={() => setShowAdd(true)}
+            isDisabled={!currentPeriod}
+          >
+            ＋ 添加预算
+          </Button>
+        </div>
       </div>
 
       {/* Budget rows */}
       <div style={{ display: "flex", flexDirection: "column", marginTop: 14 }}>
-        {BUDGETS.map((b, i) => {
+        {budgets.map((b, i) => {
           const pct = b.spent / b.limit * 100
           const over = b.spent > b.limit
           return (
             <div
               key={b.name}
+              role="button"
+              onClick={() => navigate({ to: "/budget/$id", params: { id: String(b.id) } })}
               style={{
                 display: "grid", gridTemplateColumns: "120px 1fr 160px",
                 gap: 18, alignItems: "center", padding: "13px 0",
                 borderTop: i ? "1px solid var(--hair-3)" : "none",
+                cursor: "pointer",
               }}
             >
               {/* Label */}
@@ -96,12 +163,24 @@ export function BudgetPage() {
             </div>
           )
         })}
+        {budgets.length === 0 && (
+          <div style={{ padding: "28px 0", fontSize: 12, color: "var(--ink-4)", lineHeight: 1.7 }}>
+            暂无当前月预算。创建预算后，进度会只引用已发生的现金流，不预测、不对账。
+          </div>
+        )}
       </div>
 
       {/* Footer note */}
       <div style={{ marginTop: "auto", paddingTop: 16, fontSize: 11, color: "var(--ink-4)", lineHeight: 1.6 }}>
         预算只统计日常可控支出（不含房贷与储蓄）。Flowm 只告诉你用了多少，不替你做超支判断。
       </div>
+
+      <AddBudgetModal
+        open={showAdd}
+        saving={saving}
+        onSave={handleAddBudget}
+        onClose={() => setShowAdd(false)}
+      />
     </Shell>
   )
 }

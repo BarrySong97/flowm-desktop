@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useState } from "react"
+import { memo, useMemo, useState } from "react"
 import { Group as PanelGroup, Panel, Separator as PanelResizeHandle } from "react-resizable-panels"
 import { Button } from "@heroui/react"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import type { AssetSnapshotSummary, AssetSnapshotType } from "@flowm/api"
-import { useFlowmStore } from "../lib/stores/flowmStore"
+import { trpc } from "@/lib/trpc"
+import { usePagePerf } from "@/lib/debug/perf"
 import { Dock } from "../components/layout/Dock"
 import { ScrollArea } from "../components/ui/ScrollArea"
 import { Kicker } from "../components/ui/Kicker"
@@ -15,7 +17,6 @@ import { AssetTreemap } from "../components/charts/AssetTreemap"
 import { AddAssetModal, TYPE_LABEL } from "./AddAssetModal"
 import type { AssetForm } from "./AddAssetModal"
 import { AssetDetailPanel } from "./AssetDetailPanel"
-import { MiniSparkline, fakeChange } from "../components/charts/MiniSparkline"
 
 function fmt(n: number, d = 0) {
   return n.toLocaleString("zh-CN", { minimumFractionDigits: d, maximumFractionDigits: d })
@@ -23,7 +24,8 @@ function fmt(n: number, d = 0) {
 
 const GROUP_MAP: Record<AssetSnapshotType, string> = {
   cash: "现金", bank: "现金", wallet: "现金",
-  investment: "投资", fixed_asset: "不动产",
+  brokerage: "投资", investment: "投资", fund: "投资", stock: "投资", crypto: "投资",
+  real_estate: "不动产", fixed_asset: "固定资产", vehicle: "固定资产",
   liability: "负债", other: "其他",
 }
 
@@ -31,6 +33,7 @@ const GROUP_COLOR: Record<string, string> = {
   "现金": "var(--accent)",
   "投资": "#6c72cb",
   "不动产": "#e07b39",
+  "固定资产": "#b37a5d",
   "负债": "var(--red)",
   "其他": "#8c8fa0",
 }
@@ -40,46 +43,96 @@ const EMPTY: AssetForm = {
   valueCurrency: "CNY", snapshotAt: new Date().toISOString().slice(0, 10), note: "",
 }
 
-const M = { quantityNumber: null, quantityCurrency: null, source: "manual", meta: null }
+const NO_CHANGE = { label: "—", positive: true }
 
-const MOCK_SNAPSHOTS: AssetSnapshotSummary[] = [
-  { ...M, id: 1,  accountName: "招商银行 · 储蓄卡", assetType: "bank",         valueNumber: "48230.00",   valueCurrency: "CNY", snapshotAt: "2026-06-01T00:00:00.000Z", note: "· · 6621" },
-  { ...M, id: 2,  accountName: "美元活期",           assetType: "bank",         valueNumber: "30156.00",   valueCurrency: "USD", snapshotAt: "2026-06-01T00:00:00.000Z", note: "$4,200 · 7.18" },
-  { ...M, id: 3,  accountName: "支付宝 · 余额宝",    assetType: "wallet",       valueNumber: "23805.00",   valueCurrency: "CNY", snapshotAt: "2026-06-01T00:00:00.000Z", note: "7日 1.42%" },
-  { ...M, id: 4,  accountName: "工商银行 · 储蓄卡",  assetType: "bank",         valueNumber: "12500.00",   valueCurrency: "CNY", snapshotAt: "2026-06-01T00:00:00.000Z", note: "· · 0473 · 工资" },
-  { ...M, id: 5,  accountName: "微信 · 零钱",        assetType: "wallet",       valueNumber: "3420.00",    valueCurrency: "CNY", snapshotAt: "2026-06-01T00:00:00.000Z", note: "零钱通" },
-  { ...M, id: 6,  accountName: "现金",               assetType: "cash",         valueNumber: "1200.00",    valueCurrency: "CNY", snapshotAt: "2026-06-01T00:00:00.000Z", note: "钱包" },
-  { ...M, id: 7,  accountName: "券商 · 股票+基金",   assetType: "investment",   valueNumber: "152340.00",  valueCurrency: "CNY", snapshotAt: "2026-06-01T00:00:00.000Z", note: "华泰证券" },
-  { ...M, id: 8,  accountName: "住房公积金",         assetType: "investment",   valueNumber: "86420.00",   valueCurrency: "CNY", snapshotAt: "2026-06-01T00:00:00.000Z", note: "每月入账" },
-  { ...M, id: 9,  accountName: "比特币",             assetType: "investment",   valueNumber: "43800.00",   valueCurrency: "CNY", snapshotAt: "2026-06-01T00:00:00.000Z", note: "冷钱包" },
-  { ...M, id: 10, accountName: "ETF · 沪深300",      assetType: "investment",   valueNumber: "28600.00",   valueCurrency: "CNY", snapshotAt: "2026-06-01T00:00:00.000Z", note: "510300" },
-  { ...M, id: 11, accountName: "上海 · 住宅",        assetType: "fixed_asset",  valueNumber: "3200000.00", valueCurrency: "CNY", snapshotAt: "2026-06-01T00:00:00.000Z", note: "浦东新区" },
-  { ...M, id: 12, accountName: "车辆",               assetType: "fixed_asset",  valueNumber: "180000.00",  valueCurrency: "CNY", snapshotAt: "2026-06-01T00:00:00.000Z", note: "特斯拉 Model 3" },
-  { ...M, id: 13, accountName: "房贷",               assetType: "liability",    valueNumber: "-1850000.00",valueCurrency: "CNY", snapshotAt: "2026-06-01T00:00:00.000Z", note: "30年 · 4.1%" },
-  { ...M, id: 14, accountName: "信用卡 · 招行",      assetType: "liability",    valueNumber: "-8200.00",   valueCurrency: "CNY", snapshotAt: "2026-06-01T00:00:00.000Z", note: "账单日 15日" },
-  { ...M, id: 15, accountName: "花呗",               assetType: "liability",    valueNumber: "-3100.00",   valueCurrency: "CNY", snapshotAt: "2026-06-01T00:00:00.000Z", note: null },
-  { ...M, id: 16, accountName: "建设银行 · 理财",    assetType: "bank",         valueNumber: "55000.00",   valueCurrency: "CNY", snapshotAt: "2026-06-01T00:00:00.000Z", note: "90天封闭" },
-  { ...M, id: 17, accountName: "货币基金",           assetType: "investment",   valueNumber: "19800.00",   valueCurrency: "CNY", snapshotAt: "2026-06-01T00:00:00.000Z", note: "天天基金" },
-  { ...M, id: 18, accountName: "港股账户",           assetType: "investment",   valueNumber: "67200.00",   valueCurrency: "HKD", snapshotAt: "2026-06-01T00:00:00.000Z", note: "富途牛牛" },
-  { ...M, id: 19, accountName: "备用金",             assetType: "cash",         valueNumber: "5000.00",    valueCurrency: "CNY", snapshotAt: "2026-06-01T00:00:00.000Z", note: "抽屉里" },
-  { ...M, id: 20, accountName: "车贷",               assetType: "liability",    valueNumber: "-62000.00",  valueCurrency: "CNY", snapshotAt: "2026-06-01T00:00:00.000Z", note: "3年 · 3.85%" },
-]
+interface AssetRowProps {
+  asset: AssetSnapshotSummary
+  change: { label: string; positive: boolean }
+  onSelect: (asset: AssetSnapshotSummary) => void
+}
+
+const AssetRow = memo(function AssetRow({ asset, change, onSelect }: AssetRowProps) {
+  const rawValue = Number(asset.valueNumber || 0)
+  const isLiability = asset.assetType === "liability"
+  const val = isLiability ? -Math.abs(rawValue) : rawValue
+  return (
+    <div style={{ borderBottom: "1px solid var(--hair-3)" }}>
+      <Button
+        variant="ghost"
+        onPress={() => onSelect(asset)}
+        style={{
+          width: "100%", display: "flex", alignItems: "center",
+          padding: "10px 6px", gap: 10, height: "auto",
+          border: "none", borderRadius: 4, outline: "none",
+          textAlign: "left", justifyContent: "flex-start",
+          boxShadow: "none",
+        }}
+      >
+        <div style={{ width: 160, flexShrink: 0 }}>
+          <div style={{ fontSize: 13, fontWeight: 500, color: "var(--ink)" }}>{asset.accountName}</div>
+          <Dim style={{ fontSize: 10.5, marginTop: 1 }}>
+            {asset.note ? asset.note : TYPE_LABEL[asset.assetType]}
+          </Dim>
+        </div>
+        <div style={{ flex: 1 }} />
+        <div style={{ textAlign: "right", flexShrink: 0 }}>
+          <div style={{ fontFamily: "IBM Plex Mono, monospace", fontSize: 14, fontWeight: 500, color: isLiability ? "var(--red)" : "var(--ink)" }}>
+            {isLiability ? "−" : ""}¥{fmt(Math.abs(val))}
+          </div>
+          <div style={{ fontSize: 10.5, marginTop: 1, color: change.positive ? "var(--accent)" : "var(--red)" }}>
+            {change.label}
+          </div>
+        </div>
+      </Button>
+    </div>
+  )
+})
 
 export function AssetsPage() {
-  useFlowmStore((s) => s.assetSnapshots)
-  const loadAssetSnapshots = useFlowmStore((s) => s.loadAssetSnapshots)
-  const upsertAssetSnapshot = useFlowmStore((s) => s.upsertAssetSnapshot)
-  const removeAssetSnapshot = useFlowmStore((s) => s.removeAssetSnapshot)
+  const queryClient = useQueryClient()
+  const assetSnapshotsQuery = useQuery(trpc.assets.snapshots.queryOptions({ latestOnly: true }))
+  const assetSparklinesQuery = useQuery(trpc.assets.sparklines.queryOptions({}))
+  const createAssetItem = useMutation(trpc.assets.createItem.mutationOptions())
+  const updateAssetItem = useMutation(trpc.assets.updateItem.mutationOptions())
+  const addAssetSnapshot = useMutation(trpc.assets.addSnapshot.mutationOptions())
+  const updateAssetSnapshot = useMutation(trpc.assets.updateSnapshot.mutationOptions())
+  const deleteAssetSnapshot = useMutation(trpc.assets.deleteSnapshot.mutationOptions())
+  usePagePerf("assets", [
+    { name: "assets.snapshots.latest", query: assetSnapshotsQuery },
+    { name: "assets.sparklines", query: assetSparklinesQuery },
+  ])
 
   const [form, setForm] = useState<AssetForm>(EMPTY)
+  const [formMode, setFormMode] = useState<"add" | "balance" | "account">("add")
   const [showForm, setShowForm] = useState(false)
   const [saving, setSaving] = useState(false)
   const [detailAsset, setDetailAsset] = useState<AssetSnapshotSummary | null>(null)
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null)
 
-  useEffect(() => { void loadAssetSnapshots() }, [loadAssetSnapshots])
+  const assetSnapshots = assetSnapshotsQuery.data ?? []
 
-  const assetSnapshots = MOCK_SNAPSHOTS
+  const changeByAsset = useMemo(() => {
+    const grouped = new Map<string, number[]>()
+    for (const point of assetSparklinesQuery.data ?? []) {
+      const key = String(point.assetItemId)
+      const rows = grouped.get(key) ?? []
+      rows.push(Number(point.valueNumber || 0))
+      grouped.set(key, rows)
+    }
+    const changes = new Map<string, { label: string; positive: boolean }>()
+    for (const [assetItemId, history] of grouped) {
+      if (history.length < 2) continue
+      const latest = history[history.length - 1]
+      const previous = history[history.length - 2]
+      const delta = latest - previous
+      const pct = previous === 0 ? 0 : delta / previous * 100
+      changes.set(assetItemId, {
+        label: `${delta >= 0 ? "+" : "−"}${Math.abs(pct).toFixed(1)}%`,
+        positive: delta >= 0,
+      })
+    }
+    return changes
+  }, [assetSparklinesQuery.data])
 
   const nonLiab = assetSnapshots.filter((a) => a.assetType !== "liability")
   const liabilities = assetSnapshots.filter((a) => a.assetType === "liability")
@@ -100,7 +153,7 @@ export function AssetsPage() {
   }, [assetSnapshots])
 
   const treemapGroups = useMemo(() => {
-    const order = ["不动产", "投资", "现金", "其他"]
+    const order = ["不动产", "固定资产", "投资", "现金", "其他"]
     return order
       .filter((g) => groups.has(g))
       .map((g) => ({
@@ -131,11 +184,12 @@ export function AssetsPage() {
     return latest.snapshotAt.slice(0, 10).slice(5)
   }, [assetSnapshots])
 
-  function openAdd() { setForm(EMPTY); setShowForm(true) }
+  function openAdd() { setForm(EMPTY); setFormMode("add"); setShowForm(true) }
 
-  function openEdit(a: AssetSnapshotSummary) {
+  function openEdit(a: AssetSnapshotSummary, mode: "balance" | "account") {
     setForm({
       id: a.id,
+      assetItemId: a.assetItemId,
       accountName: a.accountName,
       assetType: a.assetType,
       valueNumber: String(Math.abs(Number(a.valueNumber))),
@@ -143,26 +197,69 @@ export function AssetsPage() {
       snapshotAt: a.snapshotAt.slice(0, 10),
       note: a.note ?? "",
     })
+    setFormMode(mode)
     setShowForm(true)
   }
 
   async function save() {
+    if (formMode === "account") {
+      if (!form.assetItemId || !form.accountName.trim()) return
+      setSaving(true)
+      try {
+        await updateAssetItem.mutateAsync({
+          id: form.assetItemId,
+          name: form.accountName.trim(),
+          assetType: form.assetType,
+          note: form.note.trim() || null,
+        })
+        await queryClient.invalidateQueries(trpc.assets.snapshots.queryFilter())
+        setShowForm(false)
+        setForm(EMPTY)
+      } finally { setSaving(false) }
+      return
+    }
     if (!form.accountName.trim() || !form.valueNumber) return
     setSaving(true)
     try {
       const val = Number(form.valueNumber)
-      await upsertAssetSnapshot({
-        id: form.id,
-        accountName: form.accountName.trim(),
-        assetType: form.assetType,
-        snapshotAt: `${form.snapshotAt}T00:00:00.000Z`,
-        valueNumber: (form.assetType === "liability" ? -Math.abs(val) : Math.abs(val)).toFixed(2),
-        valueCurrency: form.valueCurrency || "CNY",
-        note: form.note.trim() || null,
-      })
+      if (form.id) {
+        await updateAssetSnapshot.mutateAsync({
+          id: form.id,
+          snapshotAt: `${form.snapshotAt}T00:00:00.000Z`,
+          valueAmount: Math.abs(val).toFixed(2),
+          valueCurrency: form.valueCurrency || "CNY",
+          note: form.note.trim() || null,
+        })
+      } else {
+        const item = await createAssetItem.mutateAsync({
+          name: form.accountName.trim(),
+          assetType: form.assetType,
+          defaultCurrency: form.valueCurrency || "CNY",
+          valuationMethod: ["fund", "stock", "crypto", "investment"].includes(form.assetType) ? "manual_market_value" : "manual_balance",
+          note: form.note.trim() || null,
+        })
+        await addAssetSnapshot.mutateAsync({
+          assetItemId: item.id,
+          snapshotAt: `${form.snapshotAt}T00:00:00.000Z`,
+          valueAmount: Math.abs(val).toFixed(2),
+          valueCurrency: form.valueCurrency || "CNY",
+          sourceKind: "manual",
+          note: form.note.trim() || null,
+        })
+      }
+      await queryClient.invalidateQueries(trpc.assets.snapshots.queryFilter())
+      await queryClient.invalidateQueries(trpc.assets.sparklines.queryFilter())
+      await queryClient.invalidateQueries(trpc.assets.netWorth.queryFilter())
       setShowForm(false)
       setForm(EMPTY)
     } finally { setSaving(false) }
+  }
+
+  async function removeSnapshot(id: AssetSnapshotSummary["id"]) {
+    await deleteAssetSnapshot.mutateAsync({ id })
+    await queryClient.invalidateQueries(trpc.assets.snapshots.queryFilter())
+    await queryClient.invalidateQueries(trpc.assets.sparklines.queryFilter())
+    await queryClient.invalidateQueries(trpc.assets.netWorth.queryFilter())
   }
 
 
@@ -203,45 +300,22 @@ export function AssetsPage() {
                   <div style={{ fontSize: 11, fontWeight: 600, color: "var(--ink-4)", textTransform: "uppercase", letterSpacing: "0.1em", padding: "12px 0 4px" }}>
                     {g}
                   </div>
-                  {items.map((a) => {
-                    const val = Number(a.valueNumber || 0)
-                    const change = fakeChange(a.id)
-                    return (
-                      <div key={a.id} style={{ borderBottom: "1px solid var(--hair-3)" }}>
-                      <Button
-                        variant="ghost"
-                        onPress={() => setDetailAsset(a)}
-                        style={{
-                          width: "100%", display: "flex", alignItems: "center",
-                          padding: "10px 6px", gap: 10, height: "auto",
-                          border: "none", borderRadius: 4, outline: "none",
-                          textAlign: "left", justifyContent: "flex-start",
-                          boxShadow: "none",
-                        }}
-                      >
-                        <div style={{ width: 160, flexShrink: 0 }}>
-                          <div style={{ fontSize: 13, fontWeight: 500, color: "var(--ink)" }}>{a.accountName}</div>
-                          <Dim style={{ fontSize: 10.5, marginTop: 1 }}>
-                            {a.note ? a.note : TYPE_LABEL[a.assetType]}
-                          </Dim>
-                        </div>
-                        <MiniSparkline seed={a.id} color={val < 0 ? "var(--red)" : "var(--ink-4)"} />
-                        <div style={{ flex: 1 }} />
-                        <div style={{ textAlign: "right", flexShrink: 0 }}>
-                          <div style={{ fontFamily: "IBM Plex Mono, monospace", fontSize: 14, fontWeight: 500, color: val < 0 ? "var(--red)" : "var(--ink)" }}>
-                            {val < 0 ? "−" : ""}¥{fmt(Math.abs(val))}
-                          </div>
-                          <div style={{ fontSize: 10.5, marginTop: 1, color: change.positive ? "var(--accent)" : "var(--red)" }}>
-                            {change.label}
-                          </div>
-                        </div>
-                      </Button>
-                      </div>
-                    )
-                  })}
+                  {items.map((a) => (
+                    <AssetRow
+                      key={a.id}
+                      asset={a}
+                      change={changeByAsset.get(String(a.assetItemId)) ?? NO_CHANGE}
+                      onSelect={setDetailAsset}
+                    />
+                  ))}
                 </div>
               )
             })}
+            {assetSnapshots.length === 0 && (
+              <div style={{ padding: "28px 0", fontSize: 12, color: "var(--ink-4)", lineHeight: 1.7 }}>
+                暂无资产快照。添加账户后，这里会显示最新余额和历史增长。
+              </div>
+            )}
             <div style={{ marginTop: 16, fontSize: 11, color: "var(--ink-4)", lineHeight: 1.6 }}>
               余额自己手动记录，不从流水推算。允许和流水之间有误差。
             </div>
@@ -261,7 +335,7 @@ export function AssetsPage() {
               asset={detailAsset}
               onBack={() => setDetailAsset(null)}
               onEdit={openEdit}
-              onDelete={(id) => { void removeAssetSnapshot(id); setDetailAsset(null) }}
+              onDelete={(id) => { void removeSnapshot(id); setDetailAsset(null) }}
             />
           ) : (
           <div style={{ padding: "16px 32px 112px" }}>
@@ -298,7 +372,6 @@ export function AssetsPage() {
                   key={g.name}
                   onClick={() => {
                     if (selectedGroup) {
-                      // drill-down level: click account name to open detail
                       const acct = (groups.get(selectedGroup) ?? []).find((a) => a.accountName === g.name)
                       if (acct) setDetailAsset(acct)
                     } else {
@@ -327,6 +400,7 @@ export function AssetsPage() {
       <AddAssetModal
         open={showForm}
         form={form}
+        mode={formMode}
         saving={saving}
         onSave={() => void save()}
         onClose={() => setShowForm(false)}

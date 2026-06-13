@@ -13,6 +13,7 @@
     "check-types": "turbo check-types",
     "typecheck": "turbo check-types",
     "test": "vitest",
+    "seed:demo": "pnpm -F desktop seed:demo",
     "package": "pnpm -F desktop package",
     "dist": "pnpm -F desktop dist"
   },

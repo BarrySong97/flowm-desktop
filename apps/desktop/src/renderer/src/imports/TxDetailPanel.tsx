@@ -17,40 +17,22 @@ function fmt(n: number, d = 0) {
   return n.toLocaleString("zh-CN", { minimumFractionDigits: d, maximumFractionDigits: d })
 }
 
-function seeded(n: number) {
-  let s = (n * 1664525 + 1013904223) & 0x7fffffff
-  return () => { s = (s * 1664525 + 1013904223) & 0x7fffffff; return s / 0x7fffffff }
-}
-
-function fakeTime(id: number) {
-  const rng = seeded(id * 7)
-  const h = 8 + Math.floor(rng() * 14)
-  const m = Math.floor(rng() * 60)
-  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`
-}
-
-function fakeTxId(id: number, date: string) {
-  const rng = seeded(id * 13)
-  const digits = date.replace(/-/g, "") + String(Math.floor(rng() * 1e8)).padStart(8, "0")
-  return digits
-}
-
-function fakeOriginalDesc(counterparty: string, source: string) {
-  if (source === "支付宝") return `支付宝-${counterparty}-商品消费`
-  if (source === "微信") return `财付通-${counterparty}`
-  return `${source}POS消费-${counterparty}`
-}
-
-function fakeImportDate(date: string) {
-  const d = new Date(date)
-  d.setDate(d.getDate() + 1)
-  return `${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")} 自动导入`
-}
-
 export interface Tx {
-  id: number; date: string; counterparty: string
-  flowKind: "income" | "expense" | "transfer"
-  amount: number; categoryName: string; tag?: string; source: string
+  id: number
+  rawId: string
+  date: string
+  occurredAt?: string | null
+  counterparty: string
+  flowKind: string
+  amount: number
+  categoryName: string
+  tag?: string
+  source: string
+  title?: string | null
+  description?: string | null
+  userNote?: string | null
+  statementLineId?: string | number | null
+  createdAt?: string | null
 }
 
 function InfoRow({ label, children }: { label: string; children: React.ReactNode }) {
@@ -77,11 +59,12 @@ export function TxDetailPanel({ tx, allTxs, onBack }: Props) {
   const catColor = CAT_COLOR[tx.categoryName] ?? CAT_COLOR["其他"]
 
   const dt = new Date(tx.date)
-  const dayLabel = DAYS[dt.getDay()]
-  const timeStr = fakeTime(tx.id)
-  const txId = fakeTxId(tx.id, tx.date)
-  const originalDesc = fakeOriginalDesc(tx.counterparty, tx.source)
-  const importDate = fakeImportDate(tx.date)
+  const dayLabel = Number.isNaN(dt.getTime()) ? "" : DAYS[dt.getDay()]
+  const timeStr = tx.occurredAt?.slice(11, 16) ?? null
+  const originalDesc = tx.description ?? tx.title ?? null
+  const sourceDetail = tx.createdAt == null
+    ? tx.source
+    : `${tx.source} · ${tx.createdAt.slice(0, 10)}`
 
   const recent = allTxs
     .filter((t) => t.counterparty === tx.counterparty && t.id !== tx.id)
@@ -117,7 +100,7 @@ export function TxDetailPanel({ tx, allTxs, onBack }: Props) {
         </div>
       </div>
       <Dim style={{ fontSize: 11, marginTop: 6 }}>
-        {tx.date} · {dayLabel} {timeStr}
+        {tx.date}{dayLabel ? ` · ${dayLabel}` : ""}{timeStr ? ` ${timeStr}` : ""}
       </Dim>
 
       <div style={{ margin: "14px 0 0", borderTop: "1px solid var(--hair-2)" }} />
@@ -131,13 +114,15 @@ export function TxDetailPanel({ tx, allTxs, onBack }: Props) {
           <span style={{ fontSize: 11, color: "var(--accent)", cursor: "pointer", marginLeft: 2 }}>改</span>
         </span>
       </InfoRow>
-      <InfoRow label="原始描述">{originalDesc}</InfoRow>
+      <InfoRow label="原始描述">{originalDesc ?? "暂无原始凭证"}</InfoRow>
       <InfoRow label="交易号">
-        <span style={{ fontFamily: "IBM Plex Mono, monospace", fontSize: 11 }}>{txId}</span>
+        <span style={{ fontFamily: "IBM Plex Mono, monospace", fontSize: 11 }}>
+          {tx.statementLineId ?? tx.rawId}
+        </span>
       </InfoRow>
-      <InfoRow label="来源">{tx.source}账单 · {importDate}</InfoRow>
+      <InfoRow label="来源">{sourceDetail}</InfoRow>
       <InfoRow label="备注">
-        <span style={{ color: "var(--accent)", cursor: "pointer" }}>+ 添加备注</span>
+        {tx.userNote ?? <span style={{ color: "var(--accent)", cursor: "pointer" }}>+ 添加备注</span>}
       </InfoRow>
 
       {/* Recent same merchant */}
@@ -158,9 +143,7 @@ export function TxDetailPanel({ tx, allTxs, onBack }: Props) {
 
       {/* Actions */}
       <div style={{ display: "flex", gap: 8, marginTop: 24, alignItems: "center", flexWrap: "wrap" }}>
-        <Button size="sm" variant="outline" style={{ borderRadius: 5 }}>修改分类</Button>
-        <Button size="sm" variant="outline" style={{ borderRadius: 5 }}>添加备注</Button>
-        <Button size="sm" variant="outline" style={{ borderRadius: 5 }}>不计入统计</Button>
+        <Button size="sm" variant="outline" style={{ borderRadius: 5 }}>编辑流水内容</Button>
         <div style={{ flex: 1 }} />
         <Button size="sm" variant="danger-soft" style={{ borderRadius: 5 }}>删除</Button>
       </div>

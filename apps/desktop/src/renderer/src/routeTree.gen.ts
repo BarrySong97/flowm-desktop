@@ -17,6 +17,9 @@ import { Route as ImportsRouteImport } from './routes/imports'
 import { Route as BudgetRouteImport } from './routes/budget'
 import { Route as AssetsRouteImport } from './routes/assets'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as SubscriptionsIdRouteImport } from './routes/subscriptions.$id'
+import { Route as LoansIdRouteImport } from './routes/loans.$id'
+import { Route as BudgetIdRouteImport } from './routes/budget.$id'
 
 const SubscriptionsRoute = SubscriptionsRouteImport.update({
   id: '/subscriptions',
@@ -58,37 +61,61 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SubscriptionsIdRoute = SubscriptionsIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => SubscriptionsRoute,
+} as any)
+const LoansIdRoute = LoansIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => LoansRoute,
+} as any)
+const BudgetIdRoute = BudgetIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => BudgetRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/assets': typeof AssetsRoute
-  '/budget': typeof BudgetRoute
+  '/budget': typeof BudgetRouteWithChildren
   '/imports': typeof ImportsRoute
-  '/loans': typeof LoansRoute
+  '/loans': typeof LoansRouteWithChildren
   '/settings': typeof SettingsRoute
   '/settings-categories': typeof SettingsCategoriesRoute
-  '/subscriptions': typeof SubscriptionsRoute
+  '/subscriptions': typeof SubscriptionsRouteWithChildren
+  '/budget/$id': typeof BudgetIdRoute
+  '/loans/$id': typeof LoansIdRoute
+  '/subscriptions/$id': typeof SubscriptionsIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/assets': typeof AssetsRoute
-  '/budget': typeof BudgetRoute
+  '/budget': typeof BudgetRouteWithChildren
   '/imports': typeof ImportsRoute
-  '/loans': typeof LoansRoute
+  '/loans': typeof LoansRouteWithChildren
   '/settings': typeof SettingsRoute
   '/settings-categories': typeof SettingsCategoriesRoute
-  '/subscriptions': typeof SubscriptionsRoute
+  '/subscriptions': typeof SubscriptionsRouteWithChildren
+  '/budget/$id': typeof BudgetIdRoute
+  '/loans/$id': typeof LoansIdRoute
+  '/subscriptions/$id': typeof SubscriptionsIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/assets': typeof AssetsRoute
-  '/budget': typeof BudgetRoute
+  '/budget': typeof BudgetRouteWithChildren
   '/imports': typeof ImportsRoute
-  '/loans': typeof LoansRoute
+  '/loans': typeof LoansRouteWithChildren
   '/settings': typeof SettingsRoute
   '/settings-categories': typeof SettingsCategoriesRoute
-  '/subscriptions': typeof SubscriptionsRoute
+  '/subscriptions': typeof SubscriptionsRouteWithChildren
+  '/budget/$id': typeof BudgetIdRoute
+  '/loans/$id': typeof LoansIdRoute
+  '/subscriptions/$id': typeof SubscriptionsIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -101,6 +128,9 @@ export interface FileRouteTypes {
     | '/settings'
     | '/settings-categories'
     | '/subscriptions'
+    | '/budget/$id'
+    | '/loans/$id'
+    | '/subscriptions/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -111,6 +141,9 @@ export interface FileRouteTypes {
     | '/settings'
     | '/settings-categories'
     | '/subscriptions'
+    | '/budget/$id'
+    | '/loans/$id'
+    | '/subscriptions/$id'
   id:
     | '__root__'
     | '/'
@@ -121,17 +154,20 @@ export interface FileRouteTypes {
     | '/settings'
     | '/settings-categories'
     | '/subscriptions'
+    | '/budget/$id'
+    | '/loans/$id'
+    | '/subscriptions/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AssetsRoute: typeof AssetsRoute
-  BudgetRoute: typeof BudgetRoute
+  BudgetRoute: typeof BudgetRouteWithChildren
   ImportsRoute: typeof ImportsRoute
-  LoansRoute: typeof LoansRoute
+  LoansRoute: typeof LoansRouteWithChildren
   SettingsRoute: typeof SettingsRoute
   SettingsCategoriesRoute: typeof SettingsCategoriesRoute
-  SubscriptionsRoute: typeof SubscriptionsRoute
+  SubscriptionsRoute: typeof SubscriptionsRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
@@ -192,18 +228,72 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/subscriptions/$id': {
+      id: '/subscriptions/$id'
+      path: '/$id'
+      fullPath: '/subscriptions/$id'
+      preLoaderRoute: typeof SubscriptionsIdRouteImport
+      parentRoute: typeof SubscriptionsRoute
+    }
+    '/loans/$id': {
+      id: '/loans/$id'
+      path: '/$id'
+      fullPath: '/loans/$id'
+      preLoaderRoute: typeof LoansIdRouteImport
+      parentRoute: typeof LoansRoute
+    }
+    '/budget/$id': {
+      id: '/budget/$id'
+      path: '/$id'
+      fullPath: '/budget/$id'
+      preLoaderRoute: typeof BudgetIdRouteImport
+      parentRoute: typeof BudgetRoute
+    }
   }
 }
+
+interface BudgetRouteChildren {
+  BudgetIdRoute: typeof BudgetIdRoute
+}
+
+const BudgetRouteChildren: BudgetRouteChildren = {
+  BudgetIdRoute: BudgetIdRoute,
+}
+
+const BudgetRouteWithChildren =
+  BudgetRoute._addFileChildren(BudgetRouteChildren)
+
+interface LoansRouteChildren {
+  LoansIdRoute: typeof LoansIdRoute
+}
+
+const LoansRouteChildren: LoansRouteChildren = {
+  LoansIdRoute: LoansIdRoute,
+}
+
+const LoansRouteWithChildren = LoansRoute._addFileChildren(LoansRouteChildren)
+
+interface SubscriptionsRouteChildren {
+  SubscriptionsIdRoute: typeof SubscriptionsIdRoute
+}
+
+const SubscriptionsRouteChildren: SubscriptionsRouteChildren = {
+  SubscriptionsIdRoute: SubscriptionsIdRoute,
+}
+
+const SubscriptionsRouteWithChildren = SubscriptionsRoute._addFileChildren(
+  SubscriptionsRouteChildren,
+)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AssetsRoute: AssetsRoute,
-  BudgetRoute: BudgetRoute,
+  BudgetRoute: BudgetRouteWithChildren,
   ImportsRoute: ImportsRoute,
-  LoansRoute: LoansRoute,
+  LoansRoute: LoansRouteWithChildren,
   SettingsRoute: SettingsRoute,
   SettingsCategoriesRoute: SettingsCategoriesRoute,
-  SubscriptionsRoute: SubscriptionsRoute,
+  SubscriptionsRoute: SubscriptionsRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

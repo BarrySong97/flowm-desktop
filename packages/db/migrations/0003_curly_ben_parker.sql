@@ -1,1 +1,0 @@
-DROP INDEX `prices_date_currency_quote_unique`;

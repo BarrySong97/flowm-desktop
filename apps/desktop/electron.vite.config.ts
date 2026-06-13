@@ -9,7 +9,7 @@ export default defineConfig({
   main: {
     plugins: [
       externalizeDepsPlugin({
-        exclude: ["@flowm/db"],
+        exclude: ["@flowm/api", "@flowm/db", "@flowm/shared"],
       }),
     ],
     resolve: {

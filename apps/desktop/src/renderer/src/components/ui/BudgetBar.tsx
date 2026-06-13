@@ -51,12 +51,6 @@ export function BudgetBar({ color, spent, limit, label, scaleMax }: Props) {
             }}
           />
         )}
-        {!over && (
-          <div
-            className="absolute"
-            style={{ left: limPct + "%", top: -2, bottom: -2, width: 1.5, background: "var(--ink-4)", opacity: 0.55 }}
-          />
-        )}
       </div>
 
       <div className="text-right whitespace-nowrap">

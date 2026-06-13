@@ -1,51 +1,30 @@
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { Button, Label, Modal } from "@heroui/react"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { Outlet, useNavigate, useRouterState } from "@tanstack/react-router"
 import { Dock } from "../components/layout/Dock"
 import { ScrollArea } from "../components/ui/ScrollArea"
+import { trpc } from "@/lib/trpc"
+import { usePagePerf } from "@/lib/debug/perf"
+import { LoanScheduleBar } from "./LoanScheduleBar"
+import { buildLoanSchedule } from "./loanSchedule"
 
 function fmt(n: number, d = 0) {
   return n.toLocaleString("zh-CN", { minimumFractionDigits: d, maximumFractionDigits: d })
 }
 
-interface Loan {
-  id: string; name: string; bank: string
-  remain: number; total: number; monthly: number
-  rate: number; termLeft: number; termTotal: number
+function addDays(date: Date, days: number): Date {
+  const next = new Date(date)
+  next.setDate(next.getDate() + days)
+  return next
 }
 
-const RAW_LOANS: Loan[] = [
-  { id: "mortgage", name: "商业房贷", bank: "招商银行",  remain: 1820000, total: 2480000, monthly: 9850,  rate: 4.15, termLeft: 246, termTotal: 360 },
-  { id: "consume",  name: "消费贷",   bank: "招联金融",  remain: 45000,   total: 80000,   monthly: 2180,  rate: 5.40, termLeft: 22,  termTotal: 36  },
-  { id: "car",      name: "车贷",     bank: "平安银行",  remain: 62000,   total: 120000,  monthly: 2350,  rate: 3.85, termLeft: 28,  termTotal: 48  },
-  { id: "edu",      name: "教育贷款", bank: "中国银行",  remain: 18000,   total: 30000,   monthly: 680,   rate: 4.75, termLeft: 28,  termTotal: 48  },
-  { id: "biz",      name: "经营贷",   bank: "工商银行",  remain: 280000,  total: 300000,  monthly: 5200,  rate: 3.60, termLeft: 55,  termTotal: 60  },
-]
-const CARD = { name: "信用卡待还", bank: "招商银行", label: "本期账单", remain: 8640 }
-
-function buildSched(loan: Loan) {
-  const r = loan.rate / 100 / 12
-  let bal = loan.total
-  const sched: { interest: number; principal: number }[] = []
-  for (let k = 0; k < loan.termTotal; k++) {
-    const interest = bal * r
-    const principal = Math.max(loan.monthly - interest, 0)
-    bal = Math.max(0, bal - principal)
-    sched.push({ interest, principal })
-  }
-  return sched
+function dateKey(date: Date): string {
+  return date.toISOString().slice(0, 10)
 }
-
-const LOANS = RAW_LOANS.map((l) => ({ ...l, paid: l.termTotal - l.termLeft, sched: buildSched(l) }))
-
-const totalLiab = RAW_LOANS.reduce((s, l) => s + l.remain, 0) + CARD.remain
-const totalMonthly = RAW_LOANS.reduce((s, l) => s + l.monthly, 0)
-const monthlyFixed = totalMonthly + 557 // subs monthly
-const fixedPct = Math.round(totalMonthly / monthlyFixed * 100)
-
-type Tip = { li: number; k: number; principal: number; interest: number; monthly: number; paid: boolean; left: number; gw: number } | null
 
 type LoanForm = { name: string; bank: string; principal: string; monthly: string; rate: string; termTotal: string; startDate: string }
-const EMPTY_FORM: LoanForm = { name: "", bank: "", principal: "", monthly: "", rate: "4.5", termTotal: "120", startDate: "2026-06-11" }
+const EMPTY_FORM: LoanForm = { name: "", bank: "", principal: "", monthly: "", rate: "4.5", termTotal: "120", startDate: new Date().toISOString().slice(0, 10) }
 
 const inputStyle: React.CSSProperties = {
   width: "100%", font: "500 14px var(--sans)", color: "var(--ink)",
@@ -53,7 +32,7 @@ const inputStyle: React.CSSProperties = {
   background: "var(--surface)", outline: "none", boxSizing: "border-box",
 }
 
-function AddLoanModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+function AddLoanModal({ open, onClose, onSave }: { open: boolean; onClose: () => void; onSave: (form: LoanForm) => void }) {
   const [form, setForm] = useState<LoanForm>(EMPTY_FORM)
   function patch(p: Partial<LoanForm>) { setForm((f) => ({ ...f, ...p })) }
   function handleClose() { setForm(EMPTY_FORM); onClose() }
@@ -100,7 +79,17 @@ function AddLoanModal({ open, onClose }: { open: boolean; onClose: () => void })
             </div>
           </Modal.Body>
           <Modal.Footer>
-            <Button variant="primary" style={{ borderRadius: 5 }} isDisabled={!form.name.trim() || !form.monthly} onPress={handleClose}>保存</Button>
+            <Button
+              variant="primary"
+              style={{ borderRadius: 5 }}
+              isDisabled={!form.name.trim() || !form.monthly}
+              onPress={() => {
+                onSave(form)
+                handleClose()
+              }}
+            >
+              保存
+            </Button>
             <Button variant="outline" style={{ borderRadius: 5 }} slot="close">取消</Button>
           </Modal.Footer>
         </Modal.Dialog>
@@ -110,8 +99,93 @@ function AddLoanModal({ open, onClose }: { open: boolean; onClose: () => void })
 }
 
 export function LoansPage() {
-  const [tip, setTip] = useState<Tip>(null)
+  const queryClient = useQueryClient()
+  const navigate = useNavigate()
   const [showAdd, setShowAdd] = useState(false)
+  const today = dateKey(new Date())
+  const futureThrough = dateKey(addDays(new Date(), 60))
+  const loansQuery = useQuery(trpc.loans.list.queryOptions({ status: "active" }))
+  // Fetch the full occurrence history + forecast so the schedule bar can render every period.
+  const loanOccurrencesQuery = useQuery(trpc.loans.occurrences.queryOptions({ dateFrom: "1900-01-01", dateTo: "2999-12-31" }))
+  const assetSnapshotsQuery = useQuery(trpc.assets.snapshots.queryOptions({ latestOnly: true }))
+  const futurePressureQuery = useQuery(trpc.loans.futurePressure.queryOptions({ dateFrom: today, dateTo: futureThrough }))
+  usePagePerf("loans", [
+    { name: "loans.list", query: loansQuery },
+    { name: "loans.occurrences", query: loanOccurrencesQuery },
+    { name: "assets.snapshots.latest", query: assetSnapshotsQuery },
+    { name: "loans.futurePressure", query: futurePressureQuery },
+  ])
+  const generateOccurrences = useMutation(trpc.loans.generateOccurrences.mutationOptions())
+  const createLoan = useMutation(trpc.loans.create.mutationOptions({
+    onSuccess: async (loan) => {
+      await generateOccurrences.mutateAsync({ id: loan.id, throughDate: futureThrough })
+      await queryClient.invalidateQueries(trpc.loans.list.queryFilter())
+      await queryClient.invalidateQueries(trpc.loans.occurrences.queryFilter())
+      await queryClient.invalidateQueries(trpc.loans.futurePressure.queryFilter())
+    },
+  }))
+
+  const occurrencesByLoan = useMemo(() => {
+    const map = new Map<string, NonNullable<typeof loanOccurrencesQuery.data>>()
+    for (const occurrence of loanOccurrencesQuery.data ?? []) {
+      const key = String(occurrence.loanId)
+      map.set(key, [...(map.get(key) ?? []), occurrence])
+    }
+    return map
+  }, [loanOccurrencesQuery.data])
+  const loans = useMemo(() => (loansQuery.data ?? []).map((loan) => {
+    const occurrences = occurrencesByLoan.get(String(loan.id)) ?? []
+    const schedule = buildLoanSchedule(loan, occurrences)
+    return {
+      id: String(loan.id),
+      name: loan.name,
+      bank: loan.lender ?? "贷款机构",
+      remain: schedule.remain,
+      total: schedule.total,
+      monthly: schedule.monthly,
+      rate: schedule.rate,
+      termLeft: Math.max(schedule.termTotal - schedule.paid, 0),
+      termTotal: schedule.termTotal,
+      paid: schedule.paid,
+      sched: schedule.sched,
+    }
+  }), [loansQuery.data, occurrencesByLoan])
+  const card = useMemo(() => {
+    const snapshot = (assetSnapshotsQuery.data ?? []).find((asset) =>
+      asset.assetType === "liability" && /信用卡|card/i.test(asset.accountName),
+    )
+    if (!snapshot) return null
+    return {
+      name: snapshot.accountName,
+      bank: snapshot.note ?? "资产快照",
+      label: "最新快照",
+      remain: Math.abs(Number(snapshot.valueNumber || 0)),
+    }
+  }, [assetSnapshotsQuery.data])
+  const totalLiab = loans.reduce((sum, loan) => sum + loan.remain, 0) + (card?.remain ?? 0)
+  const totalMonthly = loans.reduce((sum, loan) => sum + loan.monthly, 0)
+  const monthlyFixed = Number(futurePressureQuery.data?.total ?? 0) || totalMonthly
+  const fixedPct = monthlyFixed > 0 ? Math.round(totalMonthly / monthlyFixed * 100) : 0
+
+  function handleSave(form: LoanForm) {
+    const principal = Math.abs(Number(form.principal) || 0)
+    const monthly = Math.abs(Number(form.monthly) || 0)
+    createLoan.mutate({
+      name: form.name.trim(),
+      lender: form.bank.trim() || null,
+      principalAmount: principal.toFixed(2),
+      currentPrincipalEstimate: principal.toFixed(2),
+      annualRateBps: Math.round((Number(form.rate) || 0) * 100),
+      paymentAmount: monthly.toFixed(2),
+      paymentDay: Number(form.startDate.slice(8, 10)),
+      startDate: form.startDate,
+      termMonths: Math.max(Number(form.termTotal) || 1, 1),
+    })
+    setShowAdd(false)
+  }
+
+  const pathname = useRouterState({ select: (s) => s.location.pathname })
+  if (pathname !== "/loans") return <Outlet />
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden", background: "white" }}>
@@ -145,7 +219,7 @@ export function LoansPage() {
       {/* Scrollable content */}
       <ScrollArea className="h-full" style={{ flex: 1, minHeight: 0 }}>
       <div style={{ padding: "22px 32px 112px", display: "flex", flexDirection: "column", gap: 26 }}>
-        {LOANS.map((l, li) => {
+        {loans.map((l) => {
           const pct = (l.paid / l.termTotal) * 100
           const yrsLeft = (l.termLeft / 12).toFixed(1)
           const paidAmt = l.total - l.remain
@@ -154,7 +228,16 @@ export function LoansPage() {
             <div key={l.id}>
               {/* Title row */}
               <div style={{ display: "flex", alignItems: "baseline", marginBottom: 12 }}>
-                <span style={{ fontSize: 14, fontWeight: 600, color: "var(--ink)" }}>{l.name}</span>
+                <button
+                  onClick={() => navigate({ to: "/loans/$id", params: { id: String(l.id) } })}
+                  style={{
+                    fontSize: 14, fontWeight: 600, color: "var(--ink)", background: "none",
+                    border: "none", cursor: "pointer", padding: 0, textDecoration: "underline",
+                    textDecorationColor: "var(--hair)", textUnderlineOffset: 3,
+                  }}
+                >
+                  {l.name}
+                </button>
                 <span style={{ fontSize: 11, color: "var(--ink-4)", marginLeft: 8 }}>
                   {l.bank} · {l.rate}% · 月供 ¥{fmt(l.monthly)} · 每条 1 期
                 </span>
@@ -165,70 +248,7 @@ export function LoansPage() {
 
               {/* Bars + pct */}
               <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                <div
-                  style={{ position: "relative", display: "flex", gap: 2, height: 42, flex: 1, alignItems: "stretch" }}
-                  onMouseLeave={() => setTip(null)}
-                >
-                  {l.sched.map((s, k) => {
-                    const isPaid = k < l.paid
-                    const isCur  = k === l.paid - 1
-                    const isHov  = tip?.li === li && tip.k === k
-                    return (
-                      <div
-                        key={k}
-                        style={{
-                          flex: "1 1 0", minWidth: 0, borderRadius: 2, cursor: "pointer",
-                          background: isPaid ? "var(--accent)" : "var(--surface-3)",
-                          boxShadow: isCur
-                            ? "0 0 0 2px var(--surface), 0 0 0 3.5px var(--accent)"
-                            : isPaid ? "none" : "inset 0 0 0 1px var(--hair)",
-                          zIndex: isCur ? 2 : isHov ? 3 : undefined,
-                          transform: isHov ? "scaleY(1.12)" : undefined,
-                          outline: isHov ? "1.5px solid var(--ink)" : undefined,
-                          outlineOffset: isHov ? 0 : undefined,
-                          transition: "transform .08s",
-                        }}
-                        onMouseEnter={(e) => {
-                          const el = e.currentTarget
-                          const gw = el.parentElement?.offsetWidth ?? 0
-                          setTip({ li, k, principal: s.principal, interest: s.interest, monthly: l.monthly, paid: isPaid, left: el.offsetLeft + el.offsetWidth / 2, gw })
-                        }}
-                      />
-                    )
-                  })}
-
-                  {/* Tooltip */}
-                  {tip?.li === li && (() => {
-                    const al = tip.left > tip.gw * 0.8 ? "r" : tip.left < tip.gw * 0.2 ? "l" : "c"
-                    const tf = (al === "r" ? "translate(-100%,-100%)" : al === "l" ? "translate(0,-100%)" : "translate(-50%,-100%)") + " translateY(-9px)"
-                    const arLeft = al === "r" ? "calc(100% - 14px)" : al === "l" ? "10px" : "50%"
-                    return (
-                      <div style={{
-                        position: "absolute", left: tip.left, top: 0, transform: tf,
-                        zIndex: 30, pointerEvents: "none",
-                        background: "var(--ink)", color: "var(--surface)",
-                        borderRadius: 8, padding: "8px 12px", whiteSpace: "nowrap",
-                      }}>
-                        <div style={{ fontSize: 10, fontWeight: 600, opacity: 0.65, marginBottom: 5, letterSpacing: ".03em" }}>
-                          第 {tip.k + 1} / {l.termTotal} 期 · {tip.paid ? "已还" : "未还"}
-                        </div>
-                        <div style={{ display: "flex", gap: 16 }}>
-                          {[["本金", tip.principal], ["利息", tip.interest], ["月供", tip.monthly]].map(([label, val]) => (
-                            <div key={label as string} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                              <span style={{ fontSize: 9, fontWeight: 500, opacity: 0.6 }}>{label}</span>
-                              <span style={{ fontFamily: "var(--mono)", fontSize: 12, fontWeight: 600 }}>¥{fmt(val as number)}</span>
-                            </div>
-                          ))}
-                        </div>
-                        <span style={{
-                          position: "absolute", bottom: -4, left: arLeft,
-                          transform: "translateX(-50%) rotate(45deg)",
-                          width: 8, height: 8, background: "var(--ink)",
-                        }} />
-                      </div>
-                    )
-                  })()}
-                </div>
+                <LoanScheduleBar sched={l.sched} paid={l.paid} termTotal={l.termTotal} monthly={l.monthly} />
 
                 {/* Pct label */}
                 <span style={{
@@ -260,18 +280,26 @@ export function LoansPage() {
         })}
 
         {/* Credit card row */}
-        <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 0", borderTop: "1px solid var(--hair-2)" }}>
-          <span style={{ fontSize: 13, fontWeight: 500, color: "var(--ink)" }}>{CARD.name}</span>
-          <span style={{ fontSize: 11, color: "var(--ink-4)" }}>{CARD.bank} · {CARD.label}</span>
-          <span style={{ fontFamily: "var(--mono)", fontSize: 16, fontWeight: 600, marginLeft: "auto", letterSpacing: "-0.02em" }}>
-            ¥{fmt(CARD.remain)}
-          </span>
-        </div>
+        {loans.length === 0 && (
+          <div style={{ fontSize: 12, color: "var(--ink-4)", lineHeight: 1.7 }}>
+            暂无贷款计划。添加贷款后，这里会显示未来还款节奏；资产负债仍以资产快照为准。
+          </div>
+        )}
+
+        {card && (
+          <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 0", borderTop: "1px solid var(--hair-2)" }}>
+            <span style={{ fontSize: 13, fontWeight: 500, color: "var(--ink)" }}>{card.name}</span>
+            <span style={{ fontSize: 11, color: "var(--ink-4)" }}>{card.bank} · {card.label}</span>
+            <span style={{ fontFamily: "var(--mono)", fontSize: 16, fontWeight: 600, marginLeft: "auto", letterSpacing: "-0.02em" }}>
+              ¥{fmt(card.remain)}
+            </span>
+          </div>
+        )}
       </div>
       </ScrollArea>
 
       <Dock />
-      <AddLoanModal open={showAdd} onClose={() => setShowAdd(false)} />
+      <AddLoanModal open={showAdd} onClose={() => setShowAdd(false)} onSave={handleSave} />
     </div>
   )
 }

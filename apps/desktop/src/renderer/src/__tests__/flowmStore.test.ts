@@ -1,30 +1,31 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import type { DashboardSnapshot, FlowmApi } from "@flowm/api"
 import { i18n } from "../i18n"
-import { demoSnapshot } from "../lib/demo/snapshot"
-import { setFlowmApiFactory, useFlowmStore } from "../lib/stores/flowmStore"
+import { emptyDashboardSnapshot, setFlowmApiFactory, useFlowmStore } from "../lib/stores/flowmStore"
 
 function ok<T>(data: T) {
   return { success: true as const, data }
 }
 
-function createMockApi(snapshot: DashboardSnapshot = demoSnapshot): FlowmApi {
-  return {
+function createMockApi(snapshot: DashboardSnapshot = emptyDashboardSnapshot): FlowmApi {
+  const api = {
     initializeFlowm: vi.fn(async () => ok(undefined)),
     getDashboardSnapshot: vi.fn(async () => ok(snapshot)),
     createBudget: vi.fn(async () => ok({ id: 1 })),
     getBudgetProgress: vi.fn(async () => ok([])),
-    importEntries: vi.fn(async () => ok({ batchId: 1, inserted: 1, skipped: 0 })),
     importNormalizedStatementEntries: vi.fn(async () => ok({ batchId: 1, inserted: 1, skipped: 0 })),
     listImportedEntries: vi.fn(async () => ok([])),
     listAssetSnapshots: vi.fn(async () => ok([])),
     upsertAssetSnapshot: vi.fn(async () => ok({
       id: 1,
+      assetItemId: "asset_1",
       accountName: "Assets:Bank:Checking",
       assetType: "bank" as const,
       snapshotAt: new Date(0).toISOString(),
       quantityNumber: null,
       quantityCurrency: null,
+      quantityAmount: null,
+      quantityUnit: null,
       valueNumber: "100.00",
       valueCurrency: "CNY",
       source: "manual",
@@ -117,21 +118,63 @@ function createMockApi(snapshot: DashboardSnapshot = demoSnapshot): FlowmApi {
     // No-Ledger model methods
     listFinancialEvents: vi.fn(async () => ok([])),
     createFinancialEvent: vi.fn(async () => ok({
-      id: 1, date: "2024-01-01", flowKind: "consumption_expense",
-      amount: "0", currency: "CNY", classificationSource: "manual", createdAt: new Date(0).toISOString(),
+      id: 1,
+      statementLineId: null,
+      eventDate: "2024-01-01",
+      date: "2024-01-01",
+      occurredAt: null,
+      title: null,
+      counterparty: null,
+      description: null,
+      userNote: null,
+      flowKind: "expense",
+      amount: "0",
+      currency: "CNY",
+      direction: "out" as const,
+      categoryId: null,
+      categoryName: null,
+      sourceKind: "manual",
+      sourceName: null,
+      source: "manual",
+      includeInAnalytics: true,
+      status: "active" as const,
+      classificationSource: "manual",
+      tags: [],
+      createdAt: new Date(0).toISOString(),
     })),
     updateFinancialEvent: vi.fn(async () => ok({
-      id: 1, date: "2024-01-01", flowKind: "consumption_expense",
-      amount: "0", currency: "CNY", classificationSource: "manual", createdAt: new Date(0).toISOString(),
+      id: 1,
+      statementLineId: null,
+      eventDate: "2024-01-01",
+      date: "2024-01-01",
+      occurredAt: null,
+      title: null,
+      counterparty: null,
+      description: null,
+      userNote: null,
+      flowKind: "expense",
+      amount: "0",
+      currency: "CNY",
+      direction: "out" as const,
+      categoryId: null,
+      categoryName: null,
+      sourceKind: "manual",
+      sourceName: null,
+      source: "manual",
+      includeInAnalytics: true,
+      status: "active" as const,
+      classificationSource: "manual",
+      tags: [],
+      createdAt: new Date(0).toISOString(),
     })),
     removeFinancialEvent: vi.fn(async () => ok(undefined)),
     rebuildFinancialEventsFromImports: vi.fn(async () => ok({ created: 0, skipped: 0 })),
     listCategories: vi.fn(async () => ok([])),
     createCategory: vi.fn(async () => ok({
-      id: 1, name: "Test", kind: "expense", sortOrder: 0, archived: false,
+      id: 1, name: "Test", categoryKind: "expense", kind: "expense", sortOrder: 0, displayOrder: 0, archived: false,
     })),
     updateCategory: vi.fn(async () => ok({
-      id: 1, name: "Test", kind: "expense", sortOrder: 0, archived: false,
+      id: 1, name: "Test", categoryKind: "expense", kind: "expense", sortOrder: 0, displayOrder: 0, archived: false,
     })),
     archiveCategory: vi.fn(async () => ok(undefined)),
     listPlans: vi.fn(async () => ok([])),
@@ -145,7 +188,8 @@ function createMockApi(snapshot: DashboardSnapshot = demoSnapshot): FlowmApi {
     })),
     generatePlanOccurrences: vi.fn(async () => ok({ generated: 0 })),
     runFlowQuery: vi.fn(async () => ok({ rows: [], columns: [] })),
-  }
+  } satisfies Partial<FlowmApi>
+  return api as unknown as FlowmApi
 }
 
 describe("flowmStore", () => {
@@ -153,7 +197,7 @@ describe("flowmStore", () => {
     await i18n.changeLanguage("en-US")
     window.localStorage.clear()
     useFlowmStore.setState({
-      snapshot: demoSnapshot,
+      snapshot: emptyDashboardSnapshot,
       status: "booting",
       error: null,
       commandInput: "",
@@ -174,7 +218,7 @@ describe("flowmStore", () => {
     const api = createMockApi()
     setFlowmApiFactory(() => api)
     await useFlowmStore.getState().loadSnapshot()
-    expect(api.initializeFlowm).toHaveBeenCalled()
+    expect(api.initializeFlowm).not.toHaveBeenCalled()
     expect(api.getDashboardSnapshot).toHaveBeenCalled()
     expect(api.listDashboardViews).toHaveBeenCalled()
     expect(api.listDashboardCards).toHaveBeenCalledWith({ viewId: "overview" })

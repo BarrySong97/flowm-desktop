@@ -1,4 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router"
+import { flowmPerfLog } from "@/lib/debug/perf"
 
 const ICONS: Record<string, string> = {
   overview: "M2 2h5v5H2zM9 2h5v5H9zM2 9h5v5H2zM9 9h5v5H9z",
@@ -58,6 +59,14 @@ export function Dock() {
           <Link to={item.href} style={{ textDecoration: "none" }}>
             <button
               type="button"
+              onClick={() => {
+                flowmPerfLog("nav", "click", {
+                  from: pathname,
+                  to: item.href,
+                  label: item.label,
+                  active: isActive(item.href),
+                })
+              }}
               className={[
                 "flex flex-col items-center justify-center gap-1 w-[62px] py-2 rounded-[11px] text-[10.5px] font-medium tracking-[0.02em] transition-colors duration-[120ms]",
                 isActive(item.href)

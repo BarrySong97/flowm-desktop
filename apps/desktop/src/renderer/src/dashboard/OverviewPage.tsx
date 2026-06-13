@@ -1,12 +1,10 @@
 import { useMemo } from "react"
-import { useFlowmStore } from "../lib/stores/flowmStore"
+import { useQuery } from "@tanstack/react-query"
+import { useNavigate } from "@tanstack/react-router"
 import { Dock } from "../components/layout/Dock"
-import type { AssetSnapshotSummary, FinancialEventSummary, PlanSummary } from "@flowm/api"
-import {
-  MOCK_DAILY_BARS, MOCK_NET_TREND, MOCK_UPCOMING, MOCK_BUDGETS, MOCK_TX,
-  MOCK_NET_WORTH, MOCK_TOTAL_ASSETS, MOCK_LIQUID_ASSETS, MOCK_TOTAL_LIAB,
-  MOCK_MONTH_IN, MOCK_MONTH_OUT, MOCK_MONTH_NET, MOCK_MONTHLY_FIXED,
-} from "./mockData"
+import type { AssetSnapshotSummary, FinancialEventSummary, LoanPaymentOccurrenceSummary, SubscriptionOccurrenceSummary } from "@flowm/api"
+import { trpc } from "@/lib/trpc"
+import { usePagePerf } from "@/lib/debug/perf"
 import { Kicker } from "../components/ui/Kicker"
 import { BigNumber } from "../components/ui/BigNumber"
 import { StatBlock } from "../components/ui/StatBlock"
@@ -27,9 +25,18 @@ function signed(n: number) {
   return (n >= 0 ? "+" : "−") + "¥" + fmt(Math.abs(n))
 }
 
-const DEFAULT_LIMITS: Record<string, number> = {
-  餐饮: 2000, 交通: 800, 购物: 1500, 订阅: 500,
-  娱乐: 600, 居住: 3000, 其他: 500,
+function dateKey(date: Date): string {
+  return date.toISOString().slice(0, 10)
+}
+
+function addDays(date: Date, days: number): Date {
+  const next = new Date(date)
+  next.setDate(next.getDate() + days)
+  return next
+}
+
+function monthStart(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-01`
 }
 
 function useMonthStats(events: FinancialEventSummary[]) {
@@ -40,8 +47,9 @@ function useMonthStats(events: FinancialEventSummary[]) {
     for (const e of events) {
       if (!e.date.startsWith(ym)) continue
       const amt = Math.abs(Number(e.amount) || 0)
-      if (e.flowKind === "income") income += amt
-      else if (e.flowKind === "expense") expense += amt
+      if (e.status !== "active" || !e.includeInAnalytics) continue
+      if (e.flowKind === "income" && e.direction === "in") income += amt
+      else if (e.flowKind === "expense" && e.direction === "out") expense += amt
     }
     return { income, expense, net: income - expense }
   }, [events])
@@ -52,7 +60,7 @@ function useDailyBars(events: FinancialEventSummary[]): number[] {
     const bars = new Array<number>(30).fill(0)
     const now = new Date()
     for (const e of events) {
-      if (e.flowKind !== "expense") continue
+      if (e.flowKind !== "expense" || e.status !== "active" || !e.includeInAnalytics) continue
       const daysAgo = Math.floor((now.getTime() - new Date(e.date).getTime()) / 86400000)
       if (daysAgo >= 0 && daysAgo < 30) bars[29 - daysAgo] += Math.abs(Number(e.amount) || 0)
     }
@@ -63,113 +71,132 @@ function useDailyBars(events: FinancialEventSummary[]): number[] {
 function useNetWorthTrend(snapshots: AssetSnapshotSummary[]): number[] {
   return useMemo(() => {
     if (snapshots.length === 0) return new Array(12).fill(0)
-    const total = snapshots.reduce((s, a) => s + Number(a.valueNumber || 0), 0)
-    return new Array(12).fill(0).map((_, i) => total * (0.85 + i * 0.015))
+    const buckets = new Map<string, Map<string, AssetSnapshotSummary>>()
+    for (const snapshot of snapshots) {
+      const month = snapshot.snapshotAt.slice(0, 7)
+      const bucket = buckets.get(month) ?? new Map<string, AssetSnapshotSummary>()
+      const previous = bucket.get(String(snapshot.assetItemId))
+      if (!previous || snapshot.snapshotAt > previous.snapshotAt) {
+        bucket.set(String(snapshot.assetItemId), snapshot)
+      }
+      buckets.set(month, bucket)
+    }
+    const values = [...buckets.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([, bucket]) => [...bucket.values()].reduce((sum, asset) => {
+        const amount = Math.abs(Number(asset.valueNumber || 0))
+        return sum + (asset.assetType === "liability" ? -amount : amount)
+      }, 0))
+    if (values.length >= 12) return values.slice(-12)
+    return [...new Array(12 - values.length).fill(values[0] ?? 0), ...values]
   }, [snapshots])
 }
 
-function useUpcoming(plans: PlanSummary[]) {
+function useUpcoming(
+  subscriptions: Array<{ id: string | number; name: string }>,
+  subscriptionOccurrences: SubscriptionOccurrenceSummary[],
+  loans: Array<{ id: string | number; name: string }>,
+  loanOccurrences: LoanPaymentOccurrenceSummary[],
+) {
   return useMemo(() => {
     const now = new Date()
-    return plans
-      .filter((p) => p.status === "active" && p.nextDueDate)
-      .map((p) => ({
-        name: p.name,
-        d: p.nextDueDate!.slice(5),
-        amt: Math.abs(Number(p.amount) || 0),
-        kind: p.planType === "loan" ? "贷款" : "订阅",
-        dueDate: new Date(p.nextDueDate!),
-      }))
+    const subNames = new Map(subscriptions.map((sub) => [String(sub.id), sub.name]))
+    const loanNames = new Map(loans.map((loan) => [String(loan.id), loan.name]))
+    const rows = [
+      ...subscriptionOccurrences.map((occ) => ({
+        name: subNames.get(String(occ.subscriptionId)) ?? "订阅",
+        d: occ.dueDate.slice(5),
+        amt: Math.abs(Number(occ.amount) || 0),
+        kind: "订阅",
+        dueDate: new Date(occ.dueDate),
+      })),
+      ...loanOccurrences.map((occ) => ({
+        name: loanNames.get(String(occ.loanId)) ?? "贷款",
+        d: occ.dueDate.slice(5),
+        amt: Math.abs(Number(occ.paymentAmount) || 0),
+        kind: "贷款",
+        dueDate: new Date(occ.dueDate),
+      })),
+    ]
+    return rows
       .filter((u) => {
         const diffDays = (u.dueDate.getTime() - now.getTime()) / 86400000
         return diffDays >= 0 && diffDays <= 30
       })
       .sort((a, b) => a.d.localeCompare(b.d))
       .slice(0, 6)
-  }, [plans])
-}
-
-function useBudgets(events: FinancialEventSummary[]) {
-  return useMemo(() => {
-    const now = new Date()
-    const ym = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
-    const spendMap = new Map<string, number>()
-    for (const e of events) {
-      if (e.flowKind !== "expense" || !e.date.startsWith(ym)) continue
-      const cat = e.categoryName ?? "其他"
-      if (cat === "收入" || cat === "转账") continue
-      spendMap.set(cat, (spendMap.get(cat) ?? 0) + Math.abs(Number(e.amount) || 0))
-    }
-    const cats = [...new Set([...Object.keys(DEFAULT_LIMITS), ...spendMap.keys()])]
-      .filter((c) => c !== "收入" && c !== "转账")
-    return cats
-      .map((cat) => ({ cat, spent: spendMap.get(cat) ?? 0, limit: DEFAULT_LIMITS[cat] ?? 500 }))
-      .filter((b) => b.spent > 0 || DEFAULT_LIMITS[b.cat] !== undefined)
-  }, [events])
+  }, [loans, loanOccurrences, subscriptions, subscriptionOccurrences])
 }
 
 export function OverviewPage() {
-  const snapshot = useFlowmStore((s) => s.snapshot)
-  const assetSnapshots = useFlowmStore((s) => s.assetSnapshots)
-  const plans = useFlowmStore((s) => s.plans)
+  const navigate = useNavigate()
+  const today = dateKey(new Date())
+  const futureThrough = dateKey(addDays(new Date(), 60))
+  const monthFrom = monthStart(new Date())
+  const cashflowQuery = useQuery(trpc.cashflow.list.queryOptions({ dateFrom: monthFrom, dateTo: today, status: "active", limit: 240 }))
+  const assetSnapshotsQuery = useQuery(trpc.assets.snapshots.queryOptions({ latestOnly: true }))
+  const assetHistoryQuery = useQuery(trpc.assets.snapshots.queryOptions({ latestOnly: false }))
+  const netWorthQuery = useQuery(trpc.assets.netWorth.queryOptions())
+  const subscriptionsQuery = useQuery(trpc.subscriptions.list.queryOptions({ status: "active" }))
+  const subscriptionOccurrencesQuery = useQuery(trpc.subscriptions.occurrences.queryOptions({ dateFrom: today, dateTo: futureThrough }))
+  const loansQuery = useQuery(trpc.loans.list.queryOptions({ status: "active" }))
+  const loanOccurrencesQuery = useQuery(trpc.loans.occurrences.queryOptions({ dateFrom: today, dateTo: futureThrough }))
+  const futurePressureQuery = useQuery(trpc.loans.futurePressure.queryOptions({ dateFrom: today, dateTo: futureThrough }))
+  const budgetPeriodsQuery = useQuery(trpc.budgets.periods.queryOptions({ status: "active" }))
+  const currentBudgetPeriod = budgetPeriodsQuery.data?.find((period) => period.periodStart <= today && period.periodEnd >= today)
+  const budgetProgressQuery = useQuery({
+    ...trpc.budgets.progress.queryOptions({ budgetPeriodId: currentBudgetPeriod?.id ?? "" }),
+    enabled: Boolean(currentBudgetPeriod),
+  })
+  usePagePerf("overview", [
+    { name: "cashflow.list", query: cashflowQuery },
+    { name: "assets.snapshots.latest", query: assetSnapshotsQuery },
+    { name: "assets.snapshots.history", query: assetHistoryQuery },
+    { name: "assets.netWorth", query: netWorthQuery },
+    { name: "subscriptions.list", query: subscriptionsQuery },
+    { name: "subscriptions.occurrences", query: subscriptionOccurrencesQuery },
+    { name: "loans.list", query: loansQuery },
+    { name: "loans.occurrences", query: loanOccurrencesQuery },
+    { name: "loans.futurePressure", query: futurePressureQuery },
+    { name: "budgets.periods", query: budgetPeriodsQuery },
+    { name: "budgets.progress", query: budgetProgressQuery },
+  ])
 
-  const events = useMemo<FinancialEventSummary[]>(
-    () =>
-      (snapshot.transactions ?? []).map((t: Record<string, unknown>) => ({
-        id: Number(t.id ?? 0),
-        date: String(t.date ?? ""),
-        description: String(t.narration ?? t.description ?? ""),
-        counterparty: String(t.payee ?? ""),
-        flowKind: String(t.kind ?? t.flowKind ?? "expense"),
-        amount: String(t.amountNumber ?? t.amount ?? "0"),
-        currency: String(t.currency ?? "CNY"),
-        categoryName: String(t.category ?? ""),
-        classificationSource: "snapshot",
-        createdAt: String(t.date ?? ""),
-      })),
-    [snapshot],
-  )
-
-  // Always compute from real data first, then fall back to mock if result is empty/zero
-  const _totalAssets = useMemo(
-    () => assetSnapshots.filter((a) => a.assetType !== "liability").reduce((s, a) => s + Number(a.valueNumber || 0), 0),
-    [assetSnapshots],
-  )
-  const _totalLiab = useMemo(
-    () => assetSnapshots.filter((a) => a.assetType === "liability").reduce((s, a) => s + Math.abs(Number(a.valueNumber || 0)), 0),
-    [assetSnapshots],
-  )
-  const _liquidAssets = useMemo(
+  const events = cashflowQuery.data ?? []
+  const assetSnapshots = assetSnapshotsQuery.data ?? []
+  const totalAssets = Number(netWorthQuery.data?.assetValue.number ?? 0)
+  const totalLiab = Number(netWorthQuery.data?.liabilityValue.number ?? 0)
+  const liquidAssets = useMemo(
     () => assetSnapshots.filter((a) => ["cash", "bank", "wallet"].includes(a.assetType)).reduce((s, a) => s + Number(a.valueNumber || 0), 0),
     [assetSnapshots],
   )
-  const hasRealAssets = _totalAssets > 0 || _totalLiab > 0
-  const totalAssets   = hasRealAssets ? _totalAssets  : MOCK_TOTAL_ASSETS
-  const totalLiab     = hasRealAssets ? _totalLiab    : MOCK_TOTAL_LIAB
-  const liquidAssets  = hasRealAssets ? _liquidAssets : MOCK_LIQUID_ASSETS
-  const netWorth      = hasRealAssets ? totalAssets - totalLiab : MOCK_NET_WORTH
-  const netTrend      = useNetWorthTrend(assetSnapshots)
-  const _netTrend     = hasRealAssets ? netTrend : MOCK_NET_TREND
+  const netWorth = Number(netWorthQuery.data?.netWorth.number ?? totalAssets - totalLiab)
+  const _netTrend = useNetWorthTrend(assetHistoryQuery.data ?? [])
   const netGain       = _netTrend[11] - _netTrend[0]
 
   const { income: _monthIn, expense: _monthOut, net: _monthNet } = useMonthStats(events)
-  const hasRealFlow = _monthIn > 0 || _monthOut > 0
-  const monthIn  = hasRealFlow ? _monthIn  : MOCK_MONTH_IN
-  const monthOut = hasRealFlow ? _monthOut : MOCK_MONTH_OUT
-  const monthNet = hasRealFlow ? _monthNet : MOCK_MONTH_NET
+  const monthIn = _monthIn
+  const monthOut = _monthOut
+  const monthNet = _monthNet
 
-  const _dailyBars = useDailyBars(events)
-  const dailyBars = hasRealFlow ? _dailyBars : MOCK_DAILY_BARS
+  const dailyBars = useDailyBars(events)
 
-  const _budgets = useBudgets(events)
-  const budgets = _budgets.length > 0 ? _budgets : MOCK_BUDGETS
+  const budgets = (budgetProgressQuery.data ?? []).map((row) => ({
+    cat: row.budgetName,
+    color: row.color,
+    spent: Number(row.referenceUsed),
+    limit: Number(row.budgeted),
+  }))
 
-  const _upcoming = useUpcoming(plans)
-  const upcoming = _upcoming.length > 0 ? _upcoming : MOCK_UPCOMING
+  const upcoming = useUpcoming(
+    subscriptionsQuery.data ?? [],
+    subscriptionOccurrencesQuery.data ?? [],
+    loansQuery.data ?? [],
+    loanOccurrencesQuery.data ?? [],
+  )
 
   const upSum = upcoming.reduce((s, u) => s + u.amt, 0)
-  const _monthlyFixed = plans.filter((p) => p.status === "active").reduce((s, p) => s + Math.abs(Number(p.amount) || 0), 0)
-  const monthlyFixed = _monthlyFixed > 0 ? _monthlyFixed : MOCK_MONTHLY_FIXED
+  const monthlyFixed = Number(futurePressureQuery.data?.total ?? upSum)
 
   const budgetTotal = budgets.reduce((s, b) => s + b.limit, 0)
   const budgetSpent = budgets.reduce((s, b) => s + b.spent, 0)
@@ -180,7 +207,15 @@ export function OverviewPage() {
     () => [...events].sort((a, b) => b.date.localeCompare(a.date)),
     [events],
   )
-  const recentTx = _recentTx.length > 0 ? _recentTx : MOCK_TX
+  const recentTx = _recentTx
+  const transactionRows = recentTx.map((t) => ({
+    date: t.date,
+    description: t.description ?? undefined,
+    counterparty: t.counterparty ?? undefined,
+    flowKind: t.flowKind,
+    amount: t.amount,
+    categoryName: t.categoryName ?? undefined,
+  }))
 
   const now = new Date()
   const monLabel = `${now.getMonth() + 1} 月`
@@ -191,7 +226,7 @@ export function OverviewPage() {
         <div style={{ padding: "30px 34px 40px", display: "flex", flexDirection: "column" }}>
 
           {/* ── 净资产 + 趋势 ── */}
-          <div className="flex items-stretch gap-9 pb-[18px] border-b border-[var(--hair-2)]">
+          <div className="flex items-stretch gap-9 pb-[18px]">
             <div>
               <Kicker className="mb-1.5">净资产</Kicker>
               <BigNumber style={{ fontSize: 48 }}>
@@ -216,7 +251,7 @@ export function OverviewPage() {
           </div>
 
           {/* ── 本月结余 + 日柱 ── */}
-          <div className="mt-[22px] pb-6 border-b border-[var(--hair-2)]">
+          <div className="mt-[22px] pb-6">
             <div className="flex items-start mb-3">
               <div>
                 <Kicker className="mb-1.5">本月结余 · {monLabel}</Kicker>
@@ -257,7 +292,7 @@ export function OverviewPage() {
                   {budgets.map((b, i) => (
                     <BudgetBar
                       key={i}
-                      color={categoryColor(b.cat)}
+                      color={b.color ?? categoryColor(b.cat)}
                       spent={b.spent}
                       limit={b.limit}
                       label={b.cat}
@@ -303,12 +338,7 @@ export function OverviewPage() {
           {/* ── 分隔线 ── */}
           <div className="flex items-center gap-3 my-7">
             <div className="flex-1 h-px bg-[var(--hair-2)]" />
-            <Dim className="text-[10.5px] tracking-[0.04em] inline-flex items-center gap-1">
-              下滑查看全部流水
-              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M8 3v10M4 9l4 4 4-4" />
-              </svg>
-            </Dim>
+            <Dim className="text-[10.5px] tracking-[0.04em]">查看最近流水</Dim>
             <div className="flex-1 h-px bg-[var(--hair-2)]" />
           </div>
 
@@ -319,6 +349,12 @@ export function OverviewPage() {
               {recentTx.length > 0 && (
                 <Dim className="text-[11px] ml-2">最近 {recentTx.length} 笔</Dim>
               )}
+              <button
+                onClick={() => navigate({ to: "/imports" })}
+                className="ml-auto text-[11px] text-[var(--accent)] hover:opacity-75 transition-opacity"
+              >
+                查看全部流水 →
+              </button>
             </div>
             {recentTx.length === 0 ? (
               <div className="mt-4 text-center py-8">
@@ -327,7 +363,7 @@ export function OverviewPage() {
               </div>
             ) : (
               <div className="overflow-hidden mt-2.5">
-                <TransactionTable rows={recentTx} />
+                <TransactionTable rows={transactionRows} />
               </div>
             )}
           </div>

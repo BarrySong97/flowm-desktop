@@ -1,39 +1,36 @@
-import { useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Button, Calendar, DateField, DatePicker, Input, Label, Modal } from "@heroui/react"
 import type { DateValue } from "@internationalized/date"
 import { parseDate } from "@internationalized/date"
+import type { CategorySummary } from "@flowm/api"
 
-const CATEGORIES = ["居住", "餐饮", "交通", "购物", "订阅", "娱乐", "理财", "收入", "其他"] as const
-type Category = typeof CATEGORIES[number]
-
-const CAT_COLOR: Record<Category, string> = {
-  居住: "#5bac8e", 餐饮: "#e07b3a", 交通: "#4a8fc4", 购物: "#c46a9e",
-  订阅: "#7c6ac4", 娱乐: "#d4a017", 理财: "#2e86ab", 收入: "#14794a", 其他: "#9caca3",
-}
-
-const SOURCES = ["现金", "其它"] as const
-type Source = typeof SOURCES[number]
-
-interface TxForm {
+export interface TxForm {
   flowKind: "expense" | "income"
   amount: string
   counterparty: string
-  category: Category
-  source: Source
+  categoryId: CategorySummary["id"] | null
+  source: string
   date: string
 }
 
-const EMPTY: TxForm = {
-  flowKind: "expense",
-  amount: "",
-  counterparty: "",
-  category: "餐饮",
-  source: "现金",
-  date: "2026-06-11",
+function todayKey() {
+  return new Date().toISOString().slice(0, 10)
+}
+
+function emptyForm(): TxForm {
+  return {
+    flowKind: "expense",
+    amount: "",
+    counterparty: "",
+    categoryId: null,
+    source: "现金",
+    date: todayKey(),
+  }
 }
 
 interface Props {
   open: boolean
+  categories: CategorySummary[]
   onClose: () => void
   onSave: (form: TxForm) => void
 }
@@ -53,8 +50,8 @@ function TypeButton({ active, onPress, children }: { active: boolean; onPress: (
   )
 }
 
-function CatChip({ name, active, onPress }: { name: Category; active: boolean; onPress: () => void }) {
-  const color = CAT_COLOR[name]
+function CatChip({ category, active, onPress }: { category: CategorySummary; active: boolean; onPress: () => void }) {
+  const color = category.color ?? "var(--c-other)"
   return (
     <button
       onClick={onPress}
@@ -69,29 +66,31 @@ function CatChip({ name, active, onPress }: { name: Category; active: boolean; o
       }}
     >
       <span style={{ width: 6, height: 6, borderRadius: 2, background: color, flexShrink: 0 }} />
-      {name}
+      {category.name}
     </button>
   )
 }
 
-function SourceChip({ label, active, onPress }: { label: Source; active: boolean; onPress: () => void }) {
-  return (
-    <button
-      onClick={onPress}
-      style={{
-        padding: "5px 16px", borderRadius: 7, fontSize: 12, fontWeight: 500, cursor: "pointer",
-        border: active ? "none" : "1px solid var(--hair-2)",
-        background: active ? "var(--accent)" : "white",
-        color: active ? "white" : "var(--ink-3)",
-        transition: "all 0.15s",
-      }}
-    >{label}</button>
-  )
-}
-
-export function AddTxModal({ open, onClose, onSave }: Props) {
-  const [form, setForm] = useState<TxForm>(EMPTY)
+export function AddTxModal({ open, categories, onClose, onSave }: Props) {
+  const [form, setForm] = useState<TxForm>(() => emptyForm())
   const [saving, setSaving] = useState(false)
+
+  const categoryOptions = useMemo(() => {
+    const active = categories.filter((category) => !category.archived)
+    const preferred = active.filter((category) => category.categoryKind === form.flowKind || category.kind === form.flowKind)
+    return preferred.length > 0 ? preferred : active
+  }, [categories, form.flowKind])
+
+  useEffect(() => {
+    if (!open) return
+    if (categoryOptions.length === 0) {
+      if (form.categoryId != null) setForm((current) => ({ ...current, categoryId: null }))
+      return
+    }
+    if (!categoryOptions.some((category) => String(category.id) === String(form.categoryId))) {
+      setForm((current) => ({ ...current, categoryId: categoryOptions[0]?.id ?? null }))
+    }
+  }, [categoryOptions, form.categoryId, open])
 
   function patch(p: Partial<TxForm>) { setForm((f) => ({ ...f, ...p })) }
 
@@ -100,7 +99,7 @@ export function AddTxModal({ open, onClose, onSave }: Props) {
     ? `−¥ ${amtNum.toFixed(2)}`
     : `+¥ ${amtNum.toFixed(2)}`
 
-  function handleClose() { setForm(EMPTY); onClose() }
+  function handleClose() { setForm(emptyForm()); onClose() }
 
   function handleSave() {
     if (!form.amount || !form.counterparty) return
@@ -182,9 +181,17 @@ export function AddTxModal({ open, onClose, onSave }: Props) {
               <div>
                 <Label style={{ fontSize: 12, color: "var(--ink-3)", marginBottom: 8, display: "block" }}>类别</Label>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                  {CATEGORIES.map((c) => (
-                    <CatChip key={c} name={c} active={form.category === c} onPress={() => patch({ category: c })} />
+                  {categoryOptions.map((category) => (
+                    <CatChip
+                      key={category.id}
+                      category={category}
+                      active={String(form.categoryId) === String(category.id)}
+                      onPress={() => patch({ categoryId: category.id })}
+                    />
                   ))}
+                  {categoryOptions.length === 0 && (
+                    <span style={{ fontSize: 12, color: "var(--ink-4)" }}>暂无分类</span>
+                  )}
                 </div>
               </div>
 
@@ -192,11 +199,12 @@ export function AddTxModal({ open, onClose, onSave }: Props) {
               <div style={{ display: "flex", gap: 12 }}>
                 <div style={{ flex: 1 }}>
                   <Label style={{ fontSize: 12, color: "var(--ink-3)", marginBottom: 8, display: "block" }}>来源</Label>
-                  <div style={{ display: "flex", gap: 6 }}>
-                    {SOURCES.map((s) => (
-                      <SourceChip key={s} label={s} active={form.source === s} onPress={() => patch({ source: s })} />
-                    ))}
-                  </div>
+                  <Input
+                    variant="secondary"
+                    value={form.source}
+                    placeholder="例如：现金"
+                    onChange={(e) => patch({ source: e.target.value })}
+                  />
                 </div>
                 <div style={{ flex: 1 }}>
                   <DatePicker

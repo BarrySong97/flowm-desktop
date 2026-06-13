@@ -1,11 +1,15 @@
 import { useRef, useMemo, useState } from "react"
 import { Button } from "@heroui/react"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useReactTable, getCoreRowModel, flexRender, createColumnHelper } from "@tanstack/react-table"
 import { useVirtualizer } from "@tanstack/react-virtual"
+import type { CashflowEventSummary } from "@flowm/api"
+import { trpc } from "@/lib/trpc"
+import { usePagePerf } from "@/lib/debug/perf"
 import { ScrollArea } from "../components/ui/ScrollArea"
 import { Dock } from "../components/layout/Dock"
-import { TxDetailPanel } from "./TxDetailPanel"
-import { AddTxModal } from "./AddTxModal"
+import { TxDetailPanel, type Tx } from "./TxDetailPanel"
+import { AddTxModal, type TxForm } from "./AddTxModal"
 import { ColorDot } from "../components/ui/ColorDot"
 import { Dim } from "../components/ui/Dim"
 import { DailyBars } from "../components/charts/DailyBars"
@@ -29,71 +33,6 @@ const SOURCE_STYLE: Record<string, { bg: string; char: string }> = {
   "建设银行": { bg: "#00549e", char: "建" },
   "中国移动": { bg: "#e60012", char: "移" },
 }
-
-interface Tx {
-  id: number; date: string; counterparty: string
-  flowKind: "income" | "expense" | "transfer"
-  amount: number; categoryName: string; tag?: string; source: string
-}
-
-const MOCK_TXS: Tx[] = [
-  { id: 1,  date: "2026-06-11", counterparty: "美团外卖",         flowKind: "expense",  amount: 45.5,    categoryName: "餐饮", tag: "外卖",  source: "微信" },
-  { id: 2,  date: "2026-06-11", counterparty: "滴滴出行",         flowKind: "expense",  amount: 23.0,    categoryName: "交通", tag: "打车",  source: "微信" },
-  { id: 3,  date: "2026-06-10", counterparty: "京东商城",         flowKind: "expense",  amount: 599.0,   categoryName: "购物", tag: "数码",  source: "支付宝" },
-  { id: 4,  date: "2026-06-10", counterparty: "上海地铁",         flowKind: "expense",  amount: 12.0,    categoryName: "交通",              source: "支付宝" },
-  { id: 5,  date: "2026-06-09", counterparty: "海底捞",           flowKind: "expense",  amount: 312.0,   categoryName: "餐饮", tag: "聚餐",  source: "微信" },
-  { id: 6,  date: "2026-06-08", counterparty: "中国移动话费",     flowKind: "expense",  amount: 99.0,    categoryName: "通讯",              source: "支付宝" },
-  { id: 7,  date: "2026-06-07", counterparty: "盒马鲜生",         flowKind: "expense",  amount: 218.4,   categoryName: "餐饮", tag: "国货",  source: "支付宝" },
-  { id: 8,  date: "2026-06-07", counterparty: "滴滴出行",         flowKind: "expense",  amount: 34.0,    categoryName: "交通", tag: "打车",  source: "微信" },
-  { id: 9,  date: "2026-06-06", counterparty: "招商银行 房贷扣款",flowKind: "expense",  amount: 9850.0,  categoryName: "居住",              source: "招商银行" },
-  { id: 10, date: "2026-06-06", counterparty: "星巴克",           flowKind: "expense",  amount: 39.0,    categoryName: "餐饮", tag: "咖啡",  source: "微信" },
-  { id: 11, date: "2026-06-05", counterparty: "京东·显示器",      flowKind: "expense",  amount: 1299.0,  categoryName: "购物", tag: "数码",  source: "支付宝" },
-  { id: 12, date: "2026-06-05", counterparty: "基金定投·沪深300", flowKind: "expense",  amount: 2000.0,  categoryName: "理财",              source: "招商银行" },
-  { id: 13, date: "2026-06-04", counterparty: "公司工资",         flowKind: "income",   amount: 28600.0, categoryName: "收入",              source: "工商银行" },
-  { id: 14, date: "2026-06-04", counterparty: "美团外卖",         flowKind: "expense",  amount: 52.5,    categoryName: "餐饮", tag: "外卖",  source: "微信" },
-  { id: 15, date: "2026-06-03", counterparty: "12306 高铁票",     flowKind: "expense",  amount: 553.0,   categoryName: "交通", tag: "差旅",  source: "支付宝" },
-  { id: 16, date: "2026-06-03", counterparty: "爱奇艺黄金会员",   flowKind: "expense",  amount: 25.0,    categoryName: "订阅",              source: "支付宝" },
-  { id: 17, date: "2026-06-02", counterparty: "滴滴出行",         flowKind: "expense",  amount: 28.0,    categoryName: "交通", tag: "打车",  source: "微信" },
-  { id: 18, date: "2026-06-02", counterparty: "美团外卖",         flowKind: "expense",  amount: 42.5,    categoryName: "餐饮", tag: "外卖",  source: "微信" },
-  { id: 19, date: "2026-06-01", counterparty: "房租",             flowKind: "expense",  amount: 3000.0,  categoryName: "居住",              source: "招商银行" },
-  { id: 20, date: "2026-06-01", counterparty: "腾讯视频",         flowKind: "expense",  amount: 25.0,    categoryName: "订阅",              source: "微信" },
-  { id: 21, date: "2026-05-31", counterparty: "美团外卖",         flowKind: "expense",  amount: 55.0,    categoryName: "餐饮", tag: "外卖",  source: "微信" },
-  { id: 22, date: "2026-05-29", counterparty: "中国联通",         flowKind: "expense",  amount: 89.0,    categoryName: "通讯",              source: "支付宝" },
-  { id: 23, date: "2026-05-28", counterparty: "KTV 欢唱",        flowKind: "expense",  amount: 320.0,   categoryName: "娱乐", tag: "聚会",  source: "微信" },
-  { id: 24, date: "2026-05-27", counterparty: "山姆会员店",       flowKind: "expense",  amount: 678.0,   categoryName: "购物", tag: "采购",  source: "支付宝" },
-  { id: 25, date: "2026-05-25", counterparty: "宜家家居",         flowKind: "expense",  amount: 430.0,   categoryName: "购物",              source: "支付宝" },
-  { id: 26, date: "2026-05-25", counterparty: "兼职收入",         flowKind: "income",   amount: 2400.0,  categoryName: "收入",              source: "支付宝" },
-  { id: 27, date: "2026-05-22", counterparty: "必胜客",           flowKind: "expense",  amount: 145.0,   categoryName: "餐饮",              source: "微信" },
-  { id: 28, date: "2026-05-20", counterparty: "iCloud+",         flowKind: "expense",  amount: 21.0,    categoryName: "订阅",              source: "支付宝" },
-  { id: 29, date: "2026-05-18", counterparty: "京东商城",         flowKind: "expense",  amount: 1299.0,  categoryName: "购物",              source: "支付宝" },
-  { id: 30, date: "2026-05-15", counterparty: "水电费",           flowKind: "expense",  amount: 386.0,   categoryName: "居住",              source: "招商银行" },
-  { id: 31, date: "2026-05-12", counterparty: "12306 高铁票",     flowKind: "expense",  amount: 320.0,   categoryName: "交通", tag: "差旅",  source: "支付宝" },
-  { id: 32, date: "2026-05-10", counterparty: "永辉超市",         flowKind: "expense",  amount: 312.5,   categoryName: "购物", tag: "采购",  source: "微信" },
-  { id: 33, date: "2026-05-09", counterparty: "健身房月卡",       flowKind: "expense",  amount: 199.0,   categoryName: "娱乐",              source: "支付宝" },
-  { id: 34, date: "2026-05-06", counterparty: "海底捞",           flowKind: "expense",  amount: 268.0,   categoryName: "餐饮", tag: "聚餐",  source: "微信" },
-  { id: 35, date: "2026-05-04", counterparty: "淘宝",             flowKind: "expense",  amount: 189.0,   categoryName: "购物",              source: "支付宝" },
-  { id: 36, date: "2026-05-03", counterparty: "爱奇艺",           flowKind: "expense",  amount: 25.0,    categoryName: "订阅",              source: "支付宝" },
-  { id: 37, date: "2026-05-02", counterparty: "美团外卖",         flowKind: "expense",  amount: 38.0,    categoryName: "餐饮", tag: "外卖",  source: "微信" },
-  { id: 38, date: "2026-05-01", counterparty: "招商银行 房贷",    flowKind: "expense",  amount: 9850.0,  categoryName: "居住",              source: "招商银行" },
-  { id: 39, date: "2026-05-01", counterparty: "公司工资",         flowKind: "income",   amount: 28600.0, categoryName: "收入",              source: "工商银行" },
-  { id: 40, date: "2026-04-30", counterparty: "美团外卖",         flowKind: "expense",  amount: 47.0,    categoryName: "餐饮", tag: "外卖",  source: "微信" },
-  { id: 41, date: "2026-04-26", counterparty: "永辉超市",         flowKind: "expense",  amount: 345.0,   categoryName: "购物",              source: "微信" },
-  { id: 42, date: "2026-04-25", counterparty: "Steam",           flowKind: "expense",  amount: 198.0,   categoryName: "娱乐",              source: "支付宝" },
-  { id: 43, date: "2026-04-21", counterparty: "加油站",           flowKind: "expense",  amount: 320.0,   categoryName: "交通",              source: "支付宝" },
-  { id: 44, date: "2026-04-20", counterparty: "健身年卡",         flowKind: "expense",  amount: 2880.0,  categoryName: "娱乐",              source: "支付宝" },
-  { id: 45, date: "2026-04-18", counterparty: "拼多多",           flowKind: "expense",  amount: 89.0,    categoryName: "购物",              source: "微信" },
-  { id: 46, date: "2026-04-15", counterparty: "水电物业",         flowKind: "expense",  amount: 412.0,   categoryName: "居住",              source: "招商银行" },
-  { id: 47, date: "2026-04-14", counterparty: "宽带费",           flowKind: "expense",  amount: 199.0,   categoryName: "通讯",              source: "支付宝" },
-  { id: 48, date: "2026-04-10", counterparty: "海底捞",           flowKind: "expense",  amount: 445.0,   categoryName: "餐饮", tag: "聚餐",  source: "微信" },
-  { id: 49, date: "2026-04-08", counterparty: "永辉超市",         flowKind: "expense",  amount: 198.0,   categoryName: "购物",              source: "微信" },
-  { id: 50, date: "2026-04-07", counterparty: "腾讯视频",         flowKind: "expense",  amount: 25.0,    categoryName: "订阅",              source: "微信" },
-  { id: 51, date: "2026-04-05", counterparty: "星巴克",           flowKind: "expense",  amount: 114.0,   categoryName: "餐饮", tag: "咖啡",  source: "微信" },
-  { id: 52, date: "2026-04-04", counterparty: "淘宝",             flowKind: "expense",  amount: 256.0,   categoryName: "购物",              source: "支付宝" },
-  { id: 53, date: "2026-04-03", counterparty: "上海地铁",         flowKind: "expense",  amount: 18.0,    categoryName: "交通",              source: "支付宝" },
-  { id: 54, date: "2026-04-02", counterparty: "美团外卖",         flowKind: "expense",  amount: 43.5,    categoryName: "餐饮", tag: "外卖",  source: "微信" },
-  { id: 55, date: "2026-04-01", counterparty: "招商银行 房贷",    flowKind: "expense",  amount: 9850.0,  categoryName: "居住",              source: "招商银行" },
-  { id: 56, date: "2026-04-01", counterparty: "公司工资",         flowKind: "income",   amount: 28600.0, categoryName: "收入",              source: "工商银行" },
-]
 
 function SourceBadge({ source }: { source: string }) {
   const s = SOURCE_STYLE[source]
@@ -220,11 +159,59 @@ const COLUMNS = [
   }),
 ]
 
-export function ImportsPage() {
-  const refDate = new Date("2026-06-11")
-  const thisMonthPrefix = "2026-06"
+function numericId(value: CashflowEventSummary["id"], fallback: number): number {
+  if (typeof value === "number") return value
+  let seed = fallback + 1
+  for (let i = 0; i < value.length; i++) {
+    seed = (seed * 31 + value.charCodeAt(i)) & 0x7fffffff
+  }
+  return seed || fallback + 1
+}
 
-  const txs = MOCK_TXS
+function toTx(event: CashflowEventSummary, index: number): Tx {
+  return {
+    id: numericId(event.id, index),
+    rawId: String(event.id),
+    date: event.date,
+    occurredAt: event.occurredAt ?? null,
+    counterparty: event.counterparty ?? event.title ?? "未命名流水",
+    flowKind: event.flowKind,
+    amount: Math.abs(Number(event.amount) || 0),
+    categoryName: event.categoryName ?? event.flowKind,
+    tag: event.tags[0]?.name,
+    source: event.sourceName ?? event.source ?? "手动",
+    title: event.title ?? null,
+    description: event.description ?? null,
+    userNote: event.userNote ?? null,
+    statementLineId: event.statementLineId ?? null,
+    createdAt: event.createdAt,
+  }
+}
+
+export function ImportsPage() {
+  const queryClient = useQueryClient()
+  const [selectedTx, setSelectedTx] = useState<Tx | null>(null)
+  const [hoveredId, setHoveredId] = useState<number | null>(null)
+  const [showAddTx, setShowAddTx] = useState(false)
+  const refDate = new Date()
+  const thisMonthPrefix = `${refDate.getFullYear()}-${String(refDate.getMonth() + 1).padStart(2, "0")}`
+  const cashflowQuery = useQuery(trpc.cashflow.list.queryOptions(
+    { status: "active", includeInAnalytics: true, flowKind: ["income", "expense"], limit: 500 },
+  ))
+  const statementLinesQuery = useQuery(trpc.imports.statementLines.queryOptions({ limit: 500 }))
+  const categoriesQuery = useQuery(trpc.reference.categories.queryOptions())
+  usePagePerf("imports", [
+    { name: "cashflow.list", query: cashflowQuery },
+    { name: "imports.statementLines", query: statementLinesQuery },
+    { name: "reference.categories", query: categoriesQuery },
+  ])
+  const createCashflow = useMutation(trpc.cashflow.create.mutationOptions({
+    onSuccess: async () => {
+      await queryClient.invalidateQueries(trpc.cashflow.list.queryFilter())
+    },
+  }))
+
+  const txs = useMemo(() => (cashflowQuery.data ?? []).map(toTx), [cashflowQuery.data])
   const thisMonth = txs.filter((t) => t.date.startsWith(thisMonthPrefix))
   const monthOut = thisMonth.filter((t) => t.flowKind === "expense").reduce((s, t) => s + t.amount, 0)
   const monthIn  = thisMonth.filter((t) => t.flowKind === "income").reduce((s, t) => s + t.amount, 0)
@@ -258,10 +245,6 @@ export function ImportsPage() {
   const activeDays = dailyBars.filter((v) => v > 0).length
   const expenseCount = sorted.filter((t) => t.flowKind === "expense").length
 
-  const [selectedTx, setSelectedTx] = useState<Tx | null>(null)
-  const [hoveredId, setHoveredId] = useState<number | null>(null)
-  const [showAddTx, setShowAddTx] = useState(false)
-
   const scrollRef = useRef<HTMLDivElement>(null)
   const table = useReactTable({ data: sorted, columns: COLUMNS, getCoreRowModel: getCoreRowModel() })
   const rows = table.getRowModel().rows
@@ -271,6 +254,23 @@ export function ImportsPage() {
     estimateSize: () => 38,
     overscan: 8,
   })
+
+  function handleAddTx(form: TxForm) {
+    createCashflow.mutate({
+      eventDate: form.date,
+      title: form.counterparty,
+      counterparty: form.counterparty,
+      amount: Math.abs(Number(form.amount) || 0).toFixed(2),
+      direction: form.flowKind === "income" ? "in" : "out",
+      flowKind: form.flowKind,
+      categoryId: form.categoryId,
+      sourceKind: "manual",
+      sourceName: form.source.trim() || null,
+      includeInAnalytics: true,
+      classificationSource: "manual",
+    })
+    setShowAddTx(false)
+  }
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden", background: "white" }}>
@@ -310,7 +310,7 @@ export function ImportsPage() {
           <div style={{ display: "flex", alignItems: "baseline", marginBottom: 10 }}>
             <span style={{ fontSize: 12, fontWeight: 600, color: "var(--ink-2)" }}>近 30 天每日消费</span>
             <span style={{ marginLeft: "auto", fontSize: 10.5, color: "var(--ink-4)" }}>
-              {expenseCount} 笔 · 日均 ¥{fmt(activeDays > 0 ? Math.round(catTotal30 / activeDays) : 0)}
+              {expenseCount} 笔 · 导入证据 {statementLinesQuery.data?.length ?? 0} 行 · 日均 ¥{fmt(activeDays > 0 ? Math.round(catTotal30 / activeDays) : 0)}
             </span>
           </div>
           <DailyBars data={dailyBars} todayIndex={29} height={56} />
@@ -396,6 +396,11 @@ export function ImportsPage() {
             </tbody>
           </table>
           <div style={{ padding: "16px 32px 112px" }}>
+            {rows.length === 0 && (
+              <Dim style={{ fontSize: 12, lineHeight: 1.7, display: "block", marginBottom: 12 }}>
+                暂无流水。导入账单或手动记一笔后，这里会显示真实现金流。
+              </Dim>
+            )}
             <Dim style={{ fontSize: 11, lineHeight: 1.6 }}>
               流水只作参考，不强迫你处理每一笔。来源见左表。
             </Dim>
@@ -451,8 +456,9 @@ export function ImportsPage() {
       <Dock />
       <AddTxModal
         open={showAddTx}
+        categories={categoriesQuery.data ?? []}
         onClose={() => setShowAddTx(false)}
-        onSave={() => setShowAddTx(false)}
+        onSave={handleAddTx}
       />
     </div>
   )

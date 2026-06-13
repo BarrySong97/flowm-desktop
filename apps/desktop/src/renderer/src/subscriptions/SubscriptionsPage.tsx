@@ -1,7 +1,11 @@
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { Button, Label, Modal } from "@heroui/react"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { Outlet, useNavigate, useRouterState } from "@tanstack/react-router"
 import { Dock } from "../components/layout/Dock"
 import { ScrollArea } from "../components/ui/ScrollArea"
+import { trpc } from "@/lib/trpc"
+import { usePagePerf } from "@/lib/debug/perf"
 
 function fmt(n: number, d = 0) {
   return n.toLocaleString("zh-CN", { minimumFractionDigits: d, maximumFractionDigits: d })
@@ -13,47 +17,36 @@ interface Sub {
   cur: string; raw?: string; auto: boolean
 }
 
-const SUBS: Sub[] = [
-  { id: "fitness", name: "威尔士健身",  cat: "fun",  cycle: "月", amt: 299, next: "06-21", cur: "CNY", auto: true },
-  { id: "gpt",     name: "ChatGPT Plus", cat: "sub",  cycle: "月", amt: 145, next: "06-14", cur: "USD", raw: "$20", auto: true },
-  { id: "iqiyi",   name: "爱奇艺 黄金", cat: "fun",  cycle: "月", amt: 25,  next: "06-11", cur: "CNY", auto: true },
-  { id: "icloud",  name: "iCloud 200G", cat: "sub",  cycle: "月", amt: 21,  next: "06-19", cur: "CNY", auto: true },
-  { id: "netease", name: "网易云 黑胶", cat: "fun",  cycle: "月", amt: 18,  next: "06-27", cur: "CNY", auto: true },
-  { id: "meituan", name: "美团 会员",   cat: "sub",  cycle: "月", amt: 15,  next: "06-23", cur: "CNY", auto: true },
-  { id: "sam",     name: "山姆会员",    cat: "shop", cycle: "年", amt: 260, next: "11-08", cur: "CNY", auto: false },
-  { id: "jd",      name: "京东 PLUS",   cat: "shop", cycle: "年", amt: 149, next: "09-02", cur: "CNY", auto: true },
-]
-
 const CAT_COLOR: Record<Sub["cat"], string> = {
   fun: "var(--c-fun)",
   sub: "var(--c-sub)",
   shop: "var(--c-shop)",
 }
 
-const YEAR = 2026, MON = 6, TODAY = 11
-
-const subMonthly = SUBS.reduce((s, x) => s + (x.cycle === "年" ? x.amt / 12 : x.amt), 0)
-const subYearly  = SUBS.reduce((s, x) => s + (x.cycle === "年" ? x.amt : x.amt * 12), 0)
-
-const byDay: Record<number, Sub[]> = {}
-SUBS.forEach((s) => {
-  const [m, d] = s.next.split("-").map(Number)
-  if (m === MON) (byDay[d] = byDay[d] ?? []).push(s)
-})
-const monthCharges = Object.values(byDay).flat()
-const monthTotal = monthCharges.reduce((s, x) => s + x.amt, 0)
-
-const daysInMonth = new Date(YEAR, MON, 0).getDate()
-const firstWd = (new Date(YEAR, MON - 1, 1).getDay() + 6) % 7
-const cells: (number | null)[] = []
-for (let i = 0; i < firstWd; i++) cells.push(null)
-for (let d = 1; d <= daysInMonth; d++) cells.push(d)
-while (cells.length % 7) cells.push(null)
-
 type SubForm = { name: string; cycle: "月" | "年"; amt: string; next: string; auto: boolean }
-const EMPTY: SubForm = { name: "", cycle: "月", amt: "", next: "2026-06-11", auto: true }
+const EMPTY: SubForm = { name: "", cycle: "月", amt: "", next: new Date().toISOString().slice(0, 10), auto: true }
 
-function AddSubModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+function addDays(date: Date, days: number): Date {
+  const next = new Date(date)
+  next.setDate(next.getDate() + days)
+  return next
+}
+
+function dateKey(date: Date): string {
+  return date.toISOString().slice(0, 10)
+}
+
+function monthCells(year: number, month: number): (number | null)[] {
+  const daysInMonth = new Date(year, month, 0).getDate()
+  const firstWd = (new Date(year, month - 1, 1).getDay() + 6) % 7
+  const cells: (number | null)[] = []
+  for (let i = 0; i < firstWd; i++) cells.push(null)
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d)
+  while (cells.length % 7) cells.push(null)
+  return cells
+}
+
+function AddSubModal({ open, onClose, onSave }: { open: boolean; onClose: () => void; onSave: (form: SubForm) => void }) {
   const [form, setForm] = useState<SubForm>(EMPTY)
   function patch(p: Partial<SubForm>) { setForm((f) => ({ ...f, ...p })) }
   function handleClose() { setForm(EMPTY); onClose() }
@@ -130,7 +123,17 @@ function AddSubModal({ open, onClose }: { open: boolean; onClose: () => void }) 
             </div>
           </Modal.Body>
           <Modal.Footer>
-            <Button variant="primary" style={{ borderRadius: 5 }} isDisabled={!form.name.trim() || !form.amt} onPress={handleClose}>保存</Button>
+            <Button
+              variant="primary"
+              style={{ borderRadius: 5 }}
+              isDisabled={!form.name.trim() || !form.amt}
+              onPress={() => {
+                onSave(form)
+                handleClose()
+              }}
+            >
+              保存
+            </Button>
             <Button variant="outline" style={{ borderRadius: 5 }} slot="close">取消</Button>
           </Modal.Footer>
         </Modal.Dialog>
@@ -140,7 +143,85 @@ function AddSubModal({ open, onClose }: { open: boolean; onClose: () => void }) 
 }
 
 export function SubscriptionsPage() {
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [showAdd, setShowAdd] = useState(false)
+  const now = new Date()
+  const year = now.getFullYear()
+  const mon = now.getMonth() + 1
+  const today = now.getDate()
+  const monthStart = `${year}-${String(mon).padStart(2, "0")}-01`
+  const futureThrough = dateKey(addDays(now, 60))
+  const subscriptionsQuery = useQuery(trpc.subscriptions.list.queryOptions({ status: "active" }))
+  const occurrencesQuery = useQuery(trpc.subscriptions.occurrences.queryOptions({ dateFrom: monthStart, dateTo: futureThrough }))
+  usePagePerf("subscriptions", [
+    { name: "subscriptions.list", query: subscriptionsQuery },
+    { name: "subscriptions.occurrences", query: occurrencesQuery },
+  ])
+  const generateOccurrences = useMutation(trpc.subscriptions.generateOccurrences.mutationOptions())
+  const createSubscription = useMutation(trpc.subscriptions.create.mutationOptions({
+    onSuccess: async (subscription) => {
+      await generateOccurrences.mutateAsync({ id: subscription.id, throughDate: futureThrough })
+      await queryClient.invalidateQueries(trpc.subscriptions.list.queryFilter())
+      await queryClient.invalidateQueries(trpc.subscriptions.occurrences.queryFilter())
+      await queryClient.invalidateQueries(trpc.loans.futurePressure.queryFilter())
+    },
+  }))
+
+  const subNameById = useMemo(
+    () => new Map((subscriptionsQuery.data ?? []).map((sub) => [String(sub.id), sub])),
+    [subscriptionsQuery.data],
+  )
+  const subs: Sub[] = useMemo(() => (subscriptionsQuery.data ?? []).map((sub) => ({
+    id: String(sub.id),
+    name: sub.name,
+    cat: sub.billingCycle === "yearly" ? "shop" : "sub",
+    cycle: sub.billingCycle === "yearly" ? "年" : "月",
+    amt: Math.abs(Number(sub.amount) || 0),
+    next: sub.nextChargeDate.slice(5),
+    cur: sub.currency,
+    raw: sub.currency === "CNY" ? undefined : `${sub.currency} ${sub.amount}`,
+    auto: sub.autoRenew,
+  })), [subscriptionsQuery.data])
+  const byDay = useMemo(() => {
+    const output: Record<number, Sub[]> = {}
+    for (const occurrence of occurrencesQuery.data ?? []) {
+      if (!occurrence.dueDate.startsWith(monthStart.slice(0, 7))) continue
+      const sub = subNameById.get(String(occurrence.subscriptionId))
+      const day = Number(occurrence.dueDate.slice(8, 10))
+      const row: Sub = {
+        id: String(occurrence.id),
+        name: sub?.name ?? "订阅",
+        cat: sub?.billingCycle === "yearly" ? "shop" : "sub",
+        cycle: sub?.billingCycle === "yearly" ? "年" : "月",
+        amt: Math.abs(Number(occurrence.amount) || 0),
+        next: occurrence.dueDate.slice(5),
+        cur: occurrence.currency,
+        raw: occurrence.currency === "CNY" ? undefined : `${occurrence.currency} ${occurrence.amount}`,
+        auto: sub?.autoRenew ?? true,
+      }
+      output[day] = [...(output[day] ?? []), row]
+    }
+    return output
+  }, [monthStart, occurrencesQuery.data, subNameById])
+  const monthCharges = Object.values(byDay).flat()
+  const monthTotal = monthCharges.reduce((sum, sub) => sum + sub.amt, 0)
+  const subMonthly = subs.reduce((sum, sub) => sum + (sub.cycle === "年" ? sub.amt / 12 : sub.amt), 0)
+  const cells = monthCells(year, mon)
+
+  function handleSave(form: SubForm) {
+    createSubscription.mutate({
+      name: form.name.trim(),
+      amount: Math.abs(Number(form.amt) || 0).toFixed(2),
+      billingCycle: form.cycle === "年" ? "yearly" : "monthly",
+      nextChargeDate: form.next,
+      autoRenew: form.auto,
+      currency: "CNY",
+    })
+  }
+
+  const pathname = useRouterState({ select: (s) => s.location.pathname })
+  if (pathname !== "/subscriptions") return <Outlet />
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden", background: "white" }}>
@@ -163,7 +244,7 @@ export function SubscriptionsPage() {
           <div style={{ paddingTop: 6 }}>
             <div style={{ fontSize: 11, color: "var(--ink-3)" }}>订阅数 / 自动续费</div>
             <div style={{ fontFamily: "var(--mono)", fontSize: 16, fontWeight: 500, color: "var(--ink)", marginTop: 3, letterSpacing: "-0.01em" }}>
-              {SUBS.length} / {SUBS.filter((s) => s.auto).length}
+              {subs.length} / {subs.filter((s) => s.auto).length}
             </div>
           </div>
           <div style={{ marginLeft: "auto", paddingTop: 8 }}>
@@ -175,11 +256,52 @@ export function SubscriptionsPage() {
       {/* Two independent scroll columns */}
       <div style={{ flex: 1, minHeight: 0, display: "flex", overflow: "hidden" }}>
 
-        {/* Left: calendar */}
+        {/* Left: subscription list */}
+        <ScrollArea className="h-full" style={{ width: 300, flexShrink: 0 }}>
+          <div style={{ padding: "20px 24px 112px" }}>
+            <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--ink)", marginBottom: 4 }}>全部订阅</div>
+            <div>
+              {subs.map((s, i) => (
+                <button
+                  key={s.id}
+                  onClick={() => navigate({ to: "/subscriptions/$id", params: { id: s.id } })}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 10, padding: "8px 0",
+                    borderTop: i === 0 ? "none" : "1px solid var(--hair-3)",
+                    borderRight: "none", borderBottom: "none", borderLeft: "none",
+                    width: "100%", background: "none",
+                    cursor: "pointer", textAlign: "left",
+                  }}
+                >
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      {s.name}
+                    </div>
+                    <div style={{ fontSize: 10.5, color: "var(--ink-4)", marginTop: 1 }}>
+                      下次 {s.next} · {s.auto ? "自动续费" : "手动"}
+                    </div>
+                  </div>
+                  <span style={{
+                    display: "inline-flex", alignItems: "center", padding: "2px 8px",
+                    borderRadius: 100, fontSize: 9.5, border: "1px solid var(--hair)",
+                    background: "var(--surface-2)", color: "var(--ink-3)", whiteSpace: "nowrap", flexShrink: 0,
+                  }}>
+                    {s.cycle}付
+                  </span>
+                  <span style={{ fontFamily: "var(--mono)", width: 52, textAlign: "right", fontSize: 13, fontWeight: 500, letterSpacing: "-0.01em", flexShrink: 0 }}>
+                    {s.raw ?? `¥${fmt(s.amt)}`}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </ScrollArea>
+
+        {/* Right: calendar */}
         <ScrollArea className="h-full" style={{ flex: 1 }}>
           <div style={{ padding: "20px 32px 112px" }}>
             <div style={{ display: "flex", alignItems: "baseline", marginBottom: 12 }}>
-              <span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--ink)" }}>{YEAR} 年 {MON} 月</span>
+              <span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--ink)" }}>{year} 年 {mon} 月</span>
               <span style={{ fontSize: 10.5, color: "var(--ink-4)", marginLeft: 10, whiteSpace: "nowrap" }}>
                 有底色的日期 = 当天有订阅扣费
               </span>
@@ -191,12 +313,12 @@ export function SubscriptionsPage() {
               {cells.map((d, i) => {
                 if (!d) return <div className="cell empty" key={i} />
                 const chgs = byDay[d]
-                const cls = "cell" + (d === TODAY ? " today" : "") + (chgs ? " has" : "")
+                const cls = "cell" + (d === today ? " today" : "") + (chgs ? " has" : "")
                 return (
                   <div className={cls} key={i}>
                     <span className="dn" style={{ fontFamily: "var(--mono)", fontSize: 11, fontWeight: 500, color: "var(--ink-3)" }}>
                       {d}
-                      {d === TODAY && (
+                      {d === today && (
                         <span style={{ marginLeft: 4, fontSize: 8, fontWeight: 700 }}>今天</span>
                       )}
                     </span>
@@ -218,66 +340,10 @@ export function SubscriptionsPage() {
           </div>
         </ScrollArea>
 
-        {/* Right: subscription list */}
-        <ScrollArea className="h-full" style={{ width: 300, flexShrink: 0 }}>
-          <div style={{ padding: "20px 24px 112px" }}>
-            <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--ink)", marginBottom: 4 }}>全部订阅</div>
-            <div>
-              {SUBS.map((s, i) => (
-                <div
-                  key={s.id}
-                  style={{
-                    display: "flex", alignItems: "center", gap: 10, padding: "8px 0",
-                    borderTop: i === 0 ? "none" : "1px solid var(--hair-3)",
-                  }}
-                >
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                      {s.name}
-                    </div>
-                    <div style={{ fontSize: 10.5, color: "var(--ink-4)", marginTop: 1 }}>
-                      下次 {s.next} · {s.auto ? "自动续费" : "手动"}
-                    </div>
-                  </div>
-                  <span style={{
-                    display: "inline-flex", alignItems: "center", padding: "2px 8px",
-                    borderRadius: 100, fontSize: 9.5, border: "1px solid var(--hair)",
-                    background: "var(--surface-2)", color: "var(--ink-3)", whiteSpace: "nowrap", flexShrink: 0,
-                  }}>
-                    {s.cycle}付
-                  </span>
-                  <span style={{ fontFamily: "var(--mono)", width: 52, textAlign: "right", fontSize: 13, fontWeight: 500, letterSpacing: "-0.01em", flexShrink: 0 }}>
-                    {s.raw ?? `¥${fmt(s.amt)}`}
-                  </span>
-                </div>
-              ))}
-            </div>
-
-            {/* Totals */}
-            <div style={{ borderTop: "1px dashed var(--ink-4)", marginTop: 6, paddingTop: 12 }}>
-              <div style={{ display: "flex", alignItems: "baseline", marginBottom: 5 }}>
-                <span style={{ fontSize: 11.5, color: "var(--ink-2)" }}>每月合计</span>
-                <span style={{ fontFamily: "var(--mono)", marginLeft: "auto", fontSize: 19, fontWeight: 700, letterSpacing: "-0.02em" }}>
-                  ¥{fmt(subMonthly)}
-                </span>
-              </div>
-              <div style={{ display: "flex", alignItems: "baseline" }}>
-                <span style={{ fontSize: 10.5, color: "var(--ink-4)" }}>每年合计</span>
-                <span style={{ fontFamily: "var(--mono)", marginLeft: "auto", fontSize: 12, color: "var(--ink-4)" }}>
-                  ¥{fmt(subYearly)}
-                </span>
-              </div>
-              <div style={{ borderTop: "1px dashed var(--hair)", marginTop: 10, paddingTop: 8, display: "flex", justifyContent: "space-between" }}>
-                <span style={{ fontSize: 9.5, color: "var(--ink-4)" }}>{SUBS.length} 项订阅 · 自动续费 {SUBS.filter((s) => s.auto).length}</span>
-                <span style={{ fontSize: 9.5, color: "var(--ink-4)" }}>FLOWM · {YEAR}/{MON}</span>
-              </div>
-            </div>
-          </div>
-        </ScrollArea>
       </div>
 
       <Dock />
-      <AddSubModal open={showAdd} onClose={() => setShowAdd(false)} />
+      <AddSubModal open={showAdd} onClose={() => setShowAdd(false)} onSave={handleSave} />
     </div>
   )
 }

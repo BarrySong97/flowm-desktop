@@ -1,6 +1,5 @@
 import { create } from "zustand"
 import {
-  getFlowmApi,
   type AddDashboardCardInput,
   type AssetSnapshotSummary,
   type CreatePlanInput,
@@ -22,8 +21,8 @@ import {
 } from "@flowm/api"
 import { i18n } from "../../i18n"
 import { parseFlowmCommand } from "../commands/parser"
+import { flowmPerfLog, flowmPerfMeasure, summarizeValue } from "../debug/perf"
 import { routeLoopLog } from "../debug/routeLoop"
-import { demoSnapshot } from "../demo/snapshot"
 
 export interface CommandLogEntry {
   time: string
@@ -65,7 +64,7 @@ export interface FlowmState {
   loadAssetSnapshots: () => Promise<void>
   loadAssetSnapshotHistory: (accountName: string) => Promise<AssetSnapshotSummary[]>
   upsertAssetSnapshot: (input: UpsertAssetSnapshotInput) => Promise<void>
-  removeAssetSnapshot: (id: number) => Promise<void>
+  removeAssetSnapshot: (id: AssetSnapshotSummary["id"]) => Promise<void>
   loadCurrencySettings: () => Promise<void>
   updateCurrencySettings: (input: UpdateCurrencySettingsInput) => Promise<void>
   refreshExchangeRates: () => Promise<void>
@@ -76,9 +75,25 @@ export interface FlowmState {
 
 type ApiFactory = () => FlowmApi
 
-let apiFactory: ApiFactory = getFlowmApi
+let apiFactory: ApiFactory = () => { throw new Error("FlowmApi factory not initialized") }
 
 const ACTIVE_DASHBOARD_VIEW_KEY = "flowm.activeDashboardViewId"
+
+export const emptyDashboardSnapshot: DashboardSnapshot = {
+  metrics: {
+    netWorth: { number: "0", currency: "CNY" },
+    cash: { number: "0", currency: "CNY" },
+    incomeMtd: { number: "0", currency: "CNY" },
+    expenseMtd: { number: "0", currency: "CNY" },
+    savingsMtd: { number: "0", currency: "CNY" },
+  },
+  pnlStrip: [],
+  dayFlow: [],
+  transactions: [],
+  holdings: [],
+  accounts: [],
+  generatedAt: new Date(0).toISOString(),
+}
 
 function readStoredDashboardViewId(): string | null {
   if (typeof window === "undefined") return null
@@ -130,12 +145,31 @@ async function executeParsedCommand(_api: FlowmApi, raw: string) {
   }
 }
 
+async function profiledStoreCall<T>(label: string, action: () => Promise<T>): Promise<T> {
+  const startedAt = performance.now()
+  flowmPerfLog("store", "call.start", { label })
+  try {
+    const result = await action()
+    flowmPerfMeasure("store", "call.end", startedAt, {
+      label,
+      result: summarizeValue(result),
+    })
+    return result
+  } catch (error) {
+    flowmPerfMeasure("store", "call.error", startedAt, {
+      label,
+      error: error instanceof Error ? error.message : String(error),
+    })
+    throw error
+  }
+}
+
 export function setFlowmApiFactory(factory: ApiFactory) {
   apiFactory = factory
 }
 
 export const useFlowmStore = create<FlowmState>((set, get) => ({
-  snapshot: demoSnapshot,
+  snapshot: emptyDashboardSnapshot,
   status: "booting",
   error: null,
   commandInput: "",
@@ -162,24 +196,26 @@ export const useFlowmStore = create<FlowmState>((set, get) => ({
     })
     try {
       const api = apiFactory()
-      expectApiResult(await api.initializeFlowm())
-      const snapshot = expectApiResult<DashboardSnapshot>(await api.getDashboardSnapshot())
-      const dashboardViews = expectApiResult(await api.listDashboardViews())
+      const snapshot = expectApiResult<DashboardSnapshot>(
+        await profiledStoreCall("getDashboardSnapshot", () => api.getDashboardSnapshot()),
+      )
+      const dashboardViews = expectApiResult(await profiledStoreCall("listDashboardViews", () => api.listDashboardViews()))
       const activeDashboardViewId =
         chooseDashboardViewId(dashboardViews, get().activeDashboardViewId) ??
         chooseDashboardViewId(dashboardViews, readStoredDashboardViewId())
       if (activeDashboardViewId != null) storeDashboardViewId(activeDashboardViewId)
       const dashboardCards = activeDashboardViewId == null
         ? []
-        : expectApiResult(await api.listDashboardCards({ viewId: activeDashboardViewId }))
+        : expectApiResult(await profiledStoreCall("listDashboardCards", () => api.listDashboardCards({ viewId: activeDashboardViewId })))
       const dashboardLayouts = activeDashboardViewId == null
         ? []
-        : expectApiResult(await api.listDashboardLayouts({ viewId: activeDashboardViewId }))
-      const importedEntries = expectApiResult(await api.listImportedEntries({ limit: 200 }))
-      const assetSnapshots = expectApiResult(await api.listAssetSnapshots({ latestOnly: true }))
-      const plans = expectApiResult(await api.listPlans())
-      const currencySettings = expectApiResult(await api.getCurrencySettings())
-      const exchangeRates = expectApiResult(await api.listExchangeRates({ limit: 50 }))
+        : expectApiResult(await profiledStoreCall("listDashboardLayouts", () => api.listDashboardLayouts({ viewId: activeDashboardViewId })))
+      const importedEntries = expectApiResult(await profiledStoreCall("listImportedEntries", () => api.listImportedEntries({ limit: 200 })))
+      const assetSnapshots = expectApiResult(await profiledStoreCall("listAssetSnapshots.latest", () => api.listAssetSnapshots({ latestOnly: true })))
+      const plans = expectApiResult(await profiledStoreCall("listPlans", () => api.listPlans()))
+      const currencySettings = expectApiResult(await profiledStoreCall("getCurrencySettings", () => api.getCurrencySettings()))
+      const exchangeRates = expectApiResult(await profiledStoreCall("listExchangeRates", () => api.listExchangeRates({ limit: 50 })))
+      const setStartedAt = performance.now()
       set({
         snapshot,
         status: "live",
@@ -195,6 +231,12 @@ export const useFlowmStore = create<FlowmState>((set, get) => ({
         exchangeRates,
         commandLog: [...get().commandLog, log("SYS", i18n.t("command.log.syncOk"))].slice(-80),
       })
+      flowmPerfMeasure("store", "set.loadSnapshot", setStartedAt, {
+        importedEntries: importedEntries.length,
+        assetSnapshots: assetSnapshots.length,
+        plans: plans.length,
+        exchangeRates: exchangeRates.length,
+      })
       routeLoopLog("flowmStore.loadSnapshot.set", {
         cards: dashboardCards.length,
         layouts: dashboardLayouts.length,
@@ -204,7 +246,7 @@ export const useFlowmStore = create<FlowmState>((set, get) => ({
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       set({
-        snapshot: demoSnapshot,
+        snapshot: emptyDashboardSnapshot,
         status: message.includes("Electron") ? "offline" : "error",
         error: message,
         commandLog: [...get().commandLog, log("SYS", i18n.t("command.log.sqliteOffline", { message }))].slice(-80),

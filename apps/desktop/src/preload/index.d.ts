@@ -1,5 +1,4 @@
 import type { ElectronAPI } from "@electron-toolkit/preload"
-import type { SqlStatement, SqlStatementResult } from "@flowm/db"
 
 declare global {
   interface Window {
@@ -13,10 +12,11 @@ declare global {
       }
       getDatabasePath: () => Promise<string>
       databaseExists: () => Promise<boolean>
-    }
-    flowmSql: {
-      executeSingleSql: (statement: SqlStatement) => Promise<SqlStatementResult>
-      executeBatchSql: (statements: SqlStatement[]) => Promise<SqlStatementResult[]>
+      trpcRequest: (request: {
+        type: string
+        path: string
+        input: unknown
+      }) => Promise<unknown>
     }
   }
 }

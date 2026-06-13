@@ -3,16 +3,14 @@ import type { DateValue } from "@internationalized/date"
 import { parseDate } from "@internationalized/date"
 import type { AssetSnapshotSummary, AssetSnapshotType } from "@flowm/api"
 import { useEffect, useState } from "react"
-import { TYPE_LABEL } from "./AddAssetModal"
+import { ASSET_TYPES, TYPE_LABEL } from "./AddAssetModal"
 import type { AssetForm } from "./AddAssetModal"
-
-const ASSET_TYPES: AssetSnapshotType[] = ["cash", "bank", "wallet", "investment", "fixed_asset", "liability", "other"]
 
 interface Props {
   asset: AssetSnapshotSummary | null
   onClose: () => void
   onSave: (form: AssetForm) => Promise<void>
-  onDelete: (id: number) => void
+  onDelete: (id: AssetSnapshotSummary["id"]) => void
 }
 
 export function AssetDrawer({ asset, onClose, onSave, onDelete }: Props) {

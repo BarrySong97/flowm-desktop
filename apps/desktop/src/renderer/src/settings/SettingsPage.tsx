@@ -1,18 +1,10 @@
 import { useState } from "react"
 import { Tabs } from "@heroui/react"
+import { useQuery } from "@tanstack/react-query"
 import { Dock } from "../components/layout/Dock"
 import { ScrollArea } from "../components/ui/ScrollArea"
-
-const TAGS = [
-  { id: "coffee",  name: "咖啡", n: 8  },
-  { id: "takeout", name: "外卖", n: 23 },
-  { id: "taxi",    name: "打车", n: 14 },
-  { id: "digital", name: "数码", n: 5  },
-  { id: "stock",   name: "囤货", n: 6  },
-  { id: "date",    name: "约会", n: 4  },
-  { id: "travel",  name: "差旅", n: 3  },
-  { id: "clothes", name: "衣物", n: 9  },
-]
+import { trpc } from "@/lib/trpc"
+import { usePagePerf } from "@/lib/debug/perf"
 
 const CHEVRON = (
   <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
@@ -104,6 +96,17 @@ export function SettingsPage() {
   const [grp,   setGrp]   = useState(true)
   const [hide,  setHide]  = useState(false)
   const [cache, setCache] = useState("自动")
+  const tagsQuery = useQuery(trpc.reference.tags.queryOptions())
+  const categoriesQuery = useQuery(trpc.reference.categories.queryOptions())
+  const currencyQuery = useQuery(trpc.reference.currencySettings.queryOptions())
+  usePagePerf("settings", [
+    { name: "reference.tags", query: tagsQuery },
+    { name: "reference.categories", query: categoriesQuery },
+    { name: "reference.currencySettings", query: currencyQuery },
+  ])
+  const tags = tagsQuery.data ?? []
+  const categories = categoriesQuery.data ?? []
+  const displayCurrency = currencyQuery.data?.displayCurrency ?? "—"
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden", background: "white" }}>
@@ -129,7 +132,7 @@ export function SettingsPage() {
                 borderRadius: 100, fontSize: 12, fontWeight: 500,
                 background: "var(--accent-soft)", border: "1px solid var(--accent-line)", color: "var(--accent)",
                 whiteSpace: "nowrap",
-              }}>CNY · ¥</span>
+              }}>{displayCurrency}</span>
             </Row>
             <Row label="金额小数位" sub="流水与余额的显示精度">
               <SegTabs opts={["0", "2"]} val={dec} onChange={setDec} />
@@ -145,23 +148,25 @@ export function SettingsPage() {
           {/* 分类与标签 */}
           <div style={{ marginTop: 30 }}>
             <GroupLabel>分类与标签</GroupLabel>
-            <LinkRow note="10 个">分类管理</LinkRow>
+            <LinkRow note={`${categories.length} 个`}>分类管理</LinkRow>
             <div style={{ padding: "14px 0 4px", borderTop: "1px solid var(--hair-3)" }}>
               <div style={{ display: "flex", alignItems: "baseline", marginBottom: 4 }}>
                 <span style={{ fontSize: 13.5, color: "var(--ink)", fontWeight: 500 }}>标签</span>
-                <span style={{ fontSize: 11, color: "var(--ink-4)", marginLeft: "auto" }}>{TAGS.length} 个 · 跨分类的细分场景</span>
+                <span style={{ fontSize: 11, color: "var(--ink-4)", marginLeft: "auto" }}>{tags.length} 个 · 跨分类的细分场景</span>
               </div>
               <div style={{ fontSize: 11.5, color: "var(--ink-3)", marginBottom: 12, lineHeight: 1.5 }}>
                 分类回答「哪一类支出」，标签回答「咖啡 / 外卖 / 出差」这类场景，可跨分类、一笔多打。
               </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 0" }}>
-                {TAGS.map((tg) => (
-                  <button key={tg.id} style={{ display: "inline-flex", alignItems: "center", gap: 7, font: "500 13px var(--sans)", color: "var(--ink-2)", padding: "4px 10px 4px 2px", background: "none", border: "none", cursor: "pointer" }}>
+                {tags.map((tag) => (
+                  <button key={tag.id} style={{ display: "inline-flex", alignItems: "center", gap: 7, font: "500 13px var(--sans)", color: "var(--ink-2)", padding: "4px 10px 4px 2px", background: "none", border: "none", cursor: "pointer" }}>
                     <span style={{ opacity: 0.4 }}>#</span>
-                    {tg.name}
-                    <span style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--ink-4)" }}>{tg.n}</span>
+                    {tag.name}
                   </button>
                 ))}
+                {tags.length === 0 && (
+                  <span style={{ fontSize: 12, color: "var(--ink-4)", padding: "4px 0" }}>暂无标签</span>
+                )}
                 <button style={{ display: "inline-flex", alignItems: "center", font: "500 13px var(--sans)", color: "var(--accent)", padding: "4px 2px", background: "none", border: "none", cursor: "pointer" }}>
                   ＋ 新建标签
                 </button>
@@ -176,7 +181,7 @@ export function SettingsPage() {
               <SegTabs opts={["关闭", "自动"]} val={cache} onChange={setCache} />
             </Row>
             <LinkRow note="CSV · Excel">导出全部数据</LinkRow>
-            <LinkRow note="占用 18.4 MB">清除本地缓存</LinkRow>
+            <LinkRow>清除本地缓存</LinkRow>
             <LinkRow danger>清空所有数据并重置</LinkRow>
           </div>
 

@@ -1,41 +1,20 @@
 import { useState, useMemo } from "react"
 import { Button, Drawer } from "@heroui/react"
+import { useQuery } from "@tanstack/react-query"
 import type { AssetSnapshotSummary } from "@flowm/api"
 import { AreaChart, Area, XAxis, ResponsiveContainer, Tooltip } from "recharts"
+import { trpc } from "@/lib/trpc"
+import { usePagePerf } from "@/lib/debug/perf"
 import { Kicker } from "../components/ui/Kicker"
 import { Dim } from "../components/ui/Dim"
 import { SectionTitle } from "../components/ui/SectionTitle"
 import { TYPE_LABEL } from "./AddAssetModal"
-
-function seededRng(seed: number) {
-  let s = (seed * 1664525 + 1013904223) & 0x7fffffff
-  return () => {
-    s = (s * 1664525 + 1013904223) & 0x7fffffff
-    return s / 0x7fffffff
-  }
-}
 
 function fmt(n: number) {
   return n.toLocaleString("zh-CN", { minimumFractionDigits: 0, maximumFractionDigits: 0 })
 }
 
 interface HistoryEntry { date: string; label: string; value: number }
-
-function generateHistory(asset: AssetSnapshotSummary): HistoryEntry[] {
-  const rng = seededRng(asset.id * 37)
-  const baseValue = Math.abs(Number(asset.valueNumber))
-  const count = 5 + Math.floor(rng() * 3)
-  const [y, m, d] = asset.snapshotAt.slice(0, 10).split("-").map(Number)
-  const entries: HistoryEntry[] = []
-  let v = baseValue
-  for (let i = 0; i < count; i++) {
-    const dt = new Date(y, m - 1, d - i * 30)
-    const dateStr = `${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`
-    entries.push({ date: dateStr, label: i === 0 ? "当前" : "手动更新", value: Math.round(v) })
-    v = Math.max(100, v * (0.88 + rng() * 0.24))
-  }
-  return entries.reverse()
-}
 
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
@@ -83,14 +62,27 @@ const PREVIEW_COUNT = 3
 interface Props {
   asset: AssetSnapshotSummary
   onBack: () => void
-  onEdit: (asset: AssetSnapshotSummary) => void
-  onDelete: (id: number) => void
+  onEdit: (asset: AssetSnapshotSummary, mode: "balance" | "account") => void
+  onDelete: (id: AssetSnapshotSummary["id"]) => void
 }
 
 export function AssetDetailPanel({ asset, onBack, onEdit, onDelete }: Props) {
   const [confirming, setConfirming] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
-  const history = useMemo(() => generateHistory(asset), [asset])
+  const historyQuery = useQuery(trpc.assets.snapshots.queryOptions({ assetItemId: asset.assetItemId, latestOnly: false }))
+  usePagePerf("asset-detail", [
+    { name: "assets.snapshots.assetHistory", query: historyQuery },
+  ], { assetItemId: asset.assetItemId, accountName: asset.accountName })
+  const history = useMemo<HistoryEntry[]>(() => {
+    const rows = historyQuery.data?.length ? historyQuery.data : [asset]
+    return [...rows]
+      .sort((a, b) => a.snapshotAt.localeCompare(b.snapshotAt))
+      .map((snapshot, index, list) => ({
+        date: snapshot.snapshotAt.slice(5, 10),
+        label: index === list.length - 1 ? "当前" : "手动更新",
+        value: Math.round(Math.abs(Number(snapshot.valueNumber || 0))),
+      }))
+  }, [asset, historyQuery.data])
 
   const currentValue = Math.abs(Number(asset.valueNumber))
   const isLiability = asset.assetType === "liability"
@@ -220,10 +212,10 @@ export function AssetDetailPanel({ asset, onBack, onEdit, onDelete }: Props) {
 
       {/* Actions */}
       <div style={{ display: "flex", gap: 8, marginTop: 20, alignItems: "center" }}>
-        <Button size="sm" variant="primary" style={{ borderRadius: 5 }} onPress={() => onEdit(asset)}>
+        <Button size="sm" variant="primary" style={{ borderRadius: 5 }} onPress={() => onEdit(asset, "balance")}>
           更新余额
         </Button>
-        <Button size="sm" variant="outline" style={{ borderRadius: 5 }} onPress={() => onEdit(asset)}>
+        <Button size="sm" variant="outline" style={{ borderRadius: 5 }} onPress={() => onEdit(asset, "account")}>
           编辑账户
         </Button>
         <div style={{ flex: 1 }} />
