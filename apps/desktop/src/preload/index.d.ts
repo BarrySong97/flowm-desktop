@@ -17,7 +17,7 @@ declare global {
         isLinux: boolean
         name: NodeJS.Platform
       }
-      getDatabasePath: () => Promise<string>
+      getDatabasePath: () => Promise<string | null>
       databaseExists: () => Promise<boolean>
       trpcRequest: (request: {
         type: string

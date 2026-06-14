@@ -327,7 +327,7 @@ export function AssetsPage() {
               asset={detailAsset}
               onBack={() => setDetailAsset(null)}
               onEdit={openEdit}
-              onDelete={(id) => { void removeSnapshot(id); setDetailAsset(null) }}
+              onDelete={async (id) => { await removeSnapshot(id); setDetailAsset(null) }}
             />
           ) : (
           <div style={{ padding: "16px 32px 112px" }}>

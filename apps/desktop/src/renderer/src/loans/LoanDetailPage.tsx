@@ -6,11 +6,12 @@
  */
 
 import React, { useMemo } from "react"
-import { useQuery } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 import { Button } from "@heroui/react"
 import { Dock } from "../components/layout/Dock"
 import { ScrollArea } from "../components/ui/ScrollArea"
+import { useConfirm } from "../components/ui/ConfirmModal"
 import { trpc } from "@/lib/trpc"
 import { addMonths, todayKey } from "@/lib/dates"
 import { formatNumber } from "@/lib/format"
@@ -37,6 +38,9 @@ const REPAYMENT_LABEL: Record<string, string> = {
 export function LoanDetailPage() {
   const { id } = Route.useParams()
   const navigate = useNavigate()
+  const confirm = useConfirm()
+  const queryClient = useQueryClient()
+  const archiveLoan = useMutation(trpc.loans.archive.mutationOptions())
   const today = todayKey()
 
   const loanQuery = useQuery(trpc.loans.get.queryOptions({ id }))
@@ -238,7 +242,26 @@ export function LoanDetailPage() {
                   <Button size="sm" variant="primary" style={{ borderRadius: 5 }}>提前还款</Button>
                   <Button size="sm" variant="outline" style={{ borderRadius: 5 }}>编辑</Button>
                   <div style={{ flex: 1 }} />
-                  <Button size="sm" variant="ghost" style={{ borderRadius: 5, color: "var(--red)" }}>标记结清</Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    style={{ borderRadius: 5, color: "var(--red)" }}
+                    onPress={() => confirm({
+                      title: "标记结清",
+                      description: `将「${loan.name}」标记为已结清后，它会从贷款列表移除。确定继续？`,
+                      confirmText: "标记结清",
+                      danger: true,
+                      onConfirm: async () => {
+                        await archiveLoan.mutateAsync({ id })
+                        await queryClient.invalidateQueries(trpc.loans.list.queryFilter())
+                        await queryClient.invalidateQueries(trpc.loans.occurrences.queryFilter())
+                        await queryClient.invalidateQueries(trpc.loans.futurePressure.queryFilter())
+                        navigate({ to: "/loans" })
+                      },
+                    })}
+                  >
+                    标记结清
+                  </Button>
                 </div>
               </>
             )}

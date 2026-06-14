@@ -7,9 +7,11 @@
 
 import { initTRPC } from "@trpc/server"
 import type { FlowmApi } from "@flowm/api"
+import type { LedgerStore } from "../ledgers"
 
 export interface TrpcContext {
   api: FlowmApi
+  ledgers: LedgerStore
 }
 
 const t = initTRPC.context<TrpcContext>().create({ isServer: true })

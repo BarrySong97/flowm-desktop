@@ -14,13 +14,19 @@
       "types": "./src/demo-seed.ts",
       "import": "./src/demo-seed.ts",
       "default": "./src/demo-seed.ts"
+    },
+    "./default-seed": {
+      "types": "./src/default-seed.ts",
+      "import": "./src/default-seed.ts",
+      "default": "./src/default-seed.ts"
     }
   },
   "scripts": {
     "build": "tsc --noEmit",
     "check-types": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "ELECTRON_RUN_AS_NODE=1 ../../apps/desktop/node_modules/.bin/electron ../../node_modules/vitest/vitest.mjs run",
+    "test:node": "vitest run"
   },
   "dependencies": {
     "@flowm/db": "workspace:*",

@@ -8,7 +8,7 @@
 import { useMemo, useState } from "react"
 import { Button, Label, Modal } from "@heroui/react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Outlet, useNavigate, useRouterState } from "@tanstack/react-router"
+import { Outlet, useRouterState } from "@tanstack/react-router"
 import { Dock } from "../components/layout/Dock"
 import { ScrollArea } from "../components/ui/ScrollArea"
 import { trpc } from "@/lib/trpc"
@@ -16,6 +16,7 @@ import { usePagePerf } from "@/lib/debug/perf"
 import { addDays, dateKey, monthCells, todayKey } from "@/lib/dates"
 import { SUBSCRIPTION_CATEGORY_COLORS } from "@/lib/domainDisplay"
 import { formatNumber } from "@/lib/format"
+import { SubscriptionDetailPanel } from "./SubscriptionDetailPanel"
 
 const fmt = formatNumber
 
@@ -125,9 +126,9 @@ function AddSubModal({ open, onClose, onSave }: { open: boolean; onClose: () => 
 }
 
 export function SubscriptionsPage() {
-  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [showAdd, setShowAdd] = useState(false)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
   const now = new Date()
   const year = now.getFullYear()
   const mon = now.getMonth() + 1
@@ -240,43 +241,44 @@ export function SubscriptionsPage() {
       <div style={{ flex: 1, minHeight: 0, display: "flex", overflow: "hidden" }}>
 
         {/* Left: subscription list — fixed header, scrollable list, pinned totals */}
-        <div style={{ width: "15%", minWidth: 200, flexShrink: 0, display: "flex", flexDirection: "column", borderRight: "1px solid var(--hair-2)" }}>
+        <div style={{ width: 390, flexShrink: 0, display: "flex", flexDirection: "column", borderRight: "1px solid var(--hair-2)" }}>
           <div style={{ flexShrink: 0, padding: "20px 24px 8px", fontSize: 12.5, fontWeight: 600, color: "var(--ink)" }}>全部订阅</div>
 
           {/* Scrollable list */}
           <ScrollArea className="h-full" style={{ flex: 1, minHeight: 0 }}>
-            <div style={{ padding: "0 24px 16px" }}>
+            <div style={{ padding: "0 18px 16px" }}>
               {subs.map((s, i) => (
-                <button
-                  key={s.id}
-                  onClick={() => navigate({ to: "/subscriptions/$id", params: { id: s.id } })}
-                  style={{
-                    display: "flex", alignItems: "center", gap: 10, padding: "8px 0",
-                    borderTop: i === 0 ? "none" : "1px solid var(--hair-3)",
-                    borderRight: "none", borderBottom: "none", borderLeft: "none",
-                    width: "100%", background: "none",
-                    cursor: "pointer", textAlign: "left",
-                  }}
-                >
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                      {s.name}
+                <div key={s.id} style={{ borderTop: i === 0 ? "none" : "1px solid var(--hair-3)" }}>
+                  <Button
+                    variant="ghost"
+                    onPress={() => setSelectedId(s.id)}
+                    style={{
+                      width: "100%", display: "flex", alignItems: "center", gap: 10,
+                      height: "auto", padding: "8px 6px", border: "none", borderRadius: 6,
+                      outline: "none", boxShadow: "none", textAlign: "left", justifyContent: "flex-start",
+                      background: selectedId === s.id ? "var(--surface-2)" : "transparent",
+                    }}
+                  >
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {s.name}
+                      </div>
+                      <div style={{ fontSize: 10.5, color: "var(--ink-4)", marginTop: 1 }}>
+                        下次 {s.next} · {s.auto ? "自动续费" : "手动"}
+                      </div>
                     </div>
-                    <div style={{ fontSize: 10.5, color: "var(--ink-4)", marginTop: 1 }}>
-                      下次 {s.next} · {s.auto ? "自动续费" : "手动"}
-                    </div>
-                  </div>
-                  <span style={{
-                    display: "inline-flex", alignItems: "center", padding: "2px 8px",
-                    borderRadius: 100, fontSize: 9.5, border: "1px solid var(--hair)",
-                    background: "var(--surface-2)", color: "var(--ink-3)", whiteSpace: "nowrap", flexShrink: 0,
-                  }}>
-                    {s.cycle}付
-                  </span>
-                  <span style={{ fontFamily: "var(--mono)", width: 52, textAlign: "right", fontSize: 13, fontWeight: 500, letterSpacing: "-0.01em", flexShrink: 0 }}>
-                    {s.raw ?? `¥${fmt(s.amt)}`}
-                  </span>
-                </button>
+                    <span style={{
+                      display: "inline-flex", alignItems: "center", padding: "2px 8px",
+                      borderRadius: 100, fontSize: 9.5, border: "1px solid var(--hair)",
+                      background: "var(--surface-2)", color: "var(--ink-3)", whiteSpace: "nowrap", flexShrink: 0,
+                    }}>
+                      {s.cycle}付
+                    </span>
+                    <span style={{ fontFamily: "var(--mono)", width: 52, textAlign: "right", fontSize: 13, fontWeight: 500, letterSpacing: "-0.01em", flexShrink: 0 }}>
+                      {s.raw ?? `¥${fmt(s.amt)}`}
+                    </span>
+                  </Button>
+                </div>
               ))}
             </div>
           </ScrollArea>
@@ -302,8 +304,11 @@ export function SubscriptionsPage() {
           </div>
         </div>
 
-        {/* Right: calendar */}
+        {/* Right: subscription detail (in-place) or calendar */}
         <ScrollArea className="h-full" style={{ flex: 1 }}>
+          {selectedId ? (
+            <SubscriptionDetailPanel id={selectedId} onBack={() => setSelectedId(null)} />
+          ) : (
           <div style={{ padding: "20px 32px 112px" }}>
             <div style={{ display: "flex", alignItems: "baseline", marginBottom: 12 }}>
               <span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--ink)" }}>{year} 年 {mon} 月</span>
@@ -343,6 +348,7 @@ export function SubscriptionsPage() {
               })}
             </div>
           </div>
+          )}
         </ScrollArea>
 
       </div>

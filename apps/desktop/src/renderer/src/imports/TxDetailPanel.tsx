@@ -7,6 +7,7 @@
 
 import React from "react"
 import { Button } from "@heroui/react"
+import { useConfirm } from "../components/ui/ConfirmModal"
 import { CATEGORY_COLORS } from "@/lib/domainDisplay"
 import { formatNumber } from "@/lib/format"
 import { Dim } from "../components/ui/Dim"
@@ -48,9 +49,11 @@ interface Props {
   tx: Tx
   allTxs: Tx[]
   onBack: () => void
+  onDelete: (rawId: string) => void | Promise<void>
 }
 
-export function TxDetailPanel({ tx, allTxs, onBack }: Props) {
+export function TxDetailPanel({ tx, allTxs, onBack, onDelete }: Props) {
+  const confirm = useConfirm()
   const isIncome = tx.flowKind === "income"
   const isTransfer = tx.flowKind === "transfer"
   const amtColor = isIncome ? "var(--accent)" : isTransfer ? "var(--ink-3)" : "var(--red)"
@@ -145,7 +148,20 @@ export function TxDetailPanel({ tx, allTxs, onBack }: Props) {
       <div style={{ display: "flex", gap: 8, marginTop: 24, alignItems: "center", flexWrap: "wrap" }}>
         <Button size="sm" variant="outline" style={{ borderRadius: 5 }}>编辑流水内容</Button>
         <div style={{ flex: 1 }} />
-        <Button size="sm" variant="danger-soft" style={{ borderRadius: 5 }}>删除</Button>
+        <Button
+          size="sm"
+          variant="danger-soft"
+          style={{ borderRadius: 5 }}
+          onPress={() => confirm({
+            title: "删除流水",
+            description: `删除「${tx.counterparty || tx.title || "这笔流水"}」后无法恢复，确定继续？`,
+            confirmText: "删除",
+            danger: true,
+            onConfirm: () => onDelete(tx.rawId),
+          })}
+        >
+          删除
+        </Button>
       </div>
     </div>
   )

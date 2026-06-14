@@ -5,8 +5,32 @@
  * @gotcha  Demo forecasts and snapshots still follow the asymmetric model; do not reconcile them artificially.
  */
 
+import { and, eq, gte, inArray, like, lte, or, sql, type SQL } from "drizzle-orm"
+import { type SQLiteTable } from "drizzle-orm/sqlite-core"
+import {
+  assetItems,
+  assetSnapshots,
+  budgetItemScopes,
+  budgetItems,
+  budgetPeriods,
+  budgetSets,
+  cashflowEventTags,
+  cashflowEvents,
+  categories,
+  currencySettings,
+  exchangeRates,
+  loanPaymentOccurrences,
+  loans,
+  objectLinks,
+  statementImports,
+  statementLines,
+  subscriptionOccurrences,
+  subscriptions,
+  tags,
+  type CashflowEventRow,
+  type Database,
+} from "@flowm/db"
 import { createFlowmApi, type FlowmId } from "./index"
-import type { Database, SqlParam, SqlRow } from "@flowm/db"
 
 const DEMO_PREFIX = "demo_"
 const DEFAULT_MONTHS = 6
@@ -34,33 +58,34 @@ const TARGET_TABLES = [
   "exchange_rates",
 ] as const
 
-const RESET_TABLES = [
-  "object_links",
-  "budget_item_scopes",
-  "budget_items",
-  "budget_periods",
-  "budget_sets",
-  "loan_payment_occurrences",
-  "loans",
-  "subscription_occurrences",
-  "subscriptions",
-  "asset_snapshots",
-  "asset_items",
-  "cashflow_event_tags",
-  "cashflow_events",
-  "statement_lines",
-  "statement_imports",
-  "exchange_rates",
-  "currency_settings",
-  "tags",
-  "categories",
-] as const
-
 type TargetTable = (typeof TARGET_TABLES)[number]
 type Direction = "in" | "out" | "neutral"
 type CashflowKind = "income" | "expense" | "transfer" | "asset_movement" | "debt_payment" | "refund" | "adjustment"
 type StatementStatus = "pending" | "converted" | "ignored"
 type CashflowStatus = "active" | "ignored" | "deleted"
+
+const TABLE_MAP: Record<TargetTable, SQLiteTable> = {
+  statement_imports: statementImports,
+  statement_lines: statementLines,
+  cashflow_events: cashflowEvents,
+  cashflow_event_tags: cashflowEventTags,
+  tags,
+  asset_items: assetItems,
+  asset_snapshots: assetSnapshots,
+  subscriptions,
+  subscription_occurrences: subscriptionOccurrences,
+  loans,
+  loan_payment_occurrences: loanPaymentOccurrences,
+  budget_sets: budgetSets,
+  budget_periods: budgetPeriods,
+  budget_items: budgetItems,
+  budget_item_scopes: budgetItemScopes,
+  object_links: objectLinks,
+  currency_settings: currencySettings,
+  exchange_rates: exchangeRates,
+}
+
+const SPECIAL_FLOW_KINDS: CashflowEventRow["flowKind"][] = ["transfer", "asset_movement", "debt_payment", "refund", "adjustment"]
 
 export interface DemoSeedOptions {
   anchorDate?: string
@@ -100,10 +125,7 @@ interface SeedContext {
 
 interface DemoStatement {
   table: TargetTable
-  statement: {
-    sql: string
-    params?: SqlParam[]
-  }
+  exec: (db: Database) => void
 }
 
 interface DemoBuildResult {
@@ -270,27 +292,6 @@ function addCreated(created: Record<string, number>, table: TargetTable, count =
   created[table] = (created[table] ?? 0) + count
 }
 
-function statement(table: TargetTable, sql: string, params: SqlParam[] = []): DemoStatement {
-  return { table, statement: { sql, params } }
-}
-
-function bindParams(params: SqlParam[]): (string | number | bigint | Buffer | null)[] {
-  return params.map((p) => (typeof p === "boolean" ? (p ? 1 : 0) : p))
-}
-
-async function one(db: Database, sql: string, params: SqlParam[] = []): Promise<SqlRow | null> {
-  return db.$client.prepare(sql).get(...bindParams(params)) as SqlRow | null
-}
-
-async function all(db: Database, sql: string, params: SqlParam[] = []): Promise<SqlRow[]> {
-  return db.$client.prepare(sql).all(...bindParams(params)) as SqlRow[]
-}
-
-async function run(db: Database, sql: string, params: SqlParam[] = []): Promise<number> {
-  const result = db.$client.prepare(sql).run(...bindParams(params))
-  return result.changes
-}
-
 function addFxRows(fxDates: Map<string, Set<string>>, date: string, currency: string): void {
   if (currency === CNY) return
   const dates = fxDates.get(currency) ?? new Set<string>()
@@ -306,32 +307,41 @@ function buildDemoStatements(ctx: SeedContext): DemoBuildResult {
   const startMonth = ctx.months[0]
   const now = toIsoAt(ctx.anchorDate, 23, 0)
 
-  const push = (entry: DemoStatement): void => {
-    result.statements.push(entry)
-    addCreated(result.created, entry.table)
+  const push = (table: TargetTable, exec: (db: Database) => void): void => {
+    result.statements.push({ table, exec })
+    addCreated(result.created, table)
   }
 
   const categoryId = (name: string): string | null => ctx.categoryIds[name] ?? null
   const tagId = (key: string): string => ctx.tagIds[key]
 
+  push("currency_settings", (db) => {
+    db.insert(currencySettings)
+      .values({ id: "default", displayCurrency: CNY, fxProvider: "manual", fxRequestPolicy: "manual_only", updatedAt: now, meta: null })
+      .onConflictDoUpdate({
+        target: currencySettings.id,
+        set: { displayCurrency: CNY, fxProvider: "manual", fxRequestPolicy: "manual_only", updatedAt: now, meta: null },
+      })
+      .run()
+  })
+
   const addStatementImport = (source: (typeof SOURCES)[number], month: Date): void => {
     const key = monthKey(month)
     const importId = demoId("import", source.key, key)
-    push(statement(
-      "statement_imports",
-      `insert into statement_imports
-        (id, source_name, file_name, file_hash, imported_at, status, raw_summary, created_at)
-       values (?, ?, ?, ?, ?, 'reviewed', ?, ?)`,
-      [
-        importId,
-        source.name,
-        `${source.filePrefix}-${key}.csv`,
-        demoId("hash", source.key, key),
-        toIsoAt(dayInMonth(month, 2), 9),
-        JSON.stringify({ demo: true, month: key, source: source.name }),
-        toIsoAt(dayInMonth(month, 2), 9),
-      ],
-    ))
+    push("statement_imports", (db) => {
+      db.insert(statementImports)
+        .values({
+          id: importId,
+          sourceName: source.name,
+          fileName: `${source.filePrefix}-${key}.csv`,
+          fileHash: demoId("hash", source.key, key),
+          importedAt: toIsoAt(dayInMonth(month, 2), 9),
+          status: "reviewed",
+          rawSummary: { demo: true, month: key, source: source.name },
+          createdAt: toIsoAt(dayInMonth(month, 2), 9),
+        })
+        .run()
+    })
   }
 
   const addLineOnly = (input: {
@@ -347,31 +357,28 @@ function buildDemoStatements(ctx: SeedContext): DemoBuildResult {
   }): string => {
     const source = sourceByKey[input.sourceKey]
     const lineId = demoId("line", input.sourceKey, input.key, compact(input.date))
-    push(statement(
-      "statement_lines",
-      `insert into statement_lines
-        (id, import_id, external_id, line_hash, occurred_at, event_date, counterparty, description, amount,
-         currency, direction, payment_method, account_hint, raw_payload, status, created_at)
-       values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        lineId,
-        demoId("import", input.sourceKey, input.date.slice(0, 7)),
-        lineId,
-        lineId,
-        toIsoAt(input.date, 12),
-        input.date,
-        input.counterparty,
-        input.description,
-        amount(input.amount),
-        input.currency ?? CNY,
-        input.direction,
-        source.name,
-        source.account,
-        JSON.stringify({ demo: true, source: source.name }),
-        input.status,
-        toIsoAt(input.date, 12),
-      ],
-    ))
+    push("statement_lines", (db) => {
+      db.insert(statementLines)
+        .values({
+          id: lineId,
+          importId: demoId("import", input.sourceKey, input.date.slice(0, 7)),
+          externalId: lineId,
+          lineHash: lineId,
+          occurredAt: toIsoAt(input.date, 12),
+          eventDate: input.date,
+          counterparty: input.counterparty,
+          description: input.description,
+          amount: amount(input.amount),
+          currency: input.currency ?? CNY,
+          direction: input.direction,
+          paymentMethod: source.name,
+          accountHint: source.account,
+          rawPayload: { demo: true, source: source.name },
+          status: input.status,
+          createdAt: toIsoAt(input.date, 12),
+        })
+        .run()
+    })
     return lineId
   }
 
@@ -392,7 +399,7 @@ function buildDemoStatements(ctx: SeedContext): DemoBuildResult {
     status?: CashflowStatus
   }): string | null => {
     if (!isOnOrBefore(input.date, ctx.anchorDate)) return null
-    const special = ["transfer", "asset_movement", "debt_payment", "refund", "adjustment"].includes(input.flowKind)
+    const special = SPECIAL_FLOW_KINDS.includes(input.flowKind)
     const status = input.status ?? "active"
     const lineStatus: StatementStatus = status === "ignored" ? "ignored" : "converted"
     const lineId = addLineOnly({
@@ -409,49 +416,55 @@ function buildDemoStatements(ctx: SeedContext): DemoBuildResult {
     const eventId = demoId("cf", input.key, compact(input.date))
     const include = input.includeInAnalytics ?? (!special && status === "active")
     const source = sourceByKey[input.sourceKey]
-    push(statement(
-      "cashflow_events",
-      `insert into cashflow_events
-        (id, statement_line_id, event_date, occurred_at, title, counterparty, description, user_note, amount,
-         currency, direction, flow_kind, category_id, source_kind, source_name, payment_method, account_hint,
-         include_in_analytics, status, classification_source, created_at, updated_at)
-       values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'import', ?, ?, ?, ?, ?, 'imported', ?, ?)`,
-      [
-        eventId,
-        lineId,
-        input.date,
-        toIsoAt(input.date, 12),
-        input.title,
-        input.counterparty,
-        input.description,
-        "demo seed",
-        amount(input.amount),
-        input.currency ?? CNY,
-        input.direction,
-        input.flowKind,
-        input.categoryName ? categoryId(input.categoryName) : null,
-        source.name,
-        source.name,
-        source.account,
-        include,
-        status,
-        toIsoAt(input.date, 12),
-        now,
-      ],
-    ))
+    push("cashflow_events", (db) => {
+      db.insert(cashflowEvents)
+        .values({
+          id: eventId,
+          statementLineId: lineId,
+          eventDate: input.date,
+          occurredAt: toIsoAt(input.date, 12),
+          title: input.title,
+          counterparty: input.counterparty,
+          description: input.description,
+          userNote: "demo seed",
+          amount: amount(input.amount),
+          currency: input.currency ?? CNY,
+          direction: input.direction,
+          flowKind: input.flowKind,
+          categoryId: input.categoryName ? categoryId(input.categoryName) : null,
+          sourceKind: "import",
+          sourceName: source.name,
+          paymentMethod: source.name,
+          accountHint: source.account,
+          includeInAnalytics: include,
+          status,
+          classificationSource: "imported",
+          createdAt: toIsoAt(input.date, 12),
+          updatedAt: now,
+        })
+        .run()
+    })
     for (const key of input.tagKeys ?? []) {
-      push(statement(
-        "cashflow_event_tags",
-        "insert or ignore into cashflow_event_tags (cashflow_event_id, tag_id) values (?, ?)",
-        [eventId, tagId(key)],
-      ))
+      push("cashflow_event_tags", (db) => {
+        db.insert(cashflowEventTags).values({ cashflowEventId: eventId, tagId: tagId(key) }).onConflictDoNothing().run()
+      })
     }
-    push(statement(
-      "object_links",
-      `insert into object_links (id, from_type, from_id, to_type, to_id, link_type, confidence, created_by, note, created_at)
-       values (?, 'statement_line', ?, 'cashflow_event', ?, 'evidence_of', 98, 'system', ?, ?)`,
-      [demoId("link", "line", eventId), lineId, eventId, "demo import evidence", now],
-    ))
+    push("object_links", (db) => {
+      db.insert(objectLinks)
+        .values({
+          id: demoId("link", "line", eventId),
+          fromType: "statement_line",
+          fromId: lineId,
+          toType: "cashflow_event",
+          toId: eventId,
+          linkType: "evidence_of",
+          confidence: 98,
+          createdBy: "system",
+          note: "demo import evidence",
+          createdAt: now,
+        })
+        .run()
+    })
     cashflowIds.set(input.key, eventId)
     addFxRows(fxDates, input.date, input.currency ?? CNY)
     return eventId
@@ -595,35 +608,42 @@ function buildDemoStatements(ctx: SeedContext): DemoBuildResult {
 
   for (const sub of SUBSCRIPTIONS) {
     const nextDate = nextOccurrenceDate(startMonth, sub.day, ctx.anchorDate, sub.cycle)
-    push(statement(
-      "subscriptions",
-      `insert into subscriptions
-        (id, name, merchant, amount, currency, billing_cycle, interval_count, next_charge_date, auto_renew,
-         category_id, status, note, created_at, updated_at)
-       values (?, ?, ?, ?, ?, ?, 1, ?, 1, ?, 'active', ?, ?, ?)`,
-      [
-        demoId("sub", sub.key),
-        sub.name,
-        sub.merchant,
-        amount(sub.amount),
-        sub.currency,
-        sub.cycle,
-        nextDate,
-        categoryId("订阅"),
-        "demo seed subscription forecast only",
-        now,
-        now,
-      ],
-    ))
+    push("subscriptions", (db) => {
+      db.insert(subscriptions)
+        .values({
+          id: demoId("sub", sub.key),
+          name: sub.name,
+          merchant: sub.merchant,
+          amount: amount(sub.amount),
+          currency: sub.currency,
+          billingCycle: sub.cycle,
+          intervalCount: 1,
+          nextChargeDate: nextDate,
+          autoRenew: true,
+          categoryId: categoryId("订阅"),
+          status: "active",
+          note: "demo seed subscription forecast only",
+          createdAt: now,
+          updatedAt: now,
+        })
+        .run()
+    })
     for (const dueDate of occurrenceDates(startMonth, sub.day, ctx.forecastThrough, sub.cycle)) {
       const occurrenceId = demoId("subocc", sub.key, compact(dueDate))
       const past = isOnOrBefore(dueDate, ctx.anchorDate)
-      push(statement(
-        "subscription_occurrences",
-        `insert into subscription_occurrences (id, subscription_id, due_date, amount, currency, status, created_at)
-         values (?, ?, ?, ?, ?, ?, ?)`,
-        [occurrenceId, demoId("sub", sub.key), dueDate, amount(sub.amount), sub.currency, past ? "confirmed" : "forecast", now],
-      ))
+      push("subscription_occurrences", (db) => {
+        db.insert(subscriptionOccurrences)
+          .values({
+            id: occurrenceId,
+            subscriptionId: demoId("sub", sub.key),
+            dueDate,
+            amount: amount(sub.amount),
+            currency: sub.currency,
+            status: past ? "confirmed" : "forecast",
+            createdAt: now,
+          })
+          .run()
+      })
       addFxRows(fxDates, dueDate, sub.currency)
       const cashflowId = past
         ? addCashflow({
@@ -643,40 +663,50 @@ function buildDemoStatements(ctx: SeedContext): DemoBuildResult {
           })
         : null
       if (cashflowId) {
-        push(statement(
-          "object_links",
-          `insert into object_links (id, from_type, from_id, to_type, to_id, link_type, confidence, created_by, note, created_at)
-           values (?, 'subscription_occurrence', ?, 'cashflow_event', ?, 'confirmed_matches', 95, 'system', ?, ?)`,
-          [demoId("link", "subocc", sub.key, compact(dueDate)), occurrenceId, cashflowId, "demo occurrence explanation", now],
-        ))
+        push("object_links", (db) => {
+          db.insert(objectLinks)
+            .values({
+              id: demoId("link", "subocc", sub.key, compact(dueDate)),
+              fromType: "subscription_occurrence",
+              fromId: occurrenceId,
+              toType: "cashflow_event",
+              toId: cashflowId,
+              linkType: "confirmed_matches",
+              confidence: 95,
+              createdBy: "system",
+              note: "demo occurrence explanation",
+              createdAt: now,
+            })
+            .run()
+        })
       }
     }
   }
 
   for (const loan of LOANS) {
     const startDate = dayInMonth(startMonth, loan.day)
-    push(statement(
-      "loans",
-      `insert into loans
-        (id, name, lender, currency, principal_amount, current_principal_estimate, annual_rate_bps,
-         repayment_method, payment_amount, payment_day, start_date, term_months, status, note, created_at, updated_at)
-       values (?, ?, ?, 'CNY', ?, ?, ?, 'equal_payment', ?, ?, ?, ?, 'active', ?, ?, ?)`,
-      [
-        demoId("loan", loan.key),
-        loan.name,
-        loan.lender,
-        amount(loan.principal),
-        amount(loan.current),
-        loan.rate,
-        amount(loan.payment),
-        loan.day,
-        startDate,
-        loan.termMonths,
-        "demo loan plan; liability comes from asset snapshots",
-        now,
-        now,
-      ],
-    ))
+    push("loans", (db) => {
+      db.insert(loans)
+        .values({
+          id: demoId("loan", loan.key),
+          name: loan.name,
+          lender: loan.lender,
+          currency: "CNY",
+          principalAmount: amount(loan.principal),
+          currentPrincipalEstimate: amount(loan.current),
+          annualRateBps: loan.rate,
+          repaymentMethod: "equal_payment",
+          paymentAmount: amount(loan.payment),
+          paymentDay: loan.day,
+          startDate,
+          termMonths: loan.termMonths,
+          status: "active",
+          note: "demo loan plan; liability comes from asset snapshots",
+          createdAt: now,
+          updatedAt: now,
+        })
+        .run()
+    })
     let remaining: number = loan.current
     for (const dueDate of occurrenceDates(startMonth, loan.day, ctx.forecastThrough, "monthly")) {
       const occurrenceId = demoId("loanocc", loan.key, compact(dueDate))
@@ -684,24 +714,23 @@ function buildDemoStatements(ctx: SeedContext): DemoBuildResult {
       const principal = Math.max(loan.payment - interest, 0)
       remaining = Math.max(remaining - principal, 0)
       const past = isOnOrBefore(dueDate, ctx.anchorDate)
-      push(statement(
-        "loan_payment_occurrences",
-        `insert into loan_payment_occurrences
-          (id, loan_id, due_date, payment_amount, principal_amount, interest_amount, fee_amount,
-           remaining_principal_estimate, status, created_at)
-         values (?, ?, ?, ?, ?, ?, '0.00', ?, ?, ?)`,
-        [
-          occurrenceId,
-          demoId("loan", loan.key),
-          dueDate,
-          amount(loan.payment),
-          amount(principal),
-          amount(interest),
-          amount(remaining),
-          past ? "paid" : "forecast",
-          now,
-        ],
-      ))
+      const remainingValue = remaining
+      push("loan_payment_occurrences", (db) => {
+        db.insert(loanPaymentOccurrences)
+          .values({
+            id: occurrenceId,
+            loanId: demoId("loan", loan.key),
+            dueDate,
+            paymentAmount: amount(loan.payment),
+            principalAmount: amount(principal),
+            interestAmount: amount(interest),
+            feeAmount: "0.00",
+            remainingPrincipalEstimate: amount(remainingValue),
+            status: past ? "paid" : "forecast",
+            createdAt: now,
+          })
+          .run()
+      })
       const cashflowId = past
         ? addCashflow({
             sourceKey: loan.key === "car" ? "icbc" : "cmb",
@@ -719,35 +748,43 @@ function buildDemoStatements(ctx: SeedContext): DemoBuildResult {
           })
         : null
       if (cashflowId) {
-        push(statement(
-          "object_links",
-          `insert into object_links (id, from_type, from_id, to_type, to_id, link_type, confidence, created_by, note, created_at)
-           values (?, 'loan_payment_occurrence', ?, 'cashflow_event', ?, 'confirmed_matches', 95, 'system', ?, ?)`,
-          [demoId("link", "loanocc", loan.key, compact(dueDate)), occurrenceId, cashflowId, "demo loan payment explanation", now],
-        ))
+        push("object_links", (db) => {
+          db.insert(objectLinks)
+            .values({
+              id: demoId("link", "loanocc", loan.key, compact(dueDate)),
+              fromType: "loan_payment_occurrence",
+              fromId: occurrenceId,
+              toType: "cashflow_event",
+              toId: cashflowId,
+              linkType: "confirmed_matches",
+              confidence: 95,
+              createdBy: "system",
+              note: "demo loan payment explanation",
+              createdAt: now,
+            })
+            .run()
+        })
       }
     }
   }
 
   ASSETS.forEach((asset, assetIndex) => {
-    push(statement(
-      "asset_items",
-      `insert into asset_items
-        (id, name, asset_type, institution, default_currency, valuation_method, display_order, note, created_at, updated_at)
-       values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        demoId("asset", asset.key),
-        asset.name,
-        asset.type,
-        asset.institution,
-        asset.currency,
-        asset.method,
-        assetIndex + 1,
-        asset.type === "vehicle" ? "demo manual valuation; no automatic depreciation" : "demo seed asset item",
-        now,
-        now,
-      ],
-    ))
+    push("asset_items", (db) => {
+      db.insert(assetItems)
+        .values({
+          id: demoId("asset", asset.key),
+          name: asset.name,
+          assetType: asset.type,
+          institution: asset.institution,
+          defaultCurrency: asset.currency,
+          valuationMethod: asset.method,
+          displayOrder: assetIndex + 1,
+          note: asset.type === "vehicle" ? "demo manual valuation; no automatic depreciation" : "demo seed asset item",
+          createdAt: now,
+          updatedAt: now,
+        })
+        .run()
+    })
     ctx.months.forEach((month, monthIndex) => {
       const monthEnd = toDate(endOfMonth(month))
       const snapshotDate = monthKey(month) === ctx.anchorDate.slice(0, 7) ? ctx.anchorDate : monthEnd
@@ -756,26 +793,24 @@ function buildDemoStatements(ctx: SeedContext): DemoBuildResult {
       const wave = Math.sin((assetIndex + 1) * (monthIndex + 1)) * Math.abs(asset.step) * 0.18
       const value = Math.max(asset.base + drift + wave, asset.type === "liability" ? 100 : 0)
       const quantity = ["fund", "stock", "crypto"].includes(asset.type) ? (100 + monthIndex * 3 + assetIndex).toFixed(4) : null
-      push(statement(
-        "asset_snapshots",
-        `insert into asset_snapshots
-          (id, asset_item_id, snapshot_at, value_amount, value_currency, quantity_amount, quantity_unit,
-           cost_basis_amount, cost_basis_currency, source_kind, note, created_at)
-         values (?, ?, ?, ?, ?, ?, ?, ?, ?, 'manual', ?, ?)`,
-        [
-          demoId("snap", asset.key, compact(snapshotDate)),
-          demoId("asset", asset.key),
-          snapshotAt,
-          amount(value),
-          asset.currency,
-          quantity,
-          quantity ? (asset.type === "crypto" ? "BTC" : "shares") : null,
-          ["fund", "stock", "crypto"].includes(asset.type) ? amount(value * 0.92) : null,
-          ["fund", "stock", "crypto"].includes(asset.type) ? asset.currency : null,
-          "demo monthly manual snapshot",
-          now,
-        ],
-      ))
+      push("asset_snapshots", (db) => {
+        db.insert(assetSnapshots)
+          .values({
+            id: demoId("snap", asset.key, compact(snapshotDate)),
+            assetItemId: demoId("asset", asset.key),
+            snapshotAt,
+            valueAmount: amount(value),
+            valueCurrency: asset.currency,
+            quantityAmount: quantity,
+            quantityUnit: quantity ? (asset.type === "crypto" ? "BTC" : "shares") : null,
+            costBasisAmount: ["fund", "stock", "crypto"].includes(asset.type) ? amount(value * 0.92) : null,
+            costBasisCurrency: ["fund", "stock", "crypto"].includes(asset.type) ? asset.currency : null,
+            sourceKind: "manual",
+            note: "demo monthly manual snapshot",
+            createdAt: now,
+          })
+          .run()
+      })
       addFxRows(fxDates, snapshotDate, asset.currency)
     })
   })
@@ -784,57 +819,77 @@ function buildDemoStatements(ctx: SeedContext): DemoBuildResult {
     const month = monthKey(monthDate)
     const fundMove = cashflowIds.get(`fund_buy_${month}`)
     if (fundMove) {
-      push(statement(
-        "object_links",
-        `insert into object_links (id, from_type, from_id, to_type, to_id, link_type, confidence, created_by, note, created_at)
-         values (?, 'cashflow_event', ?, 'asset_snapshot', ?, 'related_to', 70, 'system', ?, ?)`,
-        [
-          demoId("link", "asset_move", compact(`${month}-01`)),
-          fundMove,
-          demoId("snap", "fund", compact(month === ctx.anchorDate.slice(0, 7) ? ctx.anchorDate : toDate(endOfMonth(parseDate(`${month}-01`))))),
-          "demo explanatory asset movement link",
-          now,
-        ],
-      ))
+      const snapshotId = demoId("snap", "fund", compact(month === ctx.anchorDate.slice(0, 7) ? ctx.anchorDate : toDate(endOfMonth(parseDate(`${month}-01`)))))
+      push("object_links", (db) => {
+        db.insert(objectLinks)
+          .values({
+            id: demoId("link", "asset_move", compact(`${month}-01`)),
+            fromType: "cashflow_event",
+            fromId: fundMove,
+            toType: "asset_snapshot",
+            toId: snapshotId,
+            linkType: "related_to",
+            confidence: 70,
+            createdBy: "system",
+            note: "demo explanatory asset movement link",
+            createdAt: now,
+          })
+          .run()
+      })
     }
   }
 
-  push(statement(
-    "budget_sets",
-    "insert into budget_sets (id, name, status, created_at, updated_at) values (?, 'Demo 月度预算', 'active', ?, ?)",
-    [demoId("budget_set"), now, now],
-  ))
+  push("budget_sets", (db) => {
+    db.insert(budgetSets).values({ id: demoId("budget_set"), name: "Demo 月度预算", status: "active", createdAt: now, updatedAt: now }).run()
+  })
   for (const monthDate of ctx.months) {
     const month = monthKey(monthDate)
     const periodId = demoId("budget_period", month)
-    push(statement(
-      "budget_periods",
-      "insert into budget_periods (id, budget_set_id, period_kind, period_start, period_end, currency, status) values (?, ?, 'monthly', ?, ?, 'CNY', 'active')",
-      [periodId, demoId("budget_set"), `${month}-01`, toDate(endOfMonth(parseDate(`${month}-01`)))],
-    ))
-    const budgetItems = [
-      { key: "all", name: "日常消费总预算", planned: 12_000, category: null, scope: ["flow_kind", "expense"] },
+    push("budget_periods", (db) => {
+      db.insert(budgetPeriods)
+        .values({
+          id: periodId,
+          budgetSetId: demoId("budget_set"),
+          periodKind: "monthly",
+          periodStart: `${month}-01`,
+          periodEnd: toDate(endOfMonth(parseDate(`${month}-01`))),
+          currency: "CNY",
+          status: "active",
+        })
+        .run()
+    })
+    const budgetItemPlans = [
+      { key: "all", name: "日常消费总预算", planned: 12_000, category: null, scope: ["flow_kind", "expense"] as const },
       { key: "food", name: "餐饮预算", planned: 2600, category: "餐饮", scope: null },
       { key: "shopping", name: "购物预算", planned: 3000, category: "购物", scope: null },
       { key: "transport", name: "交通预算", planned: 900, category: "交通", scope: null },
       { key: "subscription", name: "订阅预算", planned: 900, category: "订阅", scope: null },
       { key: "home", name: "居住预算", planned: 1800, category: "居住", scope: null },
     ] as const
-    for (const item of budgetItems) {
+    for (const item of budgetItemPlans) {
       const itemId = demoId("budget_item", item.key, month)
-      push(statement(
-        "budget_items",
-        `insert into budget_items
-          (id, budget_period_id, name, item_kind, planned_amount, currency, category_id, rollover_policy, status, note)
-         values (?, ?, ?, 'spending_limit', ?, 'CNY', ?, 'none', 'active', ?)`,
-        [itemId, periodId, item.name, amount(item.planned), item.category ? categoryId(item.category) : null, "demo budget references past cashflow only"],
-      ))
+      push("budget_items", (db) => {
+        db.insert(budgetItems)
+          .values({
+            id: itemId,
+            budgetPeriodId: periodId,
+            name: item.name,
+            itemKind: "spending_limit",
+            plannedAmount: amount(item.planned),
+            currency: "CNY",
+            categoryId: item.category ? categoryId(item.category) : null,
+            rolloverPolicy: "none",
+            status: "active",
+            note: "demo budget references past cashflow only",
+          })
+          .run()
+      })
       if (item.scope) {
-        push(statement(
-          "budget_item_scopes",
-          "insert into budget_item_scopes (id, budget_item_id, scope_kind, scope_value) values (?, ?, ?, ?)",
-          [demoId("budget_scope", item.key, month), itemId, item.scope[0], item.scope[1]],
-        ))
+        push("budget_item_scopes", (db) => {
+          db.insert(budgetItemScopes)
+            .values({ id: demoId("budget_scope", item.key, month), budgetItemId: itemId, scopeKind: item.scope![0], scopeValue: item.scope![1] })
+            .run()
+        })
       }
     }
   }
@@ -842,20 +897,21 @@ function buildDemoStatements(ctx: SeedContext): DemoBuildResult {
   const fxRates: Record<string, string> = { USD: "7.1800", HKD: "0.9180", EUR: "7.7800" }
   for (const [currency, dates] of fxDates) {
     for (const date of dates) {
-      push(statement(
-        "exchange_rates",
-        `insert into exchange_rates (id, from_currency, to_currency, rate_date, rate, provider, fetched_at, source_date, meta)
-         values (?, ?, 'CNY', ?, ?, 'demo', ?, ?, ?)`,
-        [
-          demoId("fx", currency.toLowerCase(), compact(date)),
-          currency,
-          date,
-          fxRates[currency] ?? "1.0000",
-          now,
-          date,
-          JSON.stringify({ demo: true }),
-        ],
-      ))
+      push("exchange_rates", (db) => {
+        db.insert(exchangeRates)
+          .values({
+            id: demoId("fx", currency.toLowerCase(), compact(date)),
+            fromCurrency: currency,
+            toCurrency: "CNY",
+            rateDate: date,
+            rate: fxRates[currency] ?? "1.0000",
+            provider: "demo",
+            fetchedAt: now,
+            sourceDate: date,
+            meta: { demo: true },
+          })
+          .run()
+      })
     }
   }
 
@@ -865,13 +921,9 @@ function buildDemoStatements(ctx: SeedContext): DemoBuildResult {
 async function ensureDemoTags(db: Database): Promise<Record<string, string>> {
   const now = new Date().toISOString()
   for (const tag of DEMO_TAGS) {
-    await run(
-      db,
-      "insert or ignore into tags (id, name, color, created_at, updated_at) values (?, ?, ?, ?, ?)",
-      [demoId("tag", tag.key), tag.name, tag.color, now, now],
-    )
+    db.insert(tags).values({ id: demoId("tag", tag.key), name: tag.name, color: tag.color, createdAt: now, updatedAt: now }).onConflictDoNothing().run()
   }
-  const rows = await all(db, `select id, name from tags where name in (${DEMO_TAGS.map(() => "?").join(", ")})`, DEMO_TAGS.map((tag) => tag.name))
+  const rows = db.select({ id: tags.id, name: tags.name }).from(tags).where(inArray(tags.name, DEMO_TAGS.map((tag) => tag.name))).all()
   return Object.fromEntries(DEMO_TAGS.map((tag) => {
     const row = rows.find((candidate) => candidate.name === tag.name)
     if (!row?.id) throw new Error(`Demo tag not found: ${tag.name}`)
@@ -880,34 +932,35 @@ async function ensureDemoTags(db: Database): Promise<Record<string, string>> {
 }
 
 async function loadCategoryIds(db: Database): Promise<Record<string, string | null>> {
-  const rows = await all(db, "select id, name from categories")
+  const rows = db.select({ id: categories.id, name: categories.name }).from(categories).all()
   return Object.fromEntries(rows.map((row) => [String(row.name), row.id == null ? null : String(row.id)]))
 }
 
 async function deleteDemoData(db: Database): Promise<Record<string, number>> {
   const deleted: Record<string, number> = {}
-  const deletes: Array<[TargetTable, string]> = [
-    ["object_links", `delete from object_links where id like '${DEMO_PREFIX}%' or from_id like '${DEMO_PREFIX}%' or to_id like '${DEMO_PREFIX}%'`],
-    ["budget_item_scopes", `delete from budget_item_scopes where id like '${DEMO_PREFIX}%' or budget_item_id like '${DEMO_PREFIX}%'`],
-    ["budget_items", `delete from budget_items where id like '${DEMO_PREFIX}%' or budget_period_id like '${DEMO_PREFIX}%'`],
-    ["budget_periods", `delete from budget_periods where id like '${DEMO_PREFIX}%' or budget_set_id like '${DEMO_PREFIX}%'`],
-    ["budget_sets", `delete from budget_sets where id like '${DEMO_PREFIX}%'`],
-    ["loan_payment_occurrences", `delete from loan_payment_occurrences where id like '${DEMO_PREFIX}%' or loan_id like '${DEMO_PREFIX}%'`],
-    ["loans", `delete from loans where id like '${DEMO_PREFIX}%'`],
-    ["subscription_occurrences", `delete from subscription_occurrences where id like '${DEMO_PREFIX}%' or subscription_id like '${DEMO_PREFIX}%'`],
-    ["subscriptions", `delete from subscriptions where id like '${DEMO_PREFIX}%'`],
-    ["asset_snapshots", `delete from asset_snapshots where id like '${DEMO_PREFIX}%' or asset_item_id like '${DEMO_PREFIX}%'`],
-    ["asset_items", `delete from asset_items where id like '${DEMO_PREFIX}%'`],
-    ["cashflow_event_tags", `delete from cashflow_event_tags where cashflow_event_id like '${DEMO_PREFIX}%' or tag_id like '${DEMO_PREFIX}%'`],
-    ["cashflow_events", `delete from cashflow_events where id like '${DEMO_PREFIX}%'`],
-    ["statement_lines", `delete from statement_lines where id like '${DEMO_PREFIX}%' or import_id like '${DEMO_PREFIX}%'`],
-    ["statement_imports", `delete from statement_imports where id like '${DEMO_PREFIX}%'`],
-    ["exchange_rates", `delete from exchange_rates where id like '${DEMO_PREFIX}%'`],
-    ["tags", `delete from tags where id like '${DEMO_PREFIX}%'`],
+  const demoLike = (column: Parameters<typeof like>[0]) => like(column, `${DEMO_PREFIX}%`)
+  const deletes: Array<[TargetTable, SQL]> = [
+    ["object_links", or(demoLike(objectLinks.id), demoLike(objectLinks.fromId), demoLike(objectLinks.toId))!],
+    ["budget_item_scopes", or(demoLike(budgetItemScopes.id), demoLike(budgetItemScopes.budgetItemId))!],
+    ["budget_items", or(demoLike(budgetItems.id), demoLike(budgetItems.budgetPeriodId))!],
+    ["budget_periods", or(demoLike(budgetPeriods.id), demoLike(budgetPeriods.budgetSetId))!],
+    ["budget_sets", demoLike(budgetSets.id)],
+    ["loan_payment_occurrences", or(demoLike(loanPaymentOccurrences.id), demoLike(loanPaymentOccurrences.loanId))!],
+    ["loans", demoLike(loans.id)],
+    ["subscription_occurrences", or(demoLike(subscriptionOccurrences.id), demoLike(subscriptionOccurrences.subscriptionId))!],
+    ["subscriptions", demoLike(subscriptions.id)],
+    ["asset_snapshots", or(demoLike(assetSnapshots.id), demoLike(assetSnapshots.assetItemId))!],
+    ["asset_items", demoLike(assetItems.id)],
+    ["cashflow_event_tags", or(demoLike(cashflowEventTags.cashflowEventId), demoLike(cashflowEventTags.tagId))!],
+    ["cashflow_events", demoLike(cashflowEvents.id)],
+    ["statement_lines", or(demoLike(statementLines.id), demoLike(statementLines.importId))!],
+    ["statement_imports", demoLike(statementImports.id)],
+    ["exchange_rates", demoLike(exchangeRates.id)],
+    ["tags", demoLike(tags.id)],
   ]
 
-  for (const [table, sql] of deletes) {
-    deleted[table] = await run(db, sql)
+  for (const [table, cond] of deletes) {
+    deleted[table] = Number(db.delete(TABLE_MAP[table]).where(cond).run().changes)
   }
   return deleted
 }
@@ -915,24 +968,10 @@ async function deleteDemoData(db: Database): Promise<Record<string, number>> {
 async function tableCounts(db: Database): Promise<Record<string, number>> {
   const counts: Record<string, number> = {}
   for (const table of TARGET_TABLES) {
-    const row = await one(db, `select count(*) as count from ${table}`)
+    const row = db.select({ count: sql<number>`count(*)` }).from(TABLE_MAP[table]).get()
     counts[table] = Number(row?.count ?? 0)
   }
   return counts
-}
-
-async function ensureCompatibleCleanSchema(db: Database): Promise<boolean> {
-  const categoryColumns = await all(db, "pragma table_info(categories)")
-  if (categoryColumns.length === 0) return false
-  const hasDisplayOrder = categoryColumns.some((column) => column.name === "display_order")
-  if (hasDisplayOrder) return false
-
-  await run(db, "pragma foreign_keys = OFF")
-  for (const table of RESET_TABLES) {
-    await run(db, `drop table if exists ${table}`)
-  }
-  await run(db, "pragma foreign_keys = ON")
-  return true
 }
 
 export async function seedDemoData(db: Database, options: DemoSeedOptions = {}): Promise<DemoSeedReport> {
@@ -961,19 +1000,13 @@ export async function seedDemoData(db: Database, options: DemoSeedOptions = {}):
     }
   }
 
-  await ensureCompatibleCleanSchema(db)
-  const api = createFlowmApi(db)
-  expectOk<void>(await api.initializeFlowm())
   const deleted = await deleteDemoData(db)
   const tagIds = await ensureDemoTags(db)
   const categoryIds = await loadCategoryIds(db)
   const plan = buildDemoStatements({ ...dryContext, categoryIds, tagIds })
-  db.$client.transaction(() => {
-    for (const entry of plan.statements) {
-      const { sql, params = [] } = entry.statement
-      db.$client.prepare(sql).run(...bindParams(params))
-    }
-  })()
+  db.transaction(() => {
+    for (const entry of plan.statements) entry.exec(db)
+  })
   const counts = await tableCounts(db)
   const validation = options.validate ? await validateDemoData(db, options) : undefined
   return {
@@ -993,25 +1026,25 @@ export async function seedDemoData(db: Database, options: DemoSeedOptions = {}):
 }
 
 async function nonNegativeIssues(db: Database): Promise<string[]> {
-  const checks: Array<[string, string, string]> = [
-    ["statement_lines", "amount", "CAST(amount AS REAL) < 0"],
-    ["cashflow_events", "amount", "CAST(amount AS REAL) < 0"],
-    ["asset_snapshots", "value_amount", "CAST(value_amount AS REAL) < 0"],
-    ["asset_snapshots", "cost_basis_amount", "cost_basis_amount IS NOT NULL AND CAST(cost_basis_amount AS REAL) < 0"],
-    ["subscriptions", "amount", "CAST(amount AS REAL) < 0"],
-    ["subscription_occurrences", "amount", "CAST(amount AS REAL) < 0"],
-    ["loans", "payment_amount", "CAST(payment_amount AS REAL) < 0"],
-    ["loans", "principal_amount", "principal_amount IS NOT NULL AND CAST(principal_amount AS REAL) < 0"],
-    ["loan_payment_occurrences", "payment_amount", "CAST(payment_amount AS REAL) < 0"],
-    ["loan_payment_occurrences", "principal_amount", "principal_amount IS NOT NULL AND CAST(principal_amount AS REAL) < 0"],
-    ["loan_payment_occurrences", "interest_amount", "interest_amount IS NOT NULL AND CAST(interest_amount AS REAL) < 0"],
-    ["budget_items", "planned_amount", "CAST(planned_amount AS REAL) < 0"],
-    ["exchange_rates", "rate", "CAST(rate AS REAL) <= 0"],
+  const checks: Array<[SQLiteTable, string, SQL]> = [
+    [statementLines, "statement_lines.amount", sql`cast(${statementLines.amount} as real) < 0`],
+    [cashflowEvents, "cashflow_events.amount", sql`cast(${cashflowEvents.amount} as real) < 0`],
+    [assetSnapshots, "asset_snapshots.value_amount", sql`cast(${assetSnapshots.valueAmount} as real) < 0`],
+    [assetSnapshots, "asset_snapshots.cost_basis_amount", sql`${assetSnapshots.costBasisAmount} is not null and cast(${assetSnapshots.costBasisAmount} as real) < 0`],
+    [subscriptions, "subscriptions.amount", sql`cast(${subscriptions.amount} as real) < 0`],
+    [subscriptionOccurrences, "subscription_occurrences.amount", sql`cast(${subscriptionOccurrences.amount} as real) < 0`],
+    [loans, "loans.payment_amount", sql`cast(${loans.paymentAmount} as real) < 0`],
+    [loans, "loans.principal_amount", sql`${loans.principalAmount} is not null and cast(${loans.principalAmount} as real) < 0`],
+    [loanPaymentOccurrences, "loan_payment_occurrences.payment_amount", sql`cast(${loanPaymentOccurrences.paymentAmount} as real) < 0`],
+    [loanPaymentOccurrences, "loan_payment_occurrences.principal_amount", sql`${loanPaymentOccurrences.principalAmount} is not null and cast(${loanPaymentOccurrences.principalAmount} as real) < 0`],
+    [loanPaymentOccurrences, "loan_payment_occurrences.interest_amount", sql`${loanPaymentOccurrences.interestAmount} is not null and cast(${loanPaymentOccurrences.interestAmount} as real) < 0`],
+    [budgetItems, "budget_items.planned_amount", sql`cast(${budgetItems.plannedAmount} as real) < 0`],
+    [exchangeRates, "exchange_rates.rate", sql`cast(${exchangeRates.rate} as real) <= 0`],
   ]
   const issues: string[] = []
-  for (const [table, column, predicate] of checks) {
-    const row = await one(db, `select count(*) as count from ${table} where ${predicate}`)
-    if (Number(row?.count ?? 0) > 0) issues.push(`${table}.${column} contains invalid negative values`)
+  for (const [table, label, predicate] of checks) {
+    const row = db.select({ count: sql<number>`count(*)` }).from(table).where(predicate).get()
+    if (Number(row?.count ?? 0) > 0) issues.push(`${label} contains invalid negative values`)
   }
   return issues
 }
@@ -1019,7 +1052,6 @@ async function nonNegativeIssues(db: Database): Promise<string[]> {
 export async function validateDemoData(db: Database, options: DemoSeedOptions = {}): Promise<DemoSeedValidationReport> {
   const bounds = seedBounds(options)
   const api = createFlowmApi(db)
-  expectOk<void>(await api.initializeFlowm())
   const counts = await tableCounts(db)
   const issues: string[] = []
   const metrics: Record<string, string | number | boolean> = {}
@@ -1030,35 +1062,28 @@ export async function validateDemoData(db: Database, options: DemoSeedOptions = 
 
   issues.push(...await nonNegativeIssues(db))
 
-  const liabilityBad = await one(
-    db,
-    `select count(*) as count
-     from asset_snapshots s join asset_items a on a.id = s.asset_item_id
-     where a.asset_type = 'liability' and CAST(s.value_amount AS REAL) <= 0`,
-  )
+  const liabilityBad = db
+    .select({ count: sql<number>`count(*)` })
+    .from(assetSnapshots)
+    .innerJoin(assetItems, eq(assetItems.id, assetSnapshots.assetItemId))
+    .where(and(eq(assetItems.assetType, "liability"), sql`cast(${assetSnapshots.valueAmount} as real) <= 0`))
+    .get()
   if (Number(liabilityBad?.count ?? 0) > 0) issues.push("liability snapshots must stay positive")
 
-  const flowKinds = await all(db, "select distinct flow_kind from cashflow_events order by flow_kind")
-  const flowKindSet = new Set(flowKinds.map((row) => String(row.flow_kind)))
+  const flowKinds = db.selectDistinct({ flowKind: cashflowEvents.flowKind }).from(cashflowEvents).orderBy(cashflowEvents.flowKind).all()
+  const flowKindSet = new Set(flowKinds.map((row) => String(row.flowKind)))
   for (const kind of ["income", "expense", "transfer", "asset_movement", "debt_payment", "refund", "adjustment"]) {
     if (!flowKindSet.has(kind)) issues.push(`missing cashflow kind: ${kind}`)
   }
 
-  const specialIncluded = await one(
-    db,
-    `select coalesce(sum(cast(amount as real)), 0) as total
-     from cashflow_events
-     where status = 'active'
-       and include_in_analytics = 1
-       and flow_kind in ('transfer', 'asset_movement', 'debt_payment', 'refund', 'adjustment')`,
-  )
+  const specialIncluded = db
+    .select({ total: sql<number>`coalesce(sum(cast(${cashflowEvents.amount} as real)), 0)` })
+    .from(cashflowEvents)
+    .where(and(eq(cashflowEvents.status, "active"), eq(cashflowEvents.includeInAnalytics, true), inArray(cashflowEvents.flowKind, SPECIAL_FLOW_KINDS)))
+    .get()
   if (Number(specialIncluded?.total ?? 0) !== 0) issues.push("special flow kinds are included in ordinary analytics")
 
-  const hiddenSpecial = await one(
-    db,
-    `select count(*) as count from cashflow_events
-     where flow_kind in ('transfer', 'asset_movement', 'debt_payment', 'refund', 'adjustment')`,
-  )
+  const hiddenSpecial = db.select({ count: sql<number>`count(*)` }).from(cashflowEvents).where(inArray(cashflowEvents.flowKind, SPECIAL_FLOW_KINDS)).get()
   metrics.specialFlowCount = Number(hiddenSpecial?.count ?? 0)
   if (metrics.specialFlowCount <= 0) issues.push("special flow kinds are not queryable")
 
@@ -1084,7 +1109,7 @@ export async function validateDemoData(db: Database, options: DemoSeedOptions = 
   if (Number(netWorth.liabilityValue.number) <= 0) issues.push("liability value is empty")
   if (netWorth.missingFx.length > 0) issues.push("net worth has missing FX rates")
 
-  const fund = await one(db, "select id from asset_items where id = ?", [demoId("asset", "fund")])
+  const fund = db.select({ id: assetItems.id }).from(assetItems).where(eq(assetItems.id, demoId("asset", "fund"))).get()
   if (fund?.id) {
     const change = expectOk(await api.getAssetChange({ assetItemId: fund.id as FlowmId }))
     metrics.assetChangeAvailable = change != null
@@ -1098,11 +1123,12 @@ export async function validateDemoData(db: Database, options: DemoSeedOptions = 
   metrics.futurePressure = future.total
   if (Number(future.total) <= 0) issues.push("future pressure is empty")
 
-  const currentPeriod = await one(
-    db,
-    "select id from budget_periods where period_start <= ? and period_end >= ? and id like ? limit 1",
-    [bounds.anchorDate, bounds.anchorDate, `${DEMO_PREFIX}%`],
-  )
+  const currentPeriod = db
+    .select({ id: budgetPeriods.id })
+    .from(budgetPeriods)
+    .where(and(lte(budgetPeriods.periodStart, bounds.anchorDate), gte(budgetPeriods.periodEnd, bounds.anchorDate), like(budgetPeriods.id, `${DEMO_PREFIX}%`)))
+    .limit(1)
+    .get()
   if (currentPeriod?.id) {
     const progress = expectOk(await api.getBudgetReferenceProgress({ budgetPeriodId: currentPeriod.id as FlowmId }))
     const used = progress.reduce((sum, row) => sum + Number(row.referenceUsed), 0)
@@ -1112,7 +1138,7 @@ export async function validateDemoData(db: Database, options: DemoSeedOptions = 
     issues.push("current demo budget period not found")
   }
 
-  const objectLinkCount = await one(db, `select count(*) as count from object_links where id like '${DEMO_PREFIX}%'`)
+  const objectLinkCount = db.select({ count: sql<number>`count(*)` }).from(objectLinks).where(like(objectLinks.id, `${DEMO_PREFIX}%`)).get()
   metrics.objectLinks = Number(objectLinkCount?.count ?? 0)
   if (metrics.objectLinks <= 0) issues.push("object links are empty")
 

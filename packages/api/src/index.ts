@@ -31,7 +31,8 @@ export type AssetType =
 export type AssetSnapshotType = AssetType | "investment"
 
 export interface FlowmApi {
-  initializeFlowm(): Promise<Result<void>>
+  /** Wipe all user data. */
+  resetAllData(): Promise<Result<void>>
 
   getCurrencySettings(): Promise<Result<CurrencySettingsSummary>>
   updateCurrencySettings(input: UpdateCurrencySettingsInput): Promise<Result<CurrencySettingsSummary>>
@@ -100,6 +101,7 @@ export interface FlowmApi {
   listBudgetItems(input?: ListBudgetItemsInput): Promise<Result<BudgetItemSummary[]>>
   createBudgetItem(input: CreateBudgetItemInput): Promise<Result<BudgetItemSummary>>
   updateBudgetItem(input: UpdateBudgetItemInput): Promise<Result<BudgetItemSummary>>
+  archiveBudgetItem(input: { id: FlowmId }): Promise<Result<void>>
   getBudgetReferenceProgress(input: BudgetReferenceProgressInput): Promise<Result<BudgetReferenceProgressRow[]>>
 
   listObjectLinks(input?: ListObjectLinksInput): Promise<Result<ObjectLinkSummary[]>>
@@ -107,24 +109,11 @@ export interface FlowmApi {
   confirmObjectLink(input: { id: FlowmId }): Promise<Result<ObjectLinkSummary>>
   removeObjectLink(input: { id: FlowmId }): Promise<Result<void>>
 
-  // Renderer compatibility shell. These methods use the clean-slate tables or
-  // return empty dashboard configuration until the UI is wired to V2 concepts.
+  // Renderer dashboard shell. These methods are backed by the current clean schema.
   getDashboardSnapshot(): Promise<Result<DashboardSnapshot>>
   listAssetSnapshots(input?: ListAssetSnapshotsInput): Promise<Result<AssetSnapshotSummary[]>>
   upsertAssetSnapshot(input: UpsertAssetSnapshotInput): Promise<Result<AssetSnapshotSummary>>
   removeAssetSnapshot(input: { id: FlowmId }): Promise<Result<void>>
-  createBudget(input: CreateBudgetInput): Promise<Result<BusinessRecord>>
-  getBudgetProgress(input?: { period?: string }): Promise<Result<BudgetProgressRow[]>>
-  listFinancialEvents(input?: ListFinancialEventsInput): Promise<Result<FinancialEventSummary[]>>
-  createFinancialEvent(input: CreateFinancialEventInput): Promise<Result<FinancialEventSummary>>
-  updateFinancialEvent(input: UpdateFinancialEventInput): Promise<Result<FinancialEventSummary>>
-  removeFinancialEvent(input: { id: FlowmId }): Promise<Result<void>>
-  rebuildFinancialEventsFromImports(input?: { batchId?: FlowmId }): Promise<Result<{ created: number; skipped: number }>>
-  listPlans(input?: ListPlansInput): Promise<Result<PlanSummary[]>>
-  createPlan(input: CreatePlanInput): Promise<Result<PlanSummary>>
-  updatePlan(input: UpdatePlanInput): Promise<Result<PlanSummary>>
-  generatePlanOccurrences(input: { planId?: FlowmId; throughDate: string }): Promise<Result<{ generated: number }>>
-  runFlowQuery(input: RunFlowQueryInput): Promise<Result<FlowQueryResult>>
   listDashboardViews(): Promise<Result<DashboardView[]>>
   createDashboardView(input: CreateDashboardViewInput): Promise<Result<DashboardView>>
   updateDashboardView(input: UpdateDashboardViewInput): Promise<Result<DashboardView>>
@@ -154,7 +143,7 @@ export interface DashboardSnapshot {
   }
   pnlStrip: Array<{ label: string; value: string; delta: string; up: boolean }>
   dayFlow: DayFlowRow[]
-  transactions: Record<string, unknown>[]
+  cashflowEvents: Record<string, unknown>[]
   holdings: HoldingRow[]
   accounts: Record<string, unknown>[]
   generatedAt: string
@@ -178,10 +167,6 @@ export interface HoldingRow {
   type: string
   balanceNumber: string
   currency: string
-}
-
-export interface BusinessRecord {
-  id: FlowmId
 }
 
 export interface FlowmApiOptions {
@@ -517,40 +502,6 @@ export interface UpdateCashflowEventInput {
   categoryId?: FlowmId | null
   includeInAnalytics?: boolean
   status?: ActiveStatus
-}
-
-export type FinancialEventSummary = CashflowEventSummary
-
-export interface ListFinancialEventsInput {
-  dateFrom?: string
-  dateTo?: string
-  flowKind?: string
-  categoryId?: FlowmId
-  source?: string
-  limit?: number
-  offset?: number
-}
-
-export interface CreateFinancialEventInput {
-  date: string
-  occurredAt?: string
-  counterparty?: string
-  description?: string
-  flowKind: string
-  categoryId?: FlowmId
-  amount: string
-  currency?: string
-  direction?: string
-  accountHint?: string
-  explanationTags?: string[]
-}
-
-export interface UpdateFinancialEventInput {
-  id: FlowmId
-  flowKind?: string
-  categoryId?: FlowmId
-  description?: string
-  explanationTags?: string[]
 }
 
 export interface CashflowSummaryInput {
@@ -912,28 +863,6 @@ export interface BudgetReferenceProgressRow {
   color: string | null
 }
 
-export interface CreateBudgetInput {
-  name: string
-  periodKind?: "monthly" | "weekly" | "yearly" | "custom"
-  periodStart?: string
-  periodEnd?: string
-  amount: string
-  currency?: string
-  scopes?: BudgetScopeInput[]
-}
-
-export interface BudgetProgressRow {
-  budgetId: FlowmId
-  name: string
-  tag: string | null
-  spent: string
-  budgeted: string
-  remaining: string
-  currency: string
-  scopeKind?: string | null
-  scopeValue?: string | null
-}
-
 export interface ObjectLinkSummary {
   id: FlowmId
   fromType: string
@@ -962,71 +891,6 @@ export interface CreateObjectLinkInput {
   confidence?: number | null
   createdBy?: "user" | "system"
   note?: string | null
-}
-
-export interface PlanSummary {
-  id: FlowmId
-  planType: string
-  name: string
-  counterparty?: string | null
-  amount: string
-  currency: string
-  scheduleRule: string
-  startDate: string
-  endDate?: string | null
-  nextDueDate?: string | null
-  status: string
-  categoryId?: FlowmId | null
-  flowKind?: string | null
-  accountHint?: string | null
-  meta?: Record<string, unknown> | null
-}
-
-export interface ListPlansInput {
-  planType?: string
-  status?: string
-}
-
-export interface CreatePlanInput {
-  planType: string
-  name: string
-  counterparty?: string | null
-  amount: string
-  currency?: string
-  scheduleRule: string
-  startDate: string
-  endDate?: string
-  status?: string
-  categoryId?: FlowmId
-  flowKind?: string
-  accountHint?: string
-  meta?: Record<string, unknown>
-}
-
-export interface UpdatePlanInput {
-  id: FlowmId
-  name?: string
-  counterparty?: string | null
-  amount?: string
-  currency?: string
-  scheduleRule?: string
-  startDate?: string
-  endDate?: string
-  status?: string
-  categoryId?: FlowmId
-  flowKind?: string | null
-  accountHint?: string | null
-  meta?: Record<string, unknown> | null
-}
-
-export interface RunFlowQueryInput {
-  sql?: string
-}
-
-export interface FlowQueryResult {
-  rows: Record<string, unknown>[]
-  columns: string[]
-  total?: string
 }
 
 export interface DashboardView {

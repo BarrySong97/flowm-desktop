@@ -98,11 +98,40 @@ export const appRouter = router({
     periods: publicProcedure.input(apiInput<"listBudgetPeriods">()).query(({ ctx, input }) => callApi(ctx, (api) => api.listBudgetPeriods(inputOrEmpty<"listBudgetPeriods">(input)))),
     items: publicProcedure.input(apiInput<"listBudgetItems">()).query(({ ctx, input }) => callApi(ctx, (api) => api.listBudgetItems(inputOrEmpty<"listBudgetItems">(input)))),
     progress: publicProcedure.input(apiInput<"getBudgetReferenceProgress">()).query(({ ctx, input }) => callApi(ctx, (api) => api.getBudgetReferenceProgress(requiredInput<"getBudgetReferenceProgress">(input)))),
-    legacyProgress: publicProcedure.input(apiInput<"getBudgetProgress">()).query(({ ctx, input }) => callApi(ctx, (api) => api.getBudgetProgress(inputOrEmpty<"getBudgetProgress">(input)))),
     createSet: publicProcedure.input(apiInput<"createBudgetSet">()).mutation(({ ctx, input }) => callApi(ctx, (api) => api.createBudgetSet(requiredInput<"createBudgetSet">(input)))),
     createPeriod: publicProcedure.input(apiInput<"createBudgetPeriod">()).mutation(({ ctx, input }) => callApi(ctx, (api) => api.createBudgetPeriod(requiredInput<"createBudgetPeriod">(input)))),
     createItem: publicProcedure.input(apiInput<"createBudgetItem">()).mutation(({ ctx, input }) => callApi(ctx, (api) => api.createBudgetItem(requiredInput<"createBudgetItem">(input)))),
     updateItem: publicProcedure.input(apiInput<"updateBudgetItem">()).mutation(({ ctx, input }) => callApi(ctx, (api) => api.updateBudgetItem(requiredInput<"updateBudgetItem">(input)))),
+    archiveItem: publicProcedure.input(apiInput<"archiveBudgetItem">()).mutation(({ ctx, input }) => callApi(ctx, (api) => api.archiveBudgetItem(requiredInput<"archiveBudgetItem">(input)))),
+  }),
+  system: router({
+    resetAll: publicProcedure.mutation(({ ctx }) => callApi(ctx, (api) => api.resetAllData())),
+  }),
+  ledgers: router({
+    list: publicProcedure.query(({ ctx }) => ctx.ledgers.list()),
+    active: publicProcedure.query(({ ctx }) => ctx.ledgers.getActive()),
+    create: publicProcedure.input((v) => v as { name: string }).mutation(({ ctx, input }) => ctx.ledgers.create(input.name)),
+    switch: publicProcedure.input((v) => v as { id: string }).mutation(({ ctx, input }) => {
+      ctx.ledgers.switchTo(input.id)
+      return ctx.ledgers.getActive()
+    }),
+    switchToPersonal: publicProcedure.mutation(({ ctx }) => {
+      ctx.ledgers.switchToPersonal()
+      return ctx.ledgers.getActive()
+    }),
+    rename: publicProcedure.input((v) => v as { id: string; name: string }).mutation(({ ctx, input }) => {
+      ctx.ledgers.rename(input.id, input.name)
+      return ctx.ledgers.list()
+    }),
+    remove: publicProcedure.input((v) => v as { id: string }).mutation(({ ctx, input }) => {
+      ctx.ledgers.remove(input.id)
+      return ctx.ledgers.list()
+    }),
+    setDemo: publicProcedure.input((v) => v as { id: string; isDemo: boolean }).mutation(({ ctx, input }) => {
+      ctx.ledgers.setDemo(input.id, input.isDemo)
+      return ctx.ledgers.list()
+    }),
+    importFromFile: publicProcedure.mutation(({ ctx }) => ctx.ledgers.importFromFile()),
   }),
   links: router({
     list: publicProcedure.input(apiInput<"listObjectLinks">()).query(({ ctx, input }) => callApi(ctx, (api) => api.listObjectLinks(inputOrEmpty<"listObjectLinks">(input)))),

@@ -201,6 +201,15 @@ export function ImportsPage() {
       await queryClient.invalidateQueries(trpc.cashflow.list.queryFilter())
     },
   }))
+  const deleteCashflow = useMutation(trpc.cashflow.delete.mutationOptions())
+
+  async function removeTx(rawId: string) {
+    await deleteCashflow.mutateAsync({ id: rawId })
+    await queryClient.invalidateQueries(trpc.cashflow.list.queryFilter())
+    await queryClient.invalidateQueries(trpc.cashflow.summary.queryFilter())
+    await queryClient.invalidateQueries(trpc.cashflow.breakdown.queryFilter())
+    await queryClient.invalidateQueries(trpc.assets.netWorth.queryFilter())
+  }
 
   const txs = useMemo(() => (cashflowQuery.data ?? []).map(toTx), [cashflowQuery.data])
   const thisMonth = txs.filter((t) => t.date.startsWith(thisMonthPrefix))
@@ -406,6 +415,7 @@ export function ImportsPage() {
               tx={selectedTx}
               allTxs={sorted}
               onBack={() => setSelectedTx(null)}
+              onDelete={async (rawId) => { await removeTx(rawId); setSelectedTx(null) }}
             />
           ) : (
             <div style={{ padding: "20px 24px 112px" }}>

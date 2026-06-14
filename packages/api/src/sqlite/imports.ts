@@ -5,54 +5,63 @@
  * @gotcha  Preserve Flowm layer boundaries and avoid raw SQL except targeted Drizzle sql fragments.
  */
 
-import type { SqlParam } from "@flowm/db"
+import { and, desc, eq, type SQL } from "drizzle-orm"
+import { cashflowEvents, statementImports, statementLines, type StatementImportRow } from "@flowm/db"
 import type { Result } from "@flowm/shared"
 import type { CashflowKind, ConvertStatementLinesInput, Direction, ImportNormalizedStatementEntriesInput, ImportStatementInput, ImportedBatchResult, ImportedEntrySummary, ListImportedEntriesInput, ListStatementImportsInput, ListStatementLinesInput, StatementImportSummary, StatementLineSummary } from "../index"
 import { ReferenceApi } from "./reference"
-import { DEFAULT_CURRENCY, fail, json, newId, normalizeCurrency, normalizeDirection, nowIso, ok, parseJsonObject } from "./base"
+import { DEFAULT_CURRENCY, fail, newId, normalizeCurrency, normalizeDirection, nowIso, ok } from "./base"
 
 export abstract class ImportsApi extends ReferenceApi {
   async importStatement(input: ImportStatementInput): Promise<Result<ImportedBatchResult>> {
     try {
       const importId = newId("imp")
       const timestamp = input.importedAt ?? nowIso()
-      await this.run(
-        `insert into statement_imports (id, source_name, file_name, file_hash, imported_at, raw_summary, created_at)
-         values (?, ?, ?, ?, ?, ?, ?)`,
-        [importId, input.sourceName, input.fileName ?? null, input.fileHash ?? null, timestamp, json(input.rawSummary ?? null), timestamp],
-      )
+      this.db
+        .insert(statementImports)
+        .values({
+          id: importId,
+          sourceName: input.sourceName,
+          fileName: input.fileName ?? null,
+          fileHash: input.fileHash ?? null,
+          importedAt: timestamp,
+          rawSummary: input.rawSummary ?? null,
+          createdAt: timestamp,
+        })
+        .run()
       let inserted = 0
       let skipped = 0
       for (const line of input.lines) {
         const lineHash = `${line.externalId ?? ""}:${line.eventDate}:${line.amount}:${line.currency ?? DEFAULT_CURRENCY}:${line.counterparty ?? ""}`
-        const exists = await this.one("select id from statement_lines where import_id = ? and line_hash = ?", [importId, lineHash])
+        const exists = this.db
+          .select({ id: statementLines.id })
+          .from(statementLines)
+          .where(and(eq(statementLines.importId, importId), eq(statementLines.lineHash, lineHash)))
+          .get()
         if (exists) {
           skipped++
           continue
         }
-        await this.run(
-          `insert into statement_lines
-            (id, import_id, external_id, line_hash, occurred_at, event_date, counterparty, description, amount, currency,
-             direction, payment_method, account_hint, raw_payload, created_at)
-           values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [
-            newId("line"),
+        this.db
+          .insert(statementLines)
+          .values({
+            id: newId("line"),
             importId,
-            line.externalId ?? null,
+            externalId: line.externalId ?? null,
             lineHash,
-            line.occurredAt ?? null,
-            line.eventDate,
-            line.counterparty ?? null,
-            line.description ?? null,
-            line.amount,
-            normalizeCurrency(line.currency),
-            normalizeDirection(line.direction),
-            line.paymentMethod ?? null,
-            line.accountHint ?? null,
-            json(line.rawPayload ?? null),
-            timestamp,
-          ],
-        )
+            occurredAt: line.occurredAt ?? null,
+            eventDate: line.eventDate,
+            counterparty: line.counterparty ?? null,
+            description: line.description ?? null,
+            amount: line.amount,
+            currency: normalizeCurrency(line.currency),
+            direction: normalizeDirection(line.direction),
+            paymentMethod: line.paymentMethod ?? null,
+            accountHint: line.accountHint ?? null,
+            rawPayload: line.rawPayload ?? null,
+            createdAt: timestamp,
+          })
+          .run()
         inserted++
       }
       return ok({ batchId: importId, inserted, skipped })
@@ -86,13 +95,16 @@ export abstract class ImportsApi extends ReferenceApi {
 
   async listStatementImports(input: ListStatementImportsInput = {}): Promise<Result<StatementImportSummary[]>> {
     try {
-      const conds: string[] = []
-      const params: SqlParam[] = []
-      if (input.sourceName) { conds.push("source_name = ?"); params.push(input.sourceName) }
-      if (input.status) { conds.push("status = ?"); params.push(input.status) }
-      const where = conds.length ? `where ${conds.join(" and ")}` : ""
-      const rows = await this.all(`select * from statement_imports ${where} order by imported_at desc`, params)
-      return ok(rows.map(this.mapStatementImport))
+      const conds: SQL[] = []
+      if (input.sourceName) conds.push(eq(statementImports.sourceName, input.sourceName))
+      if (input.status) conds.push(eq(statementImports.status, input.status as StatementImportRow["status"]))
+      const rows = this.db
+        .select()
+        .from(statementImports)
+        .where(conds.length ? and(...conds) : undefined)
+        .orderBy(desc(statementImports.importedAt))
+        .all()
+      return ok(rows.map((row) => this.mapStatementImport(row)))
     } catch (error) {
       return fail(error)
     }
@@ -101,7 +113,7 @@ export abstract class ImportsApi extends ReferenceApi {
   async listStatementLines(input: ListStatementLinesInput = {}): Promise<Result<StatementLineSummary[]>> {
     try {
       const rows = await this.statementLineRows(input)
-      return ok(rows.map(this.mapStatementLine))
+      return ok(rows.map((row) => this.mapStatementLine(row)))
     } catch (error) {
       return fail(error)
     }
@@ -111,27 +123,27 @@ export abstract class ImportsApi extends ReferenceApi {
     try {
       const rows = await this.statementLineRows(input)
       return ok(rows.map((row) => ({
-        id: row.id as string,
-        batchId: row.import_id as string,
-        sourceName: row.source_name as string,
-        fileName: row.file_name as string | null,
-        externalId: row.external_id as string | null,
+        id: row.id,
+        batchId: row.importId,
+        sourceName: row.sourceName,
+        fileName: row.fileName,
+        externalId: row.externalId,
         merchantOrderId: null,
-        occurredAt: row.occurred_at as string | null,
-        date: row.event_date as string,
-        payee: row.counterparty as string | null,
-        narration: row.description as string | null,
-        amountNumber: row.amount as string,
-        currency: row.currency as string,
-        accountName: row.account_hint as string ?? row.source_name as string,
+        occurredAt: row.occurredAt,
+        date: row.eventDate,
+        payee: row.counterparty,
+        narration: row.description,
+        amountNumber: row.amount,
+        currency: row.currency,
+        accountName: row.accountHint ?? row.sourceName,
         sourceSubAccountLabel: null,
         counterpartyAccount: null,
-        paymentMethod: row.payment_method as string | null,
-        direction: row.direction as string,
+        paymentMethod: row.paymentMethod,
+        direction: row.direction,
         classification: null,
         confidence: null,
         status: row.status as ImportedEntrySummary["status"],
-        raw: parseJsonObject(row.raw_payload),
+        raw: row.rawPayload ?? null,
       })))
     } catch (error) {
       return fail(error)
@@ -144,40 +156,38 @@ export abstract class ImportsApi extends ReferenceApi {
       let created = 0
       let skipped = 0
       for (const line of rows) {
-        const existing = await this.one("select id from cashflow_events where statement_line_id = ?", [line.id as string])
+        const existing = this.db.select({ id: cashflowEvents.id }).from(cashflowEvents).where(eq(cashflowEvents.statementLineId, line.id)).get()
         if (existing) {
           skipped++
           continue
         }
         const direction = line.direction as Direction
         const flowKind: CashflowKind = direction === "in" ? "income" : direction === "out" ? "expense" : "adjustment"
-        const id = newId("cf")
         const timestamp = nowIso()
-        await this.run(
-          `insert into cashflow_events
-            (id, statement_line_id, event_date, occurred_at, title, counterparty, description, amount, currency, direction,
-             flow_kind, source_kind, source_name, payment_method, account_hint, classification_source, created_at, updated_at)
-           values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'import', ?, ?, ?, 'imported', ?, ?)`,
-          [
-            id,
-            line.id as string,
-            line.event_date as string,
-            line.occurred_at as string | null,
-            line.counterparty as string | null,
-            line.counterparty as string | null,
-            line.description as string | null,
-            line.amount as string,
-            line.currency as string,
+        this.db
+          .insert(cashflowEvents)
+          .values({
+            id: newId("cf"),
+            statementLineId: line.id,
+            eventDate: line.eventDate,
+            occurredAt: line.occurredAt,
+            title: line.counterparty,
+            counterparty: line.counterparty,
+            description: line.description,
+            amount: line.amount,
+            currency: line.currency,
             direction,
             flowKind,
-            line.source_name as string,
-            line.payment_method as string | null,
-            line.account_hint as string | null,
-            timestamp,
-            timestamp,
-          ],
-        )
-        await this.run("update statement_lines set status = 'converted' where id = ?", [line.id as string])
+            sourceKind: "import",
+            sourceName: line.sourceName,
+            paymentMethod: line.paymentMethod,
+            accountHint: line.accountHint,
+            classificationSource: "imported",
+            createdAt: timestamp,
+            updatedAt: timestamp,
+          })
+          .run()
+        this.db.update(statementLines).set({ status: "converted" }).where(eq(statementLines.id, line.id)).run()
         created++
       }
       return ok({ created, skipped })
@@ -185,6 +195,4 @@ export abstract class ImportsApi extends ReferenceApi {
       return fail(error)
     }
   }
-
-
 }

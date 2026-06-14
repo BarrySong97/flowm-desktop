@@ -15,7 +15,7 @@ const flowm = {
     isLinux: process.platform === "linux",
     name: process.platform,
   },
-  getDatabasePath: () => ipcRenderer.invoke("flowm:get-database-path") as Promise<string>,
+  getDatabasePath: () => ipcRenderer.invoke("flowm:get-database-path") as Promise<string | null>,
   databaseExists: () => ipcRenderer.invoke("flowm:database-exists") as Promise<boolean>,
   trpcRequest: (request: { type: string; path: string; input: unknown }) =>
     ipcRenderer.invoke("trpc:request", request) as Promise<unknown>,

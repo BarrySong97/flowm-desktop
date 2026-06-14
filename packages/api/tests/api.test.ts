@@ -16,6 +16,7 @@ import { migrate } from "drizzle-orm/better-sqlite3/migrator"
 import { type Database, schema } from "@flowm/db"
 import { createFlowmApi, type FlowmApi } from "../src"
 import { seedDemoData } from "../src/demo-seed"
+import { DEFAULT_CATEGORIES, seedDefaultCategories } from "../src/default-seed"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const migrationsFolder = resolve(__dirname, "../../db/migrations")
@@ -40,7 +41,6 @@ async function createApi(name: string) {
   rmSync(dbPath, { force: true })
   const db = createDb(dbPath)
   const api = createFlowmApi(db)
-  expectOk(await api.initializeFlowm())
   return { api, db, dbPath }
 }
 
@@ -49,14 +49,26 @@ function countRows(db: Database, table: string, where = "1 = 1") {
   return Number(row?.count ?? 0)
 }
 
+async function ensureCategory(api: FlowmApi, input: {
+  name: string
+  categoryKind: string
+  color: string
+  icon: string
+  displayOrder: number
+}) {
+  const categories = expectOk(await api.listCategories({ includeArchived: true }))
+  const existing = categories.find((category) => category.name === input.name && category.categoryKind === input.categoryKind)
+  return existing ?? expectOk(await api.createCategory(input))
+}
+
 beforeEach(() => {
   mkdirSync(tmpRoot, { recursive: true })
 })
 
 async function createGoldenFixture(api: FlowmApi) {
-  const categories = expectOk(await api.listCategories())
-  const food = categories.find((category) => category.name === "餐饮")
-  const shopping = categories.find((category) => category.name === "购物")
+  const income = await ensureCategory(api, { name: "收入", categoryKind: "income", color: "#14794a", icon: "wallet", displayOrder: 10 })
+  const food = await ensureCategory(api, { name: "餐饮", categoryKind: "expense", color: "#e07b3a", icon: "food", displayOrder: 20 })
+  const shopping = await ensureCategory(api, { name: "购物", categoryKind: "expense", color: "#c46a9e", icon: "shopping-bag", displayOrder: 30 })
 
   const salary = expectOk(await api.createCashflowEvent({
     eventDate: "2026-06-01",
@@ -64,7 +76,7 @@ async function createGoldenFixture(api: FlowmApi) {
     amount: "30000.00",
     direction: "in",
     flowKind: "income",
-    categoryId: categories.find((category) => category.name === "收入")?.id,
+    categoryId: income.id,
   }))
   const foodExpense = expectOk(await api.createCashflowEvent({
     eventDate: "2026-06-02",
@@ -72,7 +84,7 @@ async function createGoldenFixture(api: FlowmApi) {
     amount: "1200.00",
     direction: "out",
     flowKind: "expense",
-    categoryId: food?.id,
+    categoryId: food.id,
   }))
   const shoppingExpense = expectOk(await api.createCashflowEvent({
     eventDate: "2026-06-03",
@@ -80,7 +92,7 @@ async function createGoldenFixture(api: FlowmApi) {
     amount: "800.00",
     direction: "out",
     flowKind: "expense",
-    categoryId: shopping?.id,
+    categoryId: shopping.id,
   }))
   const transfer = expectOk(await api.createCashflowEvent({
     eventDate: "2026-06-04",
@@ -157,7 +169,7 @@ async function createGoldenFixture(api: FlowmApi) {
     budgetPeriodId: period.id,
     name: "餐饮预算",
     plannedAmount: "2000.00",
-    categoryId: food?.id,
+    categoryId: food.id,
   }))
   const emptyBudget = expectOk(await api.createBudgetItem({
     budgetPeriodId: period.id,
@@ -175,7 +187,7 @@ async function createGoldenFixture(api: FlowmApi) {
 }
 
 describe("@flowm/api — clean-slate data model", () => {
-  it("initializes only the clean-slate schema and rejects negative core amounts", async () => {
+  it("uses only the clean-slate schema and rejects negative core amounts", async () => {
     const { db } = await createApi("schema-shape")
     const rows = db.$client.prepare("select name from sqlite_master where type = 'table' order by name").all() as { name: string }[]
     const names = rows.map((row) => row.name)
@@ -474,6 +486,29 @@ describe("@flowm/api — clean-slate data model", () => {
     })).amount).toBe(spendBefore)
   }, 60_000)
 
+  it("resetAllData wipes every domain table without re-seeding defaults", async () => {
+    const { api, db } = await createApi("reset-all-data")
+    await createGoldenFixture(api)
+
+    // Sanity: fixture populated the domain tables.
+    expect(await countRows(db, "cashflow_events")).toBeGreaterThan(0)
+    expect(await countRows(db, "asset_items")).toBeGreaterThan(0)
+    expect(await countRows(db, "budget_items")).toBeGreaterThan(0)
+
+    expectOk(await api.resetAllData())
+
+    for (const table of [
+      "cashflow_events", "cashflow_event_tags",
+      "asset_items", "asset_snapshots",
+      "subscriptions", "subscription_occurrences",
+      "loans", "loan_payment_occurrences",
+      "budget_sets", "budget_periods", "budget_items", "budget_item_scopes",
+      "statement_imports", "statement_lines", "object_links", "exchange_rates", "currency_settings", "tags", "categories",
+    ]) {
+      expect(await countRows(db, table)).toBe(0)
+    }
+  }, 30_000)
+
   it("surfaces missing FX instead of silently using today's rate", async () => {
     const { api } = await createApi("missing-fx")
     const usd = expectOk(await api.createAssetItem({ name: "美元现金", assetType: "cash", defaultCurrency: "USD" }))
@@ -487,5 +522,18 @@ describe("@flowm/api — clean-slate data model", () => {
     const netWorth = expectOk(await api.getNetWorthSnapshot({ displayCurrency: "CNY" }))
     expect(netWorth.netWorth.number).toBe("0.00")
     expect(netWorth.missingFx).toEqual([{ assetItemId: usd.id, currency: "USD", date: "2026-06-01" }])
+  }, 30_000)
+
+  it("seeds the default category set idempotently", async () => {
+    const { api, db } = await createApi("default-categories")
+    await seedDefaultCategories(db)
+    const first = expectOk(await api.listCategories({ includeArchived: true }))
+    expect(first.length).toBe(DEFAULT_CATEGORIES.length)
+    expect(first.map((category) => category.name)).toEqual(expect.arrayContaining(["收入", "餐饮", "还款", "转账"]))
+
+    // Running again must not create duplicates.
+    await seedDefaultCategories(db)
+    const second = expectOk(await api.listCategories({ includeArchived: true }))
+    expect(second.length).toBe(DEFAULT_CATEGORIES.length)
   }, 30_000)
 })

@@ -17,6 +17,7 @@ import { formatNumber } from "@/lib/format"
 import { todayKey } from "@/lib/dates"
 import { AddBudgetModal } from "./AddBudgetModal"
 import type { BudgetForm } from "./AddBudgetModal"
+import { invalidateBudgetQueries } from "./invalidateBudgetQueries"
 
 const fmt = formatNumber
 
@@ -57,8 +58,8 @@ export function BudgetPage() {
         currency: "CNY",
         color: form.color || null,
       })
-      await queryClient.invalidateQueries(trpc.budgets.progress.queryFilter())
       setShowAdd(false)
+      await invalidateBudgetQueries(queryClient)
     } finally { setSaving(false) }
   }
   const budgets = (progressQuery.data ?? []).map((row) => ({

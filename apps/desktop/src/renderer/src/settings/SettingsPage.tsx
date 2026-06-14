@@ -7,9 +7,11 @@
 
 import { useState } from "react"
 import { Tabs } from "@heroui/react"
-import { useQuery } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Dock } from "../components/layout/Dock"
 import { ScrollArea } from "../components/ui/ScrollArea"
+import { useConfirm } from "../components/ui/ConfirmModal"
+import { LedgerSection } from "./LedgerSection"
 import { trpc } from "@/lib/trpc"
 import { usePagePerf } from "@/lib/debug/perf"
 
@@ -39,10 +41,11 @@ function Row({ label, sub, first, children }: { label: string; sub?: string; fir
   )
 }
 
-function LinkRow({ children, note, danger }: { children: string; note?: string; danger?: boolean }) {
+function LinkRow({ children, note, danger, onClick }: { children: string; note?: string; danger?: boolean; onClick?: () => void }) {
   const [hov, setHov] = useState(false)
   return (
     <button
+      onClick={onClick}
       onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
       style={{
         font: "500 13px var(--sans)",
@@ -99,6 +102,9 @@ function SegTabs({ opts, val, onChange }: { opts: string[]; val: string; onChang
 }
 
 export function SettingsPage() {
+  const confirm = useConfirm()
+  const queryClient = useQueryClient()
+  const resetAll = useMutation(trpc.system.resetAll.mutationOptions())
   const [dec,   setDec]   = useState("2")
   const [grp,   setGrp]   = useState(true)
   const [hide,  setHide]  = useState(false)
@@ -181,6 +187,9 @@ export function SettingsPage() {
             </div>
           </div>
 
+          {/* 账本 */}
+          <LedgerSection />
+
           {/* 数据与隐私 */}
           <div style={{ marginTop: 30 }}>
             <GroupLabel>数据与隐私</GroupLabel>
@@ -188,8 +197,31 @@ export function SettingsPage() {
               <SegTabs opts={["关闭", "自动"]} val={cache} onChange={setCache} />
             </Row>
             <LinkRow note="CSV · Excel">导出全部数据</LinkRow>
-            <LinkRow>清除本地缓存</LinkRow>
-            <LinkRow danger>清空所有数据并重置</LinkRow>
+            <LinkRow
+              onClick={() => confirm({
+                title: "清除本地缓存",
+                description: "清除后会重新从本地数据库加载数据，不会删除任何记录。确定继续？",
+                confirmText: "清除缓存",
+                onConfirm: async () => { await queryClient.invalidateQueries() },
+              })}
+            >
+              清除本地缓存
+            </LinkRow>
+            <LinkRow
+              danger
+              onClick={() => confirm({
+                title: "清空所有数据并重置",
+                description: "这会永久删除所有流水、资产、订阅、贷款、预算、分类与标签。此操作无法恢复，确定继续？",
+                confirmText: "清空并重置",
+                danger: true,
+                onConfirm: async () => {
+                  await resetAll.mutateAsync()
+                  await queryClient.invalidateQueries()
+                },
+              })}
+            >
+              清空所有数据并重置
+            </LinkRow>
           </div>
 
           {/* 关于 */}

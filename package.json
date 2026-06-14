@@ -17,7 +17,9 @@
     "format": "oxfmt .",
     "format:check": "oxfmt . --check",
     "typecheck": "turbo check-types",
-    "test": "vitest",
+    "rebuild:electron": "pnpm -F desktop exec electron-builder install-app-deps",
+    "test": "pnpm run test:electron",
+    "test:electron": "pnpm run rebuild:electron && ELECTRON_RUN_AS_NODE=1 apps/desktop/node_modules/.bin/electron ./node_modules/vitest/vitest.mjs run",
     "seed:demo": "pnpm -F desktop seed:demo",
     "package": "pnpm -F desktop package",
     "dist": "pnpm -F desktop dist"

@@ -15,8 +15,10 @@ import { trpc } from "@/lib/trpc"
 import { formatNumber } from "@/lib/format"
 import { todayKey } from "@/lib/dates"
 import { Route } from "../routes/budget.$id"
+import { useConfirm } from "../components/ui/ConfirmModal"
 import { AddBudgetModal } from "./AddBudgetModal"
 import type { BudgetForm } from "./AddBudgetModal"
+import { invalidateBudgetQueries } from "./invalidateBudgetQueries"
 
 const fmt = formatNumber
 
@@ -48,7 +50,9 @@ export function BudgetDetailPage() {
   const pct = limit > 0 ? (spent / limit) * 100 : 0
   const over = spent > limit
 
+  const confirm = useConfirm()
   const updateBudgetItem = useMutation(trpc.budgets.updateItem.mutationOptions())
+  const archiveBudgetItem = useMutation(trpc.budgets.archiveItem.mutationOptions())
 
   async function handleEditSave(form: BudgetForm) {
     if (!row) return
@@ -61,8 +65,8 @@ export function BudgetDetailPage() {
         currency: "CNY",
         color: form.color || null,
       })
-      await queryClient.invalidateQueries(trpc.budgets.progress.queryFilter())
       setShowEdit(false)
+      await invalidateBudgetQueries(queryClient)
     } finally { setSaving(false) }
   }
 
@@ -483,7 +487,26 @@ export function BudgetDetailPage() {
                 查看该类别流水
               </Button>
               <div style={{ flex: 1 }} />
-              <Button variant="danger-soft" size="sm" style={{ borderRadius: 5 }}>
+              <Button
+                variant="danger-soft"
+                size="sm"
+                style={{ borderRadius: 5 }}
+                isDisabled={!row}
+                onPress={() => {
+                  if (!row) return
+                  confirm({
+                    title: "关闭此预算",
+                    description: `关闭「${budgetName}」后，它将不再出现在预算列表中。确定继续？`,
+                    confirmText: "关闭预算",
+                    danger: true,
+                    onConfirm: async () => {
+                      await archiveBudgetItem.mutateAsync({ id: row.budgetItemId })
+                      await invalidateBudgetQueries(queryClient)
+                      navigate({ to: "/budget" })
+                    },
+                  })
+                }}
+              >
                 关闭此预算
               </Button>
             </div>

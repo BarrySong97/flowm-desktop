@@ -5,27 +5,76 @@
  * @gotcha  Preserve Flowm layer boundaries and avoid raw SQL except targeted Drizzle sql fragments.
  */
 
-import { type Database, type SqlParam, type SqlRow } from "@flowm/db"
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  getTableColumns,
+  gte,
+  inArray,
+  like,
+  lte,
+  ne,
+  or,
+  sql,
+  type SQL,
+  type SQLWrapper,
+} from "drizzle-orm"
+import {
+  assetItems,
+  assetSnapshots,
+  budgetItemScopes,
+  budgetItems,
+  budgetPeriods,
+  budgetSets,
+  cashflowEventTags,
+  cashflowEvents,
+  categories,
+  currencySettings,
+  exchangeRates,
+  loanPaymentOccurrences,
+  loans,
+  objectLinks,
+  statementImports,
+  statementLines,
+  subscriptionOccurrences,
+  subscriptions,
+  tags,
+  type AssetItemRow,
+  type AssetSnapshotRow,
+  type BudgetItemRow,
+  type BudgetPeriodRow,
+  type BudgetSetRow,
+  type CashflowEventRow,
+  type CategoryRow,
+  type CurrencySettingsRow,
+  type Database,
+  type ExchangeRateRow,
+  type LoanPaymentOccurrenceRow,
+  type LoanRow,
+  type ObjectLinkRow,
+  type StatementImportRow,
+  type StatementLineRow,
+  type SubscriptionOccurrenceRow,
+  type SubscriptionRow,
+  type TagRow,
+} from "@flowm/db"
 import type { Result } from "@flowm/shared"
 import type { ActiveStatus, AssetItemSummary, AssetSnapshotSummary, AssetSnapshotType, AssetType, BudgetItemSummary, BudgetPeriodSummary, BudgetSetSummary, CashflowEventSummary, CashflowKind, CashflowSummaryInput, CategorySummary, CurrencySettingsSummary, Direction, ExchangeRateSummary, FlowmApiOptions, FlowmId, ListAssetSnapshotsInput, ListCashflowEventsInput, ListStatementLinesInput, LoanPaymentOccurrenceSummary, LoanSummary, ObjectLinkSummary, StatementImportSummary, StatementLineSummary, SubscriptionOccurrenceSummary, SubscriptionSummary, TagSummary } from "../index"
 
 export const DEFAULT_CURRENCY = "CNY"
 export const CURRENCY_SETTINGS_ID = "default"
 
-const DEFAULT_CATEGORIES: Array<{ name: string; categoryKind: string; color: string; icon: string; displayOrder: number }> = [
-  { name: "餐饮", categoryKind: "expense", color: "#e07b3a", icon: "food", displayOrder: 1 },
-  { name: "购物", categoryKind: "expense", color: "#c46a9e", icon: "shopping-bag", displayOrder: 2 },
-  { name: "交通", categoryKind: "expense", color: "#4a8fc4", icon: "train", displayOrder: 3 },
-  { name: "娱乐", categoryKind: "expense", color: "#d4a017", icon: "film", displayOrder: 4 },
-  { name: "订阅", categoryKind: "expense", color: "#7c6ac4", icon: "repeat", displayOrder: 5 },
-  { name: "居住", categoryKind: "expense", color: "#5bac8e", icon: "home", displayOrder: 6 },
-  { name: "通讯", categoryKind: "expense", color: "#5e9e9f", icon: "phone", displayOrder: 7 },
-  { name: "其他", categoryKind: "expense", color: "#9caca3", icon: "circle", displayOrder: 8 },
-  { name: "收入", categoryKind: "income", color: "#14794a", icon: "wallet", displayOrder: 20 },
-  { name: "转账", categoryKind: "transfer", color: "#6b7d72", icon: "arrow-left-right", displayOrder: 30 },
-  { name: "还款", categoryKind: "debt", color: "#8b6a47", icon: "credit-card", displayOrder: 40 },
-  { name: "退款", categoryKind: "adjustment", color: "#6f9f6b", icon: "undo", displayOrder: 50 },
-]
+// Joined row shapes returned by the shared query helpers below.
+export type StatementLineWithSource = StatementLineRow & { sourceName: string; fileName: string | null }
+export type CashflowEventWithCategory = CashflowEventRow & { categoryName: string | null }
+export type AssetSnapshotWithItem = AssetSnapshotRow & {
+  assetName: string
+  assetType: AssetItemRow["assetType"]
+  institution: string | null
+  defaultCurrency: string
+}
 
 export function ok<T>(data: T): Result<T> {
   return { success: true, data }
@@ -35,22 +84,6 @@ export function fail<T = never>(error: unknown): Result<T> {
   return {
     success: false,
     error: error instanceof Error ? error.message : String(error),
-  }
-}
-
-export function json(value: unknown): string | null {
-  return value == null ? null : JSON.stringify(value)
-}
-
-export function parseJsonObject(value: unknown): Record<string, unknown> | null {
-  if (typeof value !== "string" || value.length === 0) return null
-  try {
-    const parsed = JSON.parse(value)
-    return parsed != null && typeof parsed === "object" && !Array.isArray(parsed)
-      ? parsed as Record<string, unknown>
-      : null
-  } catch {
-    return null
   }
 }
 
@@ -127,515 +160,508 @@ export function monthBounds(ym?: string): { start: string; end: string } {
   return { start, end: endDate }
 }
 
+// Sum a text "amount"-style column as a real number, defaulting to 0.
+export function sumReal(column: SQLWrapper): SQL<number> {
+  return sql<number>`coalesce(sum(cast(${column} as real)), 0)`
+}
 
 export abstract class FlowmApiBase {
-
-  protected initialized = false
-  protected initializing: Promise<Result<void>> | null = null
-
   constructor(
     protected readonly db: Database,
     protected readonly options: FlowmApiOptions = {},
   ) {}
 
-  async initializeFlowm(): Promise<Result<void>> {
-    if (this.initialized) return ok(undefined)
-    this.initializing ??= this.initializeFlowmCore()
-    const result = await this.initializing
-    if (result.success) this.initialized = true
-    this.initializing = null
-    return result
-  }
-
-  protected async initializeFlowmCore(): Promise<Result<void>> {
+  async resetAllData(): Promise<Result<void>> {
     try {
-      await this.seedDefaults()
+      // Child tables before parents (FK-safe).
+      const tables = [
+        cashflowEventTags,
+        budgetItemScopes,
+        budgetItems,
+        budgetPeriods,
+        budgetSets,
+        subscriptionOccurrences,
+        subscriptions,
+        loanPaymentOccurrences,
+        loans,
+        assetSnapshots,
+        assetItems,
+        statementLines,
+        statementImports,
+        objectLinks,
+        exchangeRates,
+        currencySettings,
+        cashflowEvents,
+        tags,
+        categories,
+      ]
+      for (const table of tables) {
+        this.db.delete(table).run()
+      }
       return ok(undefined)
     } catch (error) {
       return fail(error)
     }
   }
 
-  protected async seedDefaults(): Promise<void> {
-    await this.ensureCurrencySettings()
-    const row = await this.one("select count(*) as count from categories")
-    if (Number(row?.count ?? 0) === 0) {
-      const timestamp = nowIso()
-      for (const category of DEFAULT_CATEGORIES) {
-        await this.run(
-          `insert into categories (id, name, category_kind, color, icon, display_order, created_at, updated_at)
-           values (?, ?, ?, ?, ?, ?, ?, ?)`,
-          [newId("cat"), category.name, category.categoryKind, category.color, category.icon, category.displayOrder, timestamp, timestamp],
-        )
-      }
-    }
-  }
-
   protected async ensureCurrencySettings(): Promise<void> {
-    const row = await this.one("select id from currency_settings where id = ?", [CURRENCY_SETTINGS_ID])
+    const row = this.db
+      .select({ id: currencySettings.id })
+      .from(currencySettings)
+      .where(eq(currencySettings.id, CURRENCY_SETTINGS_ID))
+      .get()
     if (row) return
-    await this.run(
-      `insert into currency_settings (id, display_currency, fx_provider, fx_request_policy, updated_at, meta)
-       values (?, ?, 'manual', 'manual_only', ?, null)`,
-      [CURRENCY_SETTINGS_ID, DEFAULT_CURRENCY, nowIso()],
-    )
+    this.db
+      .insert(currencySettings)
+      .values({
+        id: CURRENCY_SETTINGS_ID,
+        displayCurrency: DEFAULT_CURRENCY,
+        fxProvider: "manual",
+        fxRequestPolicy: "manual_only",
+        updatedAt: nowIso(),
+        meta: null,
+      })
+      .run()
   }
 
-  protected async statementLineRows(input: ListStatementLinesInput & { sourceName?: string } = {}): Promise<SqlRow[]> {
-    const conds: string[] = []
-    const params: SqlParam[] = []
-    if (input.importId) { conds.push("sl.import_id = ?"); params.push(toSqlId(input.importId)) }
-    if (input.status) { conds.push("sl.status = ?"); params.push(input.status) }
-    if (input.sourceName) { conds.push("si.source_name = ?"); params.push(input.sourceName) }
-    const where = conds.length ? `where ${conds.join(" and ")}` : ""
-    params.push(input.limit ?? 200)
-    return this.all(
-      `select sl.*, si.source_name, si.file_name from statement_lines sl
-       join statement_imports si on si.id = sl.import_id
-       ${where} order by sl.event_date desc, sl.created_at desc limit ?`,
-      params,
-    )
+  protected async statementLineRows(input: ListStatementLinesInput & { sourceName?: string } = {}): Promise<StatementLineWithSource[]> {
+    const conds: SQL[] = []
+    if (input.importId) conds.push(eq(statementLines.importId, toSqlId(input.importId)))
+    if (input.status) conds.push(eq(statementLines.status, input.status as StatementLineRow["status"]))
+    if (input.sourceName) conds.push(eq(statementImports.sourceName, input.sourceName))
+    return this.db
+      .select({ ...getTableColumns(statementLines), sourceName: statementImports.sourceName, fileName: statementImports.fileName })
+      .from(statementLines)
+      .innerJoin(statementImports, eq(statementImports.id, statementLines.importId))
+      .where(conds.length ? and(...conds) : undefined)
+      .orderBy(desc(statementLines.eventDate), desc(statementLines.createdAt))
+      .limit(input.limit ?? 200)
+      .all()
   }
 
-  protected async cashflowRows(input: ListCashflowEventsInput): Promise<SqlRow[]> {
-    const conds: string[] = []
-    const params: SqlParam[] = []
-    if (input.dateFrom) { conds.push("ce.event_date >= ?"); params.push(input.dateFrom) }
-    if (input.dateTo) { conds.push("ce.event_date <= ?"); params.push(input.dateTo) }
+  protected async cashflowRows(input: ListCashflowEventsInput): Promise<CashflowEventWithCategory[]> {
+    const conds: SQL[] = []
+    if (input.dateFrom) conds.push(gte(cashflowEvents.eventDate, input.dateFrom))
+    if (input.dateTo) conds.push(lte(cashflowEvents.eventDate, input.dateTo))
     const flowKind = input.flowKind
     if (Array.isArray(flowKind) && flowKind.length > 0) {
-      conds.push(`ce.flow_kind in (${flowKind.map(() => "?").join(", ")})`)
-      params.push(...flowKind)
+      conds.push(inArray(cashflowEvents.flowKind, flowKind as CashflowEventRow["flowKind"][]))
     } else if (typeof flowKind === "string") {
-      conds.push("ce.flow_kind = ?")
-      params.push(flowKind)
+      conds.push(eq(cashflowEvents.flowKind, flowKind as CashflowEventRow["flowKind"]))
     }
-    if (input.direction) { conds.push("ce.direction = ?"); params.push(input.direction) }
-    if (input.categoryId) { conds.push("ce.category_id = ?"); params.push(toSqlId(input.categoryId)) }
-    if (input.sourceName ?? input.source) { conds.push("ce.source_name = ?"); params.push(input.sourceName ?? input.source ?? "") }
-    if (input.status) { conds.push("ce.status = ?"); params.push(input.status) }
-    else conds.push("ce.status != 'deleted'")
-    if (input.includeInAnalytics !== undefined) { conds.push("ce.include_in_analytics = ?"); params.push(input.includeInAnalytics) }
+    if (input.direction) conds.push(eq(cashflowEvents.direction, input.direction))
+    if (input.categoryId) conds.push(eq(cashflowEvents.categoryId, toSqlId(input.categoryId)))
+    const sourceName = input.sourceName ?? input.source
+    if (sourceName) conds.push(eq(cashflowEvents.sourceName, sourceName))
+    if (input.status) conds.push(eq(cashflowEvents.status, input.status))
+    else conds.push(ne(cashflowEvents.status, "deleted"))
+    if (input.includeInAnalytics !== undefined) conds.push(eq(cashflowEvents.includeInAnalytics, input.includeInAnalytics))
     if (input.keyword) {
-      conds.push("(ce.title like ? or ce.counterparty like ? or ce.description like ?)")
-      params.push(`%${input.keyword}%`, `%${input.keyword}%`, `%${input.keyword}%`)
+      const term = `%${input.keyword}%`
+      conds.push(or(like(cashflowEvents.title, term), like(cashflowEvents.counterparty, term), like(cashflowEvents.description, term))!)
     }
     if (input.tagId) {
-      conds.push("exists (select 1 from cashflow_event_tags cet where cet.cashflow_event_id = ce.id and cet.tag_id = ?)")
-      params.push(toSqlId(input.tagId))
+      conds.push(inArray(
+        cashflowEvents.id,
+        this.db.select({ id: cashflowEventTags.cashflowEventId }).from(cashflowEventTags).where(eq(cashflowEventTags.tagId, toSqlId(input.tagId))),
+      ))
     }
-    const where = conds.length ? `where ${conds.join(" and ")}` : ""
-    params.push(input.limit ?? 200, input.offset ?? 0)
-    return this.all(
-      `select ce.*, c.name as category_name from cashflow_events ce
-       left join categories c on c.id = ce.category_id
-       ${where} order by ce.event_date desc, ce.created_at desc limit ? offset ?`,
-      params,
-    )
+    return this.db
+      .select({ ...getTableColumns(cashflowEvents), categoryName: categories.name })
+      .from(cashflowEvents)
+      .leftJoin(categories, eq(categories.id, cashflowEvents.categoryId))
+      .where(conds.length ? and(...conds) : undefined)
+      .orderBy(desc(cashflowEvents.eventDate), desc(cashflowEvents.createdAt))
+      .limit(input.limit ?? 200)
+      .offset(input.offset ?? 0)
+      .all()
   }
 
-  protected cashflowMetricWhere(metric: string, input: CashflowSummaryInput): { where: string; params: SqlParam[] } {
-    const conds: string[] = ["status = 'active'"]
-    const params: SqlParam[] = []
-    if (!input.includeIgnored) conds.push("include_in_analytics = 1")
-    if (input.dateFrom) { conds.push("event_date >= ?"); params.push(input.dateFrom) }
-    if (input.dateTo) { conds.push("event_date <= ?"); params.push(input.dateTo) }
+  protected cashflowMetricWhere(metric: string, input: CashflowSummaryInput): SQL {
+    const conds: SQL[] = [eq(cashflowEvents.status, "active")]
+    if (!input.includeIgnored) conds.push(eq(cashflowEvents.includeInAnalytics, true))
+    if (input.dateFrom) conds.push(gte(cashflowEvents.eventDate, input.dateFrom))
+    if (input.dateTo) conds.push(lte(cashflowEvents.eventDate, input.dateTo))
     switch (metric) {
       case "income":
-        conds.push("flow_kind = 'income'", "direction = 'in'")
+        conds.push(eq(cashflowEvents.flowKind, "income"), eq(cashflowEvents.direction, "in"))
         break
       case "debt_payments":
-        conds.push("flow_kind = 'debt_payment'")
+        conds.push(eq(cashflowEvents.flowKind, "debt_payment"))
         break
       case "asset_movements":
-        conds.push("flow_kind = 'asset_movement'")
+        conds.push(eq(cashflowEvents.flowKind, "asset_movement"))
         break
       case "refunds":
-        conds.push("flow_kind = 'refund'")
+        conds.push(eq(cashflowEvents.flowKind, "refund"))
         break
       case "all_activity":
         break
       case "everyday_spend":
       default:
-        conds.push("flow_kind = 'expense'", "direction = 'out'")
+        conds.push(eq(cashflowEvents.flowKind, "expense"), eq(cashflowEvents.direction, "out"))
         break
     }
-    return { where: `where ${conds.join(" and ")}`, params }
+    return and(...conds)!
   }
 
-  protected async assetSnapshotRows(input: ListAssetSnapshotsInput): Promise<SqlRow[]> {
-    const conds: string[] = []
-    const params: SqlParam[] = []
-    if (input.assetItemId) { conds.push("s.asset_item_id = ?"); params.push(toSqlId(input.assetItemId)) }
-    if (input.accountName) { conds.push("a.name = ?"); params.push(input.accountName) }
-    const where = conds.length ? `where ${conds.join(" and ")}` : ""
-    return this.all(
-      `select s.*, a.name as asset_name, a.asset_type, a.institution, a.default_currency from asset_snapshots s
-       join asset_items a on a.id = s.asset_item_id
-       ${where} order by s.snapshot_at desc, s.created_at desc`,
-      params,
-    )
+  protected sumCashflowAmount(where: SQL): number {
+    const row = this.db.select({ total: sumReal(cashflowEvents.amount) }).from(cashflowEvents).where(where).get()
+    return Number(row?.total ?? 0)
   }
 
-  protected async latestAssetSnapshotRows(input: ListAssetSnapshotsInput): Promise<SqlRow[]> {
-    const conds: string[] = []
-    const params: SqlParam[] = []
-    if (input.assetItemId) { conds.push("s.asset_item_id = ?"); params.push(toSqlId(input.assetItemId)) }
-    if (input.accountName) { conds.push("a.name = ?"); params.push(input.accountName) }
-    const where = conds.length ? `and ${conds.join(" and ")}` : ""
-    return this.all(
-      `select s.*, a.name as asset_name, a.asset_type, a.institution, a.default_currency from asset_snapshots s
-       join asset_items a on a.id = s.asset_item_id
-       where s.id = (
-         select s2.id from asset_snapshots s2
-         where s2.asset_item_id = s.asset_item_id
-         order by s2.snapshot_at desc, s2.created_at desc, s2.id desc
-         limit 1
-       ) ${where}
-       order by a.display_order asc, a.name asc`,
-      params,
-    )
+  protected async assetSnapshotRows(input: ListAssetSnapshotsInput): Promise<AssetSnapshotWithItem[]> {
+    const conds: SQL[] = []
+    if (input.assetItemId) conds.push(eq(assetSnapshots.assetItemId, toSqlId(input.assetItemId)))
+    if (input.accountName) conds.push(eq(assetItems.name, input.accountName))
+    return this.db
+      .select({ ...getTableColumns(assetSnapshots), assetName: assetItems.name, assetType: assetItems.assetType, institution: assetItems.institution, defaultCurrency: assetItems.defaultCurrency })
+      .from(assetSnapshots)
+      .innerJoin(assetItems, eq(assetItems.id, assetSnapshots.assetItemId))
+      .where(conds.length ? and(...conds) : undefined)
+      .orderBy(desc(assetSnapshots.snapshotAt), desc(assetSnapshots.createdAt))
+      .all()
   }
 
-  protected async oneAssetSnapshot(id: FlowmId): Promise<SqlRow | null> {
-    return this.one(
-      `select s.*, a.name as asset_name, a.asset_type, a.institution, a.default_currency from asset_snapshots s
-       join asset_items a on a.id = s.asset_item_id
-       where s.id = ?`,
-      [toSqlId(id)],
-    )
+  protected async latestAssetSnapshotRows(input: ListAssetSnapshotsInput): Promise<AssetSnapshotWithItem[]> {
+    // Correlated scalar subquery: keep only the most recent snapshot per asset item.
+    const latestId = sql`(
+      select s2.id from ${assetSnapshots} s2
+      where s2.asset_item_id = ${assetSnapshots.assetItemId}
+      order by s2.snapshot_at desc, s2.created_at desc, s2.id desc
+      limit 1
+    )`
+    const conds: SQL[] = [sql`${assetSnapshots.id} = ${latestId}`]
+    if (input.assetItemId) conds.push(eq(assetSnapshots.assetItemId, toSqlId(input.assetItemId)))
+    if (input.accountName) conds.push(eq(assetItems.name, input.accountName))
+    return this.db
+      .select({ ...getTableColumns(assetSnapshots), assetName: assetItems.name, assetType: assetItems.assetType, institution: assetItems.institution, defaultCurrency: assetItems.defaultCurrency })
+      .from(assetSnapshots)
+      .innerJoin(assetItems, eq(assetItems.id, assetSnapshots.assetItemId))
+      .where(and(...conds))
+      .orderBy(asc(assetItems.displayOrder), asc(assetItems.name))
+      .all()
   }
 
-  protected occurrenceWhere(column: string, id?: FlowmId, dateFrom?: string, dateTo?: string): { where: string; params: SqlParam[] } {
-    const conds: string[] = []
-    const params: SqlParam[] = []
-    if (id) { conds.push(`${column} = ?`); params.push(toSqlId(id)) }
-    if (dateFrom) { conds.push("due_date >= ?"); params.push(dateFrom) }
-    if (dateTo) { conds.push("due_date <= ?"); params.push(dateTo) }
-    return { where: conds.length ? `where ${conds.join(" and ")}` : "", params }
+  protected async oneAssetSnapshot(id: FlowmId): Promise<AssetSnapshotWithItem | null> {
+    const row = this.db
+      .select({ ...getTableColumns(assetSnapshots), assetName: assetItems.name, assetType: assetItems.assetType, institution: assetItems.institution, defaultCurrency: assetItems.defaultCurrency })
+      .from(assetSnapshots)
+      .innerJoin(assetItems, eq(assetItems.id, assetSnapshots.assetItemId))
+      .where(eq(assetSnapshots.id, toSqlId(id)))
+      .get()
+    return row ?? null
   }
 
-  protected async budgetUsageWhere(item: SqlRow, period: SqlRow): Promise<{ where: string; params: SqlParam[] }> {
-    const conds: string[] = [
-      "status = 'active'",
-      "include_in_analytics = 1",
-      "event_date >= ?",
-      "event_date <= ?",
+  protected async budgetUsageWhere(item: BudgetItemRow, period: BudgetPeriodRow): Promise<SQL> {
+    const conds: SQL[] = [
+      eq(cashflowEvents.status, "active"),
+      eq(cashflowEvents.includeInAnalytics, true),
+      gte(cashflowEvents.eventDate, period.periodStart),
+      lte(cashflowEvents.eventDate, period.periodEnd),
     ]
-    const params: SqlParam[] = [period.period_start as string, period.period_end as string]
-    if (item.category_id != null) { conds.push("category_id = ?"); params.push(item.category_id as string) }
-    const scopes = await this.all("select * from budget_item_scopes where budget_item_id = ?", [item.id as string])
+    if (item.categoryId != null) conds.push(eq(cashflowEvents.categoryId, item.categoryId))
+    const scopes = this.db.select().from(budgetItemScopes).where(eq(budgetItemScopes.budgetItemId, item.id)).all()
     for (const scope of scopes) {
-      if (scope.scope_kind === "category" || scope.scope_kind === "category_tree") {
-        conds.push("category_id = ?")
-        params.push(scope.scope_value as string)
-      } else if (scope.scope_kind === "source") {
-        conds.push("source_name = ?")
-        params.push(scope.scope_value as string)
-      } else if (scope.scope_kind === "flow_kind") {
-        conds.push("flow_kind = ?")
-        params.push(scope.scope_value as string)
-      } else if (scope.scope_kind === "tag") {
-        conds.push("exists (select 1 from cashflow_event_tags cet where cet.cashflow_event_id = cashflow_events.id and cet.tag_id = ?)")
-        params.push(scope.scope_value as string)
+      const value = scope.scopeValue ?? ""
+      if (scope.scopeKind === "category" || scope.scopeKind === "category_tree") {
+        conds.push(eq(cashflowEvents.categoryId, value))
+      } else if (scope.scopeKind === "source") {
+        conds.push(eq(cashflowEvents.sourceName, value))
+      } else if (scope.scopeKind === "flow_kind") {
+        conds.push(eq(cashflowEvents.flowKind, value as CashflowEventRow["flowKind"]))
+      } else if (scope.scopeKind === "tag") {
+        conds.push(inArray(
+          cashflowEvents.id,
+          this.db.select({ id: cashflowEventTags.cashflowEventId }).from(cashflowEventTags).where(eq(cashflowEventTags.tagId, value)),
+        ))
       }
     }
-    if (item.category_id == null && scopes.length === 0) {
-      conds.push("flow_kind = 'expense'")
+    if (item.categoryId == null && scopes.length === 0) {
+      conds.push(eq(cashflowEvents.flowKind, "expense"))
     }
-    return { where: `where ${conds.join(" and ")}`, params }
+    return and(...conds)!
   }
 
   protected async convertAmount(amount: number, fromCurrency: string, toCurrency: string, date: string): Promise<number | null> {
-    const row = await this.one(
-      "select rate from exchange_rates where from_currency = ? and to_currency = ? and rate_date = ? order by fetched_at desc limit 1",
-      [fromCurrency, toCurrency, date],
-    )
+    const row = this.db
+      .select({ rate: exchangeRates.rate })
+      .from(exchangeRates)
+      .where(and(eq(exchangeRates.fromCurrency, fromCurrency), eq(exchangeRates.toCurrency, toCurrency), eq(exchangeRates.rateDate, date)))
+      .orderBy(desc(exchangeRates.fetchedAt))
+      .limit(1)
+      .get()
     if (row?.rate != null) return amount * Number(row.rate)
     const provider = this.options.fxProvider
     if (provider == null) return null
     const fetched = await provider.fetchRate({ fromCurrency, toCurrency, date })
     if (fetched == null) return null
-    const id = newId("fx")
-    await this.run(
-      `insert into exchange_rates (id, from_currency, to_currency, rate_date, rate, provider, fetched_at, source_date, meta)
-       values (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        id,
-        normalizeCurrency(fetched.fromCurrency),
-        normalizeCurrency(fetched.toCurrency),
-        fetched.rateDate,
-        fetched.rate,
-        fetched.provider,
-        nowIso(),
-        fetched.sourceDate ?? fetched.rateDate,
-        json(fetched.meta ?? null),
-      ],
-    )
+    this.db
+      .insert(exchangeRates)
+      .values({
+        id: newId("fx"),
+        fromCurrency: normalizeCurrency(fetched.fromCurrency),
+        toCurrency: normalizeCurrency(fetched.toCurrency),
+        rateDate: fetched.rateDate,
+        rate: fetched.rate,
+        provider: fetched.provider,
+        fetchedAt: nowIso(),
+        sourceDate: fetched.sourceDate ?? fetched.rateDate,
+        meta: fetched.meta ?? null,
+      })
+      .run()
     return amount * Number(fetched.rate)
   }
 
-  protected mapCurrencySettings(row: SqlRow): CurrencySettingsSummary {
+  protected mapCurrencySettings(row: CurrencySettingsRow): CurrencySettingsSummary {
     return {
-      displayCurrency: row.display_currency as string,
-      fxProvider: row.fx_provider as string,
-      fxRequestPolicy: row.fx_request_policy as string,
-      updatedAt: row.updated_at as string,
-      meta: parseJsonObject(row.meta),
+      displayCurrency: row.displayCurrency,
+      fxProvider: row.fxProvider,
+      fxRequestPolicy: row.fxRequestPolicy,
+      updatedAt: row.updatedAt,
+      meta: row.meta ?? null,
     }
   }
 
-  protected mapExchangeRate(row: SqlRow): ExchangeRateSummary {
+  protected mapExchangeRate(row: ExchangeRateRow): ExchangeRateSummary {
     return {
-      id: row.id as string,
-      fromCurrency: row.from_currency as string,
-      toCurrency: row.to_currency as string,
-      rateDate: row.rate_date as string,
-      rate: row.rate as string,
-      provider: row.provider as string,
-      fetchedAt: row.fetched_at as string,
-      sourceDate: row.source_date as string | null,
-      meta: parseJsonObject(row.meta),
+      id: row.id,
+      fromCurrency: row.fromCurrency,
+      toCurrency: row.toCurrency,
+      rateDate: row.rateDate,
+      rate: row.rate,
+      provider: row.provider,
+      fetchedAt: row.fetchedAt,
+      sourceDate: row.sourceDate,
+      meta: row.meta ?? null,
     }
   }
 
-  protected mapCategory(row: SqlRow): CategorySummary {
+  protected mapCategory(row: CategoryRow): CategorySummary {
     return {
-      id: row.id as string,
-      name: row.name as string,
-      parentId: row.parent_id as string | null,
-      categoryKind: row.category_kind as string,
-      kind: row.category_kind as string,
-      color: row.color as string | null,
-      icon: row.icon as string | null,
-      sortOrder: Number(row.display_order ?? 0),
-      displayOrder: Number(row.display_order ?? 0),
-      archived: row.archived_at != null,
-      archivedAt: row.archived_at as string | null,
+      id: row.id,
+      name: row.name,
+      parentId: row.parentId,
+      categoryKind: row.categoryKind,
+      kind: row.categoryKind,
+      color: row.color,
+      icon: row.icon,
+      sortOrder: row.displayOrder,
+      displayOrder: row.displayOrder,
+      archived: row.archivedAt != null,
+      archivedAt: row.archivedAt,
     }
   }
 
-  protected mapTag(row: SqlRow): TagSummary {
+  protected mapTag(row: TagRow): TagSummary {
     return {
-      id: row.id as string,
-      name: row.name as string,
-      color: row.color as string | null,
-      archived: row.archived_at != null,
+      id: row.id,
+      name: row.name,
+      color: row.color,
+      archived: row.archivedAt != null,
     }
   }
 
-  protected mapStatementImport(row: SqlRow): StatementImportSummary {
+  protected mapStatementImport(row: StatementImportRow): StatementImportSummary {
     return {
-      id: row.id as string,
-      sourceName: row.source_name as string,
-      fileName: row.file_name as string | null,
-      fileHash: row.file_hash as string | null,
-      importedAt: row.imported_at as string,
-      status: row.status as string,
+      id: row.id,
+      sourceName: row.sourceName,
+      fileName: row.fileName,
+      fileHash: row.fileHash,
+      importedAt: row.importedAt,
+      status: row.status,
     }
   }
 
-  protected mapStatementLine(row: SqlRow): StatementLineSummary {
+  protected mapStatementLine(row: StatementLineRow): StatementLineSummary {
     return {
-      id: row.id as string,
-      importId: row.import_id as string,
-      externalId: row.external_id as string | null,
-      eventDate: row.event_date as string,
-      occurredAt: row.occurred_at as string | null,
-      counterparty: row.counterparty as string | null,
-      description: row.description as string | null,
-      amount: row.amount as string,
-      currency: row.currency as string,
-      direction: row.direction as string,
-      status: row.status as string,
+      id: row.id,
+      importId: row.importId,
+      externalId: row.externalId,
+      eventDate: row.eventDate,
+      occurredAt: row.occurredAt,
+      counterparty: row.counterparty,
+      description: row.description,
+      amount: row.amount,
+      currency: row.currency,
+      direction: row.direction,
+      status: row.status,
     }
   }
 
-  protected async mapCashflowEvent(row: SqlRow): Promise<CashflowEventSummary> {
-    const tagRows = await this.all(
-      `select t.* from tags t join cashflow_event_tags cet on cet.tag_id = t.id where cet.cashflow_event_id = ? order by t.name`,
-      [row.id as string],
-    )
+  protected async mapCashflowEvent(row: CashflowEventWithCategory): Promise<CashflowEventSummary> {
+    const tagRows = this.db
+      .select(getTableColumns(tags))
+      .from(tags)
+      .innerJoin(cashflowEventTags, eq(cashflowEventTags.tagId, tags.id))
+      .where(eq(cashflowEventTags.cashflowEventId, row.id))
+      .orderBy(asc(tags.name))
+      .all()
     return {
-      id: row.id as string,
-      statementLineId: row.statement_line_id as string | null,
-      eventDate: row.event_date as string,
-      date: row.event_date as string,
-      occurredAt: row.occurred_at as string | null,
-      title: row.title as string | null,
-      counterparty: row.counterparty as string | null,
-      description: row.description as string | null,
-      userNote: row.user_note as string | null,
-      amount: row.amount as string,
-      currency: row.currency as string,
+      id: row.id,
+      statementLineId: row.statementLineId,
+      eventDate: row.eventDate,
+      date: row.eventDate,
+      occurredAt: row.occurredAt,
+      title: row.title,
+      counterparty: row.counterparty,
+      description: row.description,
+      userNote: row.userNote,
+      amount: row.amount,
+      currency: row.currency,
       direction: row.direction as Direction,
-      flowKind: row.flow_kind as string,
-      categoryId: row.category_id as string | null,
-      categoryName: row.category_name as string | null,
-      sourceKind: row.source_kind as string,
-      sourceName: row.source_name as string | null,
-      source: row.source_name as string | null,
-      includeInAnalytics: Boolean(row.include_in_analytics),
+      flowKind: row.flowKind,
+      categoryId: row.categoryId,
+      categoryName: row.categoryName,
+      sourceKind: row.sourceKind,
+      sourceName: row.sourceName,
+      source: row.sourceName,
+      includeInAnalytics: row.includeInAnalytics,
       status: row.status as ActiveStatus,
-      classificationSource: row.classification_source as string,
-      tags: tagRows.map(this.mapTag),
-      createdAt: row.created_at as string,
+      classificationSource: row.classificationSource,
+      tags: tagRows.map((tag) => this.mapTag(tag)),
+      createdAt: row.createdAt,
     }
   }
 
-  protected mapAssetItem(row: SqlRow): AssetItemSummary {
+  protected mapAssetItem(row: AssetItemRow): AssetItemSummary {
     return {
-      id: row.id as string,
-      name: row.name as string,
-      assetType: row.asset_type as AssetType,
-      institution: row.institution as string | null,
-      defaultCurrency: row.default_currency as string,
-      valuationMethod: row.valuation_method as string,
-      archived: row.archived_at != null,
-      note: row.note as string | null,
+      id: row.id,
+      name: row.name,
+      assetType: row.assetType,
+      institution: row.institution,
+      defaultCurrency: row.defaultCurrency,
+      valuationMethod: row.valuationMethod,
+      archived: row.archivedAt != null,
+      note: row.note,
     }
   }
 
-  protected mapAssetSnapshot(row: SqlRow): AssetSnapshotSummary {
+  protected mapAssetSnapshot(row: AssetSnapshotWithItem): AssetSnapshotSummary {
     return {
-      id: row.id as string,
-      assetItemId: row.asset_item_id as string,
-      accountName: row.asset_name as string,
-      assetType: row.asset_type === "brokerage" ? "investment" : row.asset_type as AssetSnapshotType,
-      snapshotAt: row.snapshot_at as string,
-      quantityNumber: row.quantity_amount as string | null,
-      quantityCurrency: row.quantity_unit as string | null,
-      quantityAmount: row.quantity_amount as string | null,
-      quantityUnit: row.quantity_unit as string | null,
-      valueNumber: row.value_amount as string,
-      valueCurrency: row.value_currency as string,
-      source: row.source_kind as string,
-      note: row.note as string | null,
+      id: row.id,
+      assetItemId: row.assetItemId,
+      accountName: row.assetName,
+      assetType: row.assetType === "brokerage" ? "investment" : row.assetType as AssetSnapshotType,
+      snapshotAt: row.snapshotAt,
+      quantityNumber: row.quantityAmount,
+      quantityCurrency: row.quantityUnit,
+      quantityAmount: row.quantityAmount,
+      quantityUnit: row.quantityUnit,
+      valueNumber: row.valueAmount,
+      valueCurrency: row.valueCurrency,
+      source: row.sourceKind,
+      note: row.note,
       meta: {
-        costBasisAmount: row.cost_basis_amount,
-        costBasisCurrency: row.cost_basis_currency,
+        costBasisAmount: row.costBasisAmount,
+        costBasisCurrency: row.costBasisCurrency,
         institution: row.institution,
       },
     }
   }
 
-  protected mapSubscription(row: SqlRow): SubscriptionSummary {
+  protected mapSubscription(row: SubscriptionRow): SubscriptionSummary {
     return {
-      id: row.id as string,
-      name: row.name as string,
-      merchant: row.merchant as string | null,
-      amount: row.amount as string,
-      currency: row.currency as string,
-      billingCycle: row.billing_cycle as string,
-      intervalCount: Number(row.interval_count ?? 1),
-      nextChargeDate: row.next_charge_date as string,
-      autoRenew: Boolean(row.auto_renew),
-      categoryId: row.category_id as string | null,
-      status: row.status as string,
-      note: row.note as string | null,
+      id: row.id,
+      name: row.name,
+      merchant: row.merchant,
+      amount: row.amount,
+      currency: row.currency,
+      billingCycle: row.billingCycle,
+      intervalCount: row.intervalCount,
+      nextChargeDate: row.nextChargeDate,
+      autoRenew: row.autoRenew,
+      categoryId: row.categoryId,
+      status: row.status,
+      note: row.note,
     }
   }
 
-  protected mapSubscriptionOccurrence(row: SqlRow): SubscriptionOccurrenceSummary {
+  protected mapSubscriptionOccurrence(row: SubscriptionOccurrenceRow): SubscriptionOccurrenceSummary {
     return {
-      id: row.id as string,
-      subscriptionId: row.subscription_id as string,
-      dueDate: row.due_date as string,
-      amount: row.amount as string,
-      currency: row.currency as string,
-      status: row.status as string,
+      id: row.id,
+      subscriptionId: row.subscriptionId,
+      dueDate: row.dueDate,
+      amount: row.amount,
+      currency: row.currency,
+      status: row.status,
     }
   }
 
-  protected mapLoan(row: SqlRow): LoanSummary {
+  protected mapLoan(row: LoanRow): LoanSummary {
     return {
-      id: row.id as string,
-      name: row.name as string,
-      lender: row.lender as string | null,
-      currency: row.currency as string,
-      principalAmount: row.principal_amount as string | null,
-      currentPrincipalEstimate: row.current_principal_estimate as string | null,
-      annualRateBps: row.annual_rate_bps as number | null,
-      repaymentMethod: row.repayment_method as string | null,
-      paymentAmount: row.payment_amount as string,
-      paymentDay: row.payment_day as number | null,
-      startDate: row.start_date as string,
-      termMonths: row.term_months as number | null,
-      status: row.status as string,
-      note: row.note as string | null,
+      id: row.id,
+      name: row.name,
+      lender: row.lender,
+      currency: row.currency,
+      principalAmount: row.principalAmount,
+      currentPrincipalEstimate: row.currentPrincipalEstimate,
+      annualRateBps: row.annualRateBps,
+      repaymentMethod: row.repaymentMethod,
+      paymentAmount: row.paymentAmount,
+      paymentDay: row.paymentDay,
+      startDate: row.startDate,
+      termMonths: row.termMonths,
+      status: row.status,
+      note: row.note,
     }
   }
 
-  protected mapLoanPaymentOccurrence(row: SqlRow): LoanPaymentOccurrenceSummary {
+  protected mapLoanPaymentOccurrence(row: LoanPaymentOccurrenceRow): LoanPaymentOccurrenceSummary {
     return {
-      id: row.id as string,
-      loanId: row.loan_id as string,
-      dueDate: row.due_date as string,
-      paymentAmount: row.payment_amount as string,
-      principalAmount: row.principal_amount as string | null,
-      interestAmount: row.interest_amount as string | null,
-      feeAmount: row.fee_amount as string | null,
-      remainingPrincipalEstimate: row.remaining_principal_estimate as string | null,
-      status: row.status as string,
+      id: row.id,
+      loanId: row.loanId,
+      dueDate: row.dueDate,
+      paymentAmount: row.paymentAmount,
+      principalAmount: row.principalAmount,
+      interestAmount: row.interestAmount,
+      feeAmount: row.feeAmount,
+      remainingPrincipalEstimate: row.remainingPrincipalEstimate,
+      status: row.status,
     }
   }
 
-  protected mapBudgetSet(row: SqlRow): BudgetSetSummary {
-    return { id: row.id as string, name: row.name as string, status: row.status as string }
+  protected mapBudgetSet(row: BudgetSetRow): BudgetSetSummary {
+    return { id: row.id, name: row.name, status: row.status }
   }
 
-  protected mapBudgetPeriod(row: SqlRow): BudgetPeriodSummary {
+  protected mapBudgetPeriod(row: BudgetPeriodRow): BudgetPeriodSummary {
     return {
-      id: row.id as string,
-      budgetSetId: row.budget_set_id as string,
-      periodKind: row.period_kind as string,
-      periodStart: row.period_start as string,
-      periodEnd: row.period_end as string,
-      currency: row.currency as string,
-      status: row.status as string,
+      id: row.id,
+      budgetSetId: row.budgetSetId,
+      periodKind: row.periodKind,
+      periodStart: row.periodStart,
+      periodEnd: row.periodEnd,
+      currency: row.currency,
+      status: row.status,
     }
   }
 
-  protected mapBudgetItem(row: SqlRow): BudgetItemSummary {
+  protected mapBudgetItem(row: BudgetItemRow): BudgetItemSummary {
     return {
-      id: row.id as string,
-      budgetPeriodId: row.budget_period_id as string,
-      name: row.name as string,
-      itemKind: row.item_kind as string,
-      plannedAmount: row.planned_amount as string,
-      currency: row.currency as string,
-      categoryId: row.category_id as string | null,
-      color: (row.color as string | null) ?? null,
-      status: row.status as string,
+      id: row.id,
+      budgetPeriodId: row.budgetPeriodId,
+      name: row.name,
+      itemKind: row.itemKind,
+      plannedAmount: row.plannedAmount,
+      currency: row.currency,
+      categoryId: row.categoryId,
+      color: row.color ?? null,
+      status: row.status,
     }
   }
 
-  protected mapObjectLink(row: SqlRow): ObjectLinkSummary {
+  protected mapObjectLink(row: ObjectLinkRow): ObjectLinkSummary {
     return {
-      id: row.id as string,
-      fromType: row.from_type as string,
-      fromId: row.from_id as string,
-      toType: row.to_type as string,
-      toId: row.to_id as string,
-      linkType: row.link_type as string,
-      confidence: row.confidence as number | null,
-      createdBy: row.created_by as string,
-      note: row.note as string | null,
+      id: row.id,
+      fromType: row.fromType,
+      fromId: row.fromId,
+      toType: row.toType,
+      toId: row.toId,
+      linkType: row.linkType,
+      confidence: row.confidence,
+      createdBy: row.createdBy,
+      note: row.note,
     }
-  }
-
-  protected async one(sql: string, params: SqlParam[] = []): Promise<SqlRow | null> {
-    const bound = params.map((p) => (typeof p === "boolean" ? (p ? 1 : 0) : p))
-    return this.db.$client.prepare(sql).get(...bound) as SqlRow | null
-  }
-
-  protected async all(sql: string, params: SqlParam[] = []): Promise<SqlRow[]> {
-    const bound = params.map((p) => (typeof p === "boolean" ? (p ? 1 : 0) : p))
-    return this.db.$client.prepare(sql).all(...bound) as SqlRow[]
-  }
-
-  protected async run(sql: string, params: SqlParam[] = []): Promise<void> {
-    const bound = params.map((p) => (typeof p === "boolean" ? (p ? 1 : 0) : p))
-    this.db.$client.prepare(sql).run(...bound)
   }
 }

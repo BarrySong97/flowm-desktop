@@ -5,11 +5,12 @@
  * @gotcha  Preserve Flowm layer boundaries and avoid raw SQL except targeted Drizzle sql fragments.
  */
 
-import type { SqlParam } from "@flowm/db"
+import { desc, eq, getTableColumns, sql, type SQL } from "drizzle-orm"
+import { cashflowEventTags, cashflowEvents, categories, type CashflowEventInsert } from "@flowm/db"
 import type { Result } from "@flowm/shared"
 import type { CashflowBreakdownInput, CashflowBreakdownRow, CashflowEventSummary, CashflowSummary, CashflowSummaryInput, CreateCashflowEventInput, FlowmId, ListCashflowEventsInput, UpdateCashflowEventInput } from "../index"
 import { ImportsApi } from "./imports"
-import { DEFAULT_CURRENCY, fail, newId, normalizeCurrency, nowIso, ok, toSqlId } from "./base"
+import { DEFAULT_CURRENCY, fail, newId, normalizeCurrency, nowIso, ok, sumReal, toSqlId } from "./base"
 
 export abstract class CashflowApi extends ImportsApi {
   async listCashflowEvents(input: ListCashflowEventsInput = {}): Promise<Result<CashflowEventSummary[]>> {
@@ -23,7 +24,12 @@ export abstract class CashflowApi extends ImportsApi {
 
   async getCashflowEvent(id: FlowmId): Promise<Result<CashflowEventSummary | null>> {
     try {
-      const row = await this.one(`select ce.*, c.name as category_name from cashflow_events ce left join categories c on c.id = ce.category_id where ce.id = ?`, [toSqlId(id)])
+      const row = this.db
+        .select({ ...getTableColumns(cashflowEvents), categoryName: categories.name })
+        .from(cashflowEvents)
+        .leftJoin(categories, eq(categories.id, cashflowEvents.categoryId))
+        .where(eq(cashflowEvents.id, toSqlId(id)))
+        .get()
       return ok(row ? await this.mapCashflowEvent(row) : null)
     } catch (error) {
       return fail(error)
@@ -34,36 +40,35 @@ export abstract class CashflowApi extends ImportsApi {
     try {
       const id = newId("cf")
       const timestamp = nowIso()
-      await this.run(
-        `insert into cashflow_events
-          (id, event_date, occurred_at, title, counterparty, description, user_note, amount, currency, direction, flow_kind,
-           category_id, source_kind, source_name, payment_method, account_hint, include_in_analytics, classification_source, created_at, updated_at)
-         values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
+      this.db
+        .insert(cashflowEvents)
+        .values({
           id,
-          input.eventDate,
-          input.occurredAt ?? null,
-          input.title ?? input.counterparty ?? null,
-          input.counterparty ?? null,
-          input.description ?? null,
-          input.userNote ?? null,
-          input.amount,
-          normalizeCurrency(input.currency),
-          input.direction,
-          input.flowKind,
-          input.categoryId == null ? null : toSqlId(input.categoryId),
-          input.sourceKind ?? "manual",
-          input.sourceName ?? null,
-          input.paymentMethod ?? null,
-          input.accountHint ?? null,
-          input.includeInAnalytics ?? true,
-          input.classificationSource ?? "manual",
-          timestamp,
-          timestamp,
-        ],
-      )
+          eventDate: input.eventDate,
+          occurredAt: input.occurredAt ?? null,
+          title: input.title ?? input.counterparty ?? null,
+          counterparty: input.counterparty ?? null,
+          description: input.description ?? null,
+          userNote: input.userNote ?? null,
+          amount: input.amount,
+          currency: normalizeCurrency(input.currency),
+          direction: input.direction,
+          flowKind: input.flowKind,
+          categoryId: input.categoryId == null ? null : toSqlId(input.categoryId),
+          sourceKind: input.sourceKind ?? "manual",
+          sourceName: input.sourceName ?? null,
+          paymentMethod: input.paymentMethod ?? null,
+          accountHint: input.accountHint ?? null,
+          includeInAnalytics: input.includeInAnalytics ?? true,
+          classificationSource: input.classificationSource ?? "manual",
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        })
+        .run()
       if (input.tagIds) await this.setCashflowEventTags({ id, tagIds: input.tagIds })
-      return ok((await this.getCashflowEvent(id)).success ? (await this.getCashflowEvent(id) as { success: true; data: CashflowEventSummary | null }).data! : (() => { throw new Error("created cashflow event not found") })())
+      const created = await this.getCashflowEvent(id)
+      if (!created.success || created.data == null) throw new Error("created cashflow event not found")
+      return ok(created.data)
     } catch (error) {
       return fail(error)
     }
@@ -71,22 +76,20 @@ export abstract class CashflowApi extends ImportsApi {
 
   async updateCashflowEvent(input: UpdateCashflowEventInput): Promise<Result<CashflowEventSummary>> {
     try {
-      const fields: string[] = ["updated_at = ?"]
-      const params: SqlParam[] = [nowIso()]
-      if (input.eventDate !== undefined) { fields.push("event_date = ?"); params.push(input.eventDate) }
-      if (input.title !== undefined) { fields.push("title = ?"); params.push(input.title) }
-      if (input.counterparty !== undefined) { fields.push("counterparty = ?"); params.push(input.counterparty) }
-      if (input.description !== undefined) { fields.push("description = ?"); params.push(input.description) }
-      if (input.userNote !== undefined) { fields.push("user_note = ?"); params.push(input.userNote) }
-      if (input.amount !== undefined) { fields.push("amount = ?"); params.push(input.amount) }
-      if (input.currency !== undefined) { fields.push("currency = ?"); params.push(normalizeCurrency(input.currency)) }
-      if (input.direction !== undefined) { fields.push("direction = ?"); params.push(input.direction) }
-      if (input.flowKind !== undefined) { fields.push("flow_kind = ?"); params.push(input.flowKind) }
-      if (input.categoryId !== undefined) { fields.push("category_id = ?"); params.push(input.categoryId == null ? null : toSqlId(input.categoryId)) }
-      if (input.includeInAnalytics !== undefined) { fields.push("include_in_analytics = ?"); params.push(input.includeInAnalytics) }
-      if (input.status !== undefined) { fields.push("status = ?"); params.push(input.status) }
-      params.push(toSqlId(input.id))
-      await this.run(`update cashflow_events set ${fields.join(", ")} where id = ?`, params)
+      const set: Partial<CashflowEventInsert> = { updatedAt: nowIso() }
+      if (input.eventDate !== undefined) set.eventDate = input.eventDate
+      if (input.title !== undefined) set.title = input.title
+      if (input.counterparty !== undefined) set.counterparty = input.counterparty
+      if (input.description !== undefined) set.description = input.description
+      if (input.userNote !== undefined) set.userNote = input.userNote
+      if (input.amount !== undefined) set.amount = input.amount
+      if (input.currency !== undefined) set.currency = normalizeCurrency(input.currency)
+      if (input.direction !== undefined) set.direction = input.direction
+      if (input.flowKind !== undefined) set.flowKind = input.flowKind
+      if (input.categoryId !== undefined) set.categoryId = input.categoryId == null ? null : toSqlId(input.categoryId)
+      if (input.includeInAnalytics !== undefined) set.includeInAnalytics = input.includeInAnalytics
+      if (input.status !== undefined) set.status = input.status
+      this.db.update(cashflowEvents).set(set).where(eq(cashflowEvents.id, toSqlId(input.id))).run()
       const event = await this.getCashflowEvent(input.id)
       if (!event.success || event.data == null) throw new Error(`Cashflow event ${input.id} not found`)
       return ok(event.data)
@@ -97,7 +100,7 @@ export abstract class CashflowApi extends ImportsApi {
 
   async ignoreCashflowEvent(input: { id: FlowmId }): Promise<Result<void>> {
     try {
-      await this.run("update cashflow_events set status = 'ignored', updated_at = ? where id = ?", [nowIso(), toSqlId(input.id)])
+      this.db.update(cashflowEvents).set({ status: "ignored", updatedAt: nowIso() }).where(eq(cashflowEvents.id, toSqlId(input.id))).run()
       return ok(undefined)
     } catch (error) {
       return fail(error)
@@ -106,7 +109,7 @@ export abstract class CashflowApi extends ImportsApi {
 
   async deleteCashflowEvent(input: { id: FlowmId }): Promise<Result<void>> {
     try {
-      await this.run("update cashflow_events set status = 'deleted', updated_at = ? where id = ?", [nowIso(), toSqlId(input.id)])
+      this.db.update(cashflowEvents).set({ status: "deleted", updatedAt: nowIso() }).where(eq(cashflowEvents.id, toSqlId(input.id))).run()
       return ok(undefined)
     } catch (error) {
       return fail(error)
@@ -119,9 +122,9 @@ export abstract class CashflowApi extends ImportsApi {
 
   async setCashflowEventTags(input: { id: FlowmId; tagIds: FlowmId[] }): Promise<Result<void>> {
     try {
-      await this.run("delete from cashflow_event_tags where cashflow_event_id = ?", [toSqlId(input.id)])
+      this.db.delete(cashflowEventTags).where(eq(cashflowEventTags.cashflowEventId, toSqlId(input.id))).run()
       for (const tagId of input.tagIds) {
-        await this.run("insert or ignore into cashflow_event_tags (cashflow_event_id, tag_id) values (?, ?)", [toSqlId(input.id), toSqlId(tagId)])
+        this.db.insert(cashflowEventTags).values({ cashflowEventId: toSqlId(input.id), tagId: toSqlId(tagId) }).onConflictDoNothing().run()
       }
       return ok(undefined)
     } catch (error) {
@@ -141,9 +144,8 @@ export abstract class CashflowApi extends ImportsApi {
         const spend = Number((await this.getCashflowSummary({ ...input, metric: "everyday_spend" }) as { success: true; data: CashflowSummary }).data.amount)
         return ok({ metric, amount: (income - spend).toFixed(2), currency: DEFAULT_CURRENCY })
       }
-      const { where, params } = this.cashflowMetricWhere(metric, input)
-      const row = await this.one(`select coalesce(sum(cast(amount as real)), 0) as total from cashflow_events ${where}`, params)
-      return ok({ metric, amount: Number(row?.total ?? 0).toFixed(2), currency: DEFAULT_CURRENCY })
+      const total = this.sumCashflowAmount(this.cashflowMetricWhere(metric, input))
+      return ok({ metric, amount: total.toFixed(2), currency: DEFAULT_CURRENCY })
     } catch (error) {
       return fail(error)
     }
@@ -152,19 +154,26 @@ export abstract class CashflowApi extends ImportsApi {
   async getCashflowBreakdown(input: CashflowBreakdownInput = {}): Promise<Result<CashflowBreakdownRow[]>> {
     try {
       const groupBy = input.groupBy ?? "flow_kind"
-      const { where, params } = this.cashflowMetricWhere(input.metric ?? "all_activity", input)
-      const select = groupBy === "category"
-        ? "coalesce(c.name, '未分类') as label, coalesce(ce.category_id, 'uncategorized') as key"
+      const where = this.cashflowMetricWhere(input.metric ?? "all_activity", input)
+      const keyExpr: SQL<string> = groupBy === "category"
+        ? sql<string>`coalesce(${cashflowEvents.categoryId}, 'uncategorized')`
         : groupBy === "source"
-          ? "coalesce(ce.source_name, 'unknown') as key, coalesce(ce.source_name, 'unknown') as label"
-          : "ce.flow_kind as key, ce.flow_kind as label"
-      const join = groupBy === "category" ? "left join categories c on c.id = ce.category_id" : ""
-      const rows = await this.all(
-        `select ${select}, coalesce(sum(cast(ce.amount as real)), 0) as amount
-         from cashflow_events ce ${join} ${where.replace(/^where /, "where ")}
-         group by key, label order by amount desc`,
-        params,
-      )
+          ? sql<string>`coalesce(${cashflowEvents.sourceName}, 'unknown')`
+          : sql<string>`${cashflowEvents.flowKind}`
+      const labelExpr: SQL<string> = groupBy === "category"
+        ? sql<string>`coalesce(${categories.name}, '未分类')`
+        : groupBy === "source"
+          ? sql<string>`coalesce(${cashflowEvents.sourceName}, 'unknown')`
+          : sql<string>`${cashflowEvents.flowKind}`
+      const amountExpr = sumReal(cashflowEvents.amount)
+      const rows = this.db
+        .select({ key: keyExpr, label: labelExpr, amount: amountExpr })
+        .from(cashflowEvents)
+        .leftJoin(categories, eq(categories.id, cashflowEvents.categoryId))
+        .where(where)
+        .groupBy(keyExpr, labelExpr)
+        .orderBy(desc(amountExpr))
+        .all()
       return ok(rows.map((row) => ({
         key: String(row.key),
         label: String(row.label),
@@ -175,6 +184,4 @@ export abstract class CashflowApi extends ImportsApi {
       return fail(error)
     }
   }
-
-
 }

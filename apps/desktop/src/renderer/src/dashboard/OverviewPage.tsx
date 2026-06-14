@@ -9,7 +9,7 @@ import { useMemo } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 import { Dock } from "../components/layout/Dock"
-import type { AssetSnapshotSummary, FinancialEventSummary, LoanPaymentOccurrenceSummary, SubscriptionOccurrenceSummary } from "@flowm/api"
+import type { AssetSnapshotSummary, CashflowEventSummary, LoanPaymentOccurrenceSummary, SubscriptionOccurrenceSummary } from "@flowm/api"
 import { trpc } from "@/lib/trpc"
 import { usePagePerf } from "@/lib/debug/perf"
 import { addDays, dateKey, monthStart } from "@/lib/dates"
@@ -30,7 +30,7 @@ import { ScrollArea } from "../components/ui/ScrollArea"
 const fmt = formatNumber
 const signed = formatSignedCurrency
 
-function useMonthStats(events: FinancialEventSummary[]) {
+function useMonthStats(events: CashflowEventSummary[]) {
   return useMemo(() => {
     const now = new Date()
     const ym = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
@@ -46,7 +46,7 @@ function useMonthStats(events: FinancialEventSummary[]) {
   }, [events])
 }
 
-function useDailyBars(events: FinancialEventSummary[]): number[] {
+function useDailyBars(events: CashflowEventSummary[]): number[] {
   return useMemo(() => {
     const bars = new Array<number>(30).fill(0)
     const now = new Date()

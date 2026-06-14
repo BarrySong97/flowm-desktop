@@ -73,6 +73,3 @@ export {
   type TagInsert,
   type TagRow,
 } from "./schema"
-
-export type SqlParam = string | number | boolean | null
-export type SqlRow = Record<string, string | number | boolean | null>

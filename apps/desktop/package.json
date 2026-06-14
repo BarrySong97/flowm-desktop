@@ -16,7 +16,8 @@
     "test": "vitest run",
     "routes:generate": "tsr generate",
     "i18n:sync": "lobe-i18n -c .i18nrc.json",
-    "seed:demo": "tsx scripts/seed-demo.ts",
+    "seed:demo": "ELECTRON_RUN_AS_NODE=1 ./node_modules/.bin/electron ./node_modules/tsx/dist/cli.mjs scripts/seed-demo.ts",
+    "build:demo": "ELECTRON_RUN_AS_NODE=1 ./node_modules/.bin/electron ./node_modules/tsx/dist/cli.mjs scripts/build-demo-ledger.ts",
     "package": "electron-vite build && electron-builder --dir --config electron-builder.yml",
     "dist": "electron-vite build && electron-builder --config electron-builder.yml"
   },

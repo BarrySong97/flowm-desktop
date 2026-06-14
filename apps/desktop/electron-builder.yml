@@ -7,6 +7,11 @@ files:
   - package.json
 asarUnpack:
   - "**/*.node"
+extraResources:
+  - from: resources/flowm-demo.sqlite3
+    to: flowm-demo.sqlite3
+  - from: ../../packages/db/migrations
+    to: migrations
 npmRebuild: true
 mac:
   target:

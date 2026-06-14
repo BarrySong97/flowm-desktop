@@ -6,9 +6,9 @@
  */
 
 import type { Result } from "@flowm/shared"
-import type { AddDashboardCardInput, CreateDashboardViewInput, CreateFinancialEventInput, CreateLoanInput, CreatePlanInput, DashboardCard, DashboardLayoutEntry, DashboardSnapshot, DashboardView, FinancialEventSummary, FlowQueryResult, FlowmApi, FlowmId, ListDashboardCardsInput, ListDashboardLayoutsInput, ListFinancialEventsInput, ListPlansInput, PlanSummary, RunFlowQueryInput, SaveDashboardLayoutsInput, UpdateDashboardCardInput, UpdateDashboardViewInput, UpdateFinancialEventInput, UpdatePlanInput } from "../index"
+import type { AddDashboardCardInput, CreateDashboardViewInput, DashboardCard, DashboardLayoutEntry, DashboardSnapshot, DashboardView, FlowmApi, ListDashboardCardsInput, ListDashboardLayoutsInput, SaveDashboardLayoutsInput, UpdateDashboardCardInput, UpdateDashboardViewInput } from "../index"
 import { LinksApi } from "./links"
-import { DEFAULT_CURRENCY, fail, monthBounds, newId, normalizeCashflowKind, normalizeDirection, nowIso, ok } from "./base"
+import { DEFAULT_CURRENCY, fail, monthBounds, newId, nowIso, ok } from "./base"
 
 export class FlowmSqliteApi extends LinksApi implements FlowmApi {
   private dashboardViews: DashboardView[] = [{ id: "overview", slug: "overview", name: "Overview", position: 0, isDefault: true }]
@@ -44,162 +44,11 @@ export class FlowmSqliteApi extends LinksApi implements FlowmApi {
               kind: event.flowKind === "income" ? "income" : event.flowKind === "transfer" ? "transfer" : "expense",
             }))
           : [],
-        transactions: cashflow.success ? cashflow.data as unknown as Record<string, unknown>[] : [],
+        cashflowEvents: cashflow.success ? cashflow.data as unknown as Record<string, unknown>[] : [],
         holdings: [],
         accounts: [],
         generatedAt: nowIso(),
       })
-    } catch (error) {
-      return fail(error)
-    }
-  }
-
-  async listFinancialEvents(input: ListFinancialEventsInput = {}): Promise<Result<FinancialEventSummary[]>> {
-    return this.listCashflowEvents({
-      dateFrom: input.dateFrom,
-      dateTo: input.dateTo,
-      flowKind: input.flowKind ? normalizeCashflowKind(input.flowKind) : undefined,
-      categoryId: input.categoryId,
-      sourceName: input.source,
-      limit: input.limit,
-      offset: input.offset,
-    })
-  }
-
-  async createFinancialEvent(input: CreateFinancialEventInput): Promise<Result<FinancialEventSummary>> {
-    return this.createCashflowEvent({
-      eventDate: input.date,
-      occurredAt: input.occurredAt ?? null,
-      title: input.counterparty ?? input.description ?? null,
-      counterparty: input.counterparty ?? null,
-      description: input.description ?? null,
-      amount: input.amount,
-      currency: input.currency,
-      direction: normalizeDirection(input.direction),
-      flowKind: normalizeCashflowKind(input.flowKind),
-      categoryId: input.categoryId,
-      accountHint: input.accountHint,
-    })
-  }
-
-  async updateFinancialEvent(input: UpdateFinancialEventInput): Promise<Result<FinancialEventSummary>> {
-    return this.updateCashflowEvent({
-      id: input.id,
-      flowKind: input.flowKind == null ? undefined : normalizeCashflowKind(input.flowKind),
-      categoryId: input.categoryId,
-      description: input.description,
-    })
-  }
-
-  async removeFinancialEvent(input: { id: FlowmId }): Promise<Result<void>> {
-    return this.deleteCashflowEvent(input)
-  }
-
-  async rebuildFinancialEventsFromImports(input?: { batchId?: FlowmId }): Promise<Result<{ created: number; skipped: number }>> {
-    return this.convertStatementLinesToCashflowEvents({ importId: input?.batchId })
-  }
-
-  async listPlans(input: ListPlansInput = {}): Promise<Result<PlanSummary[]>> {
-    try {
-      const plans: PlanSummary[] = []
-      if (input.planType == null || input.planType === "subscription") {
-        const subs = await this.listSubscriptions({ status: input.status })
-        if (subs.success) {
-          plans.push(...subs.data.map((sub) => ({
-            id: sub.id,
-            planType: "subscription",
-            name: sub.name,
-            counterparty: sub.merchant,
-            amount: sub.amount,
-            currency: sub.currency,
-            scheduleRule: `FREQ=${sub.billingCycle.toUpperCase()}`,
-            startDate: sub.nextChargeDate,
-            nextDueDate: sub.nextChargeDate,
-            status: sub.status,
-            categoryId: sub.categoryId,
-            meta: { sourceDomain: "subscriptions" },
-          })))
-        }
-      }
-      if (input.planType == null || input.planType === "loan_repayment" || input.planType === "loan") {
-        const loans = await this.listLoans({ status: input.status })
-        if (loans.success) {
-          plans.push(...loans.data.map((loan) => ({
-            id: loan.id,
-            planType: "loan_repayment",
-            name: loan.name,
-            counterparty: loan.lender,
-            amount: loan.paymentAmount,
-            currency: loan.currency,
-            scheduleRule: "FREQ=MONTHLY",
-            startDate: loan.startDate,
-            nextDueDate: loan.startDate,
-            status: loan.status,
-            meta: { sourceDomain: "loans" },
-          })))
-        }
-      }
-      return ok(plans)
-    } catch (error) {
-      return fail(error)
-    }
-  }
-
-  async createPlan(input: CreatePlanInput): Promise<Result<PlanSummary>> {
-    if (input.planType === "loan_repayment" || input.planType === "loan") {
-      const loan = await this.createLoan({
-        name: input.name,
-        lender: input.counterparty,
-        amount: undefined as never,
-        paymentAmount: input.amount,
-        currency: input.currency,
-        startDate: input.startDate,
-        note: input.meta == null ? null : JSON.stringify(input.meta),
-      } as CreateLoanInput)
-      if (!loan.success) return fail(loan.error)
-    } else {
-      const sub = await this.createSubscription({
-        name: input.name,
-        merchant: input.counterparty,
-        amount: input.amount,
-        currency: input.currency,
-        billingCycle: input.scheduleRule.includes("YEARLY") ? "yearly" : input.scheduleRule.includes("WEEKLY") ? "weekly" : "monthly",
-        nextChargeDate: input.startDate,
-        categoryId: input.categoryId,
-        note: input.meta == null ? null : JSON.stringify(input.meta),
-      })
-      if (!sub.success) return fail(sub.error)
-    }
-    const plans = await this.listPlans({ planType: input.planType })
-    if (!plans.success) return fail(plans.error)
-    return ok(plans.data[plans.data.length - 1]!)
-  }
-
-  async updatePlan(input: UpdatePlanInput): Promise<Result<PlanSummary>> {
-    const plan = (await this.listPlans()).success ? (await this.listPlans() as { success: true; data: PlanSummary[] }).data.find((row) => row.id === input.id) : null
-    if (plan?.planType === "loan_repayment") {
-      const updated = await this.updateLoan({ id: input.id, name: input.name, paymentAmount: input.amount, currency: input.currency, startDate: input.startDate, status: input.status })
-      if (!updated.success) return fail(updated.error)
-    } else {
-      const updated = await this.updateSubscription({ id: input.id, name: input.name, merchant: input.counterparty, amount: input.amount, currency: input.currency, nextChargeDate: input.startDate, status: input.status })
-      if (!updated.success) return fail(updated.error)
-    }
-    const plans = await this.listPlans()
-    if (!plans.success) return fail(plans.error)
-    return ok(plans.data.find((row) => row.id === input.id)!)
-  }
-
-  async generatePlanOccurrences(input: { planId?: FlowmId; throughDate: string }): Promise<Result<{ generated: number }>> {
-    const sub = await this.generateSubscriptionOccurrences({ id: input.planId, throughDate: input.throughDate })
-    const loan = await this.generateLoanPaymentOccurrences({ id: input.planId, throughDate: input.throughDate })
-    return ok({ generated: (sub.success ? sub.data.generated : 0) + (loan.success ? loan.data.generated : 0) })
-  }
-
-  async runFlowQuery(input: RunFlowQueryInput): Promise<Result<FlowQueryResult>> {
-    try {
-      if (input.sql == null || input.sql.trim().length === 0) return ok({ rows: [], columns: [] })
-      const rows = await this.all(input.sql)
-      return ok({ rows: rows as Record<string, unknown>[], columns: rows[0] == null ? [] : Object.keys(rows[0]), total: undefined })
     } catch (error) {
       return fail(error)
     }

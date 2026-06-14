@@ -9,6 +9,8 @@ import { useEffect, useRef } from "react"
 import { Toaster } from "@flowm/ui"
 import { createRootRoute, Outlet, useRouterState } from "@tanstack/react-router"
 import { TitleBar } from "../components/layout/TitleBar"
+import { DemoLedgerBanner } from "../components/layout/DemoLedgerBanner"
+import { GlobalConfirmModal } from "../components/ui/ConfirmModal"
 import { flowmPerfLog, roundMs } from "../lib/debug/perf"
 
 export const Route = createRootRoute({
@@ -32,12 +34,14 @@ function RootLayout() {
   }, [href])
 
   return (
-    <div style={{ height: "100vh", width: "100vw", overflow: "hidden", background: "var(--bg)" }}>
+    <div style={{ height: "100vh", width: "100vw", overflow: "hidden", background: "var(--bg)", display: "flex", flexDirection: "column" }}>
       <TitleBar />
-      <div style={{ height: "100vh", overflow: "hidden" }}>
+      <DemoLedgerBanner />
+      <div style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
         <Outlet />
       </div>
       <Toaster />
+      <GlobalConfirmModal />
     </div>
   )
 }

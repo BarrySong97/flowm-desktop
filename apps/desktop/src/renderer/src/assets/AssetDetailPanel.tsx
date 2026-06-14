@@ -16,6 +16,7 @@ import { formatNumber } from "@/lib/format"
 import { Kicker } from "../components/ui/Kicker"
 import { Dim } from "../components/ui/Dim"
 import { SectionTitle } from "../components/ui/SectionTitle"
+import { useConfirm } from "../components/ui/ConfirmModal"
 import { TYPE_LABEL } from "./AddAssetModal"
 
 const fmt = formatNumber
@@ -69,11 +70,11 @@ interface Props {
   asset: AssetSnapshotSummary
   onBack: () => void
   onEdit: (asset: AssetSnapshotSummary, mode: "balance" | "account") => void
-  onDelete: (id: AssetSnapshotSummary["id"]) => void
+  onDelete: (id: AssetSnapshotSummary["id"]) => void | Promise<void>
 }
 
 export function AssetDetailPanel({ asset, onBack, onEdit, onDelete }: Props) {
-  const [confirming, setConfirming] = useState(false)
+  const confirm = useConfirm()
   const [showHistory, setShowHistory] = useState(false)
   const historyQuery = useQuery(trpc.assets.snapshots.queryOptions({ assetItemId: asset.assetItemId, latestOnly: false }))
   usePagePerf("asset-detail", [
@@ -227,14 +228,17 @@ export function AssetDetailPanel({ asset, onBack, onEdit, onDelete }: Props) {
         <div style={{ flex: 1 }} />
         <Button
           size="sm"
-          variant={confirming ? "danger" : "danger-soft"}
+          variant="danger-soft"
           style={{ borderRadius: 5 }}
-          onPress={() => {
-            if (!confirming) { setConfirming(true) }
-            else { onDelete(asset.id) }
-          }}
+          onPress={() => confirm({
+            title: "删除账户",
+            description: `删除「${asset.accountName}」后无法恢复，确定继续？`,
+            confirmText: "删除",
+            danger: true,
+            onConfirm: () => onDelete(asset.id),
+          })}
         >
-          {confirming ? "确认删除" : "删除账户"}
+          删除账户
         </Button>
       </div>
 

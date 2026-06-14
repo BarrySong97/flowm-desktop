@@ -7,22 +7,15 @@
 
 import { app, BrowserWindow, ipcMain, shell } from "electron"
 import { electronApp, is, optimizer } from "@electron-toolkit/utils"
-import Database from "better-sqlite3"
-import { existsSync, mkdirSync } from "node:fs"
+import { existsSync } from "node:fs"
 import { join } from "node:path"
 import { pathToFileURL } from "node:url"
 import { performance } from "node:perf_hooks"
-import { drizzle } from "drizzle-orm/better-sqlite3"
-import { migrate } from "drizzle-orm/better-sqlite3/migrator"
 
-import { createFlowmApi, type FlowmApi } from "@flowm/api"
-import { schema } from "@flowm/db"
 import { appRouter } from "./trpc/router"
+import { LedgerStore } from "./ledgers"
 
-let db: Database.Database | null = null
-type DrizzleDb = ReturnType<typeof drizzle<typeof schema>>
-let drizzleDb: DrizzleDb | null = null
-let api: FlowmApi | null = null
+const ledgerStore = new LedgerStore()
 
 type TRPCRequest = {
   type: "query" | "mutation" | "subscription"
@@ -44,20 +37,6 @@ function configureUserDataPath(): void {
   app.setPath("userData", join(app.getPath("appData"), "com.flowm.desktop"))
 }
 
-function getDatabasePath(): string {
-  return join(app.getPath("userData"), "flowm.sqlite3")
-}
-
-function getDatabase(): Database.Database {
-  if (db != null) return db
-
-  mkdirSync(app.getPath("userData"), { recursive: true })
-  const database = new Database(getDatabasePath())
-  database.pragma("foreign_keys = ON")
-  db = database
-  return database
-}
-
 function roundMs(value: number): number {
   return Math.round(value * 10) / 10
 }
@@ -69,29 +48,6 @@ function finishTRPCProfile(request: TRPCRequest, startedAt: number): TRPCProfile
     path: request.path,
     mainMs: roundMs(performance.now() - startedAt),
   }
-}
-
-function getFlowmApiForMain(): FlowmApi {
-  api ??= createFlowmApi(getDrizzleDb())
-  return api
-}
-
-function getMigrationsFolder(): string {
-  if (app.isPackaged) {
-    return join(process.resourcesPath, "migrations")
-  }
-  // In dev, resolve from the monorepo packages/db directory
-  return join(app.getAppPath(), "../../packages/db/migrations")
-}
-
-function getDrizzleDb(): DrizzleDb {
-  if (drizzleDb != null) return drizzleDb
-  drizzleDb = drizzle(getDatabase(), { schema })
-  return drizzleDb
-}
-
-function runMigrations(): void {
-  migrate(getDrizzleDb(), { migrationsFolder: getMigrationsFolder() })
 }
 
 function getCallerProcedure(caller: unknown, path: string): unknown {
@@ -108,8 +64,11 @@ function serializeError(error: unknown): { message: string } {
 }
 
 function registerAppHandlers(): void {
-  ipcMain.handle("flowm:get-database-path", () => getDatabasePath())
-  ipcMain.handle("flowm:database-exists", () => existsSync(getDatabasePath()))
+  ipcMain.handle("flowm:get-database-path", () => ledgerStore.getActiveFilePath())
+  ipcMain.handle("flowm:database-exists", () => {
+    const path = ledgerStore.getActiveFilePath()
+    return path != null && existsSync(path)
+  })
 }
 
 function registerTrpcHandler(): void {
@@ -123,7 +82,7 @@ function registerTrpcHandler(): void {
 
     let caller: ReturnType<typeof appRouter.createCaller>
     try {
-      caller = appRouter.createCaller({ api: getFlowmApiForMain() })
+      caller = appRouter.createCaller({ api: ledgerStore.getApi(), ledgers: ledgerStore })
     } catch (error) {
       return { ok: false, error: serializeError(error) }
     }
@@ -208,19 +167,16 @@ app.whenReady().then(async () => {
 
   registerAppHandlers()
   try {
-    runMigrations()
+    await ledgerStore.init()
   } catch (err) {
-    console.error("[flowm] Migration failed — running without migration:", err)
+    console.error("[flowm] Ledger init failed:", err)
   }
   registerTrpcHandler()
   createWindow()
 })
 
 app.on("window-all-closed", () => {
-  db?.close()
-  db = null
-  drizzleDb = null
-  api = null
+  ledgerStore.close()
 
   if (process.platform !== "darwin") {
     app.quit()
