@@ -1,3 +1,10 @@
+/**
+ * @purpose Export the typed Drizzle database handle and schema from @flowm/db.
+ * @role    Database package public surface for API and desktop main process.
+ * @deps    Drizzle better-sqlite3 types and local schema exports.
+ * @gotcha  Product code should consume this typed handle rather than raw SQLite clients.
+ */
+
 import type { drizzle } from "drizzle-orm/better-sqlite3"
 import * as _schema from "./schema"
 

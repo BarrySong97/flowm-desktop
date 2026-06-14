@@ -1,3 +1,10 @@
+/**
+ * @purpose Model Beancount-style imported statement and account data structures.
+ * @role    Shared import/domain type definitions used by parsing and UI layers.
+ * @deps    TypeScript type-only declarations.
+ * @gotcha  These types describe imports; they must not imply current asset balances.
+ */
+
 // Domain primitives that mirror beancount's source-of-truth definitions.
 // See: beancount/core/data.py, beancount/core/account_types.py, beancount/core/flags.py
 

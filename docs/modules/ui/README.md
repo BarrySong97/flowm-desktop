@@ -11,6 +11,15 @@
 - `packages/ui/src/styles/globals.css` - shared global styles.
 - `packages/ui/components.json` - shadcn-style component configuration.
 
+## Primitive Map
+
+- `command.tsx` - command palette primitives based on `cmdk`.
+- `kbd.tsx` - keyboard hint display.
+- `scroll-area.tsx` - shared scroll area primitive.
+- `simple-toast.tsx` - lightweight toast surface.
+- `lib/utils.ts` - class-name merging helper.
+- `styles/globals.css` - shared tokens and base CSS imported by the renderer.
+
 ## Data Flow
 
 The renderer imports primitives from `@flowm/ui` and composes them into product-specific pages and panels under `apps/desktop/src/renderer/src`.
@@ -24,3 +33,4 @@ Consumers import from `@flowm/ui`.
 - Keep product-specific finance logic out of this package.
 - Match [design.md](../../../design.md) and the surrounding renderer style before adding new primitives.
 - Do not create duplicate primitives when an existing component can be extended safely.
+- Shared UI source files carry AI headers; keep header `@gotcha` notes about package-level reuse, not one-off page behavior.

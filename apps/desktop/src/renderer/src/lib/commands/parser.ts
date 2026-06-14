@@ -1,3 +1,10 @@
+/**
+ * @purpose Parse command-palette style user input into structured renderer commands.
+ * @role    Renderer utility for command workflows and tests.
+ * @deps    String parsing helpers and command type definitions.
+ * @gotcha  Keep parsing deterministic and free of side effects.
+ */
+
 export type ParsedCommand =
   | { kind: "refresh" }
 

@@ -1,3 +1,10 @@
+/**
+ * @purpose Bootstrap the Electron app, set the Flowm data location, run migrations, and open the desktop window.
+ * @role    Main-process composition root for native modules, SQLite, BrowserWindow, and IPC.
+ * @deps    Electron, better-sqlite3, Drizzle migrations, @flowm/api, and @flowm/db.
+ * @gotcha  Keep userData at com.flowm.desktop and keep SQLite ownership in the main process.
+ */
+
 import { app, BrowserWindow, ipcMain, shell } from "electron"
 import { electronApp, is, optimizer } from "@electron-toolkit/utils"
 import Database from "better-sqlite3"

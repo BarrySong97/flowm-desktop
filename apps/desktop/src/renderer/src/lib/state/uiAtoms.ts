@@ -1,3 +1,10 @@
+/**
+ * @purpose Define renderer UI state atoms shared across pages.
+ * @role    Client-side state module for view preferences and transient UI state.
+ * @deps    Jotai atoms and local renderer state types.
+ * @gotcha  Keep persisted finance data in the API/database layer, not UI atoms.
+ */
+
 import { atom } from "jotai"
 import { atomWithStorage } from "jotai/utils"
 

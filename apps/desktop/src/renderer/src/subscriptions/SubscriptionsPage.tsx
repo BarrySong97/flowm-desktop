@@ -1,3 +1,10 @@
+/**
+ * @purpose Render and manage the subscriptions overview page workflow.
+ * @role    Renderer feature surface for recurring future obligations.
+ * @deps    React, tRPC subscription queries, calendar/list UI, and forms.
+ * @gotcha  Subscription occurrences are forecasts until an explicit actual-cashflow workflow records them.
+ */
+
 import { useMemo, useState } from "react"
 import { Button, Label, Modal } from "@heroui/react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"

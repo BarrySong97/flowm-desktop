@@ -1,3 +1,10 @@
+/**
+ * @purpose Provide renderer trpc helper functions.
+ * @role    Shared utility module for React feature code.
+ * @deps    Browser-safe TypeScript utilities and local domain types.
+ * @gotcha  Keep Node, Electron main, and SQLite access behind preload/tRPC.
+ */
+
 import { QueryClient } from "@tanstack/react-query"
 import { createTRPCClient } from "@trpc/client"
 import { createTRPCOptionsProxy } from "@trpc/tanstack-react-query"

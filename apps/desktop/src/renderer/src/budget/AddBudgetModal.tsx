@@ -1,3 +1,10 @@
+/**
+ * @purpose Render and manage the budget add budget modal workflow.
+ * @role    Renderer feature surface for budget review and editing.
+ * @deps    React, tRPC queries, and budget UI helpers.
+ * @gotcha  Budget views summarize cashflow without turning plans into actual expenses.
+ */
+
 import { useEffect, useState } from "react"
 import { Button, Input, Label, Modal } from "@heroui/react"
 

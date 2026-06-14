@@ -1,3 +1,10 @@
+/**
+ * @purpose Render and manage the present-asset add asset modal workflow.
+ * @role    Renderer feature surface for manually maintained asset snapshots.
+ * @deps    React, tRPC queries, and shared renderer UI components.
+ * @gotcha  Do not infer asset balances from imported statement lines.
+ */
+
 import { Button, Calendar, DateField, DatePicker, Input, Label, ListBox, Modal, Select } from "@heroui/react"
 import type { DateValue } from "@internationalized/date"
 import { parseDate } from "@internationalized/date"

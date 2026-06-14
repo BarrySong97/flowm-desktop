@@ -1,3 +1,10 @@
+/**
+ * @purpose Define the canonical Flowm SQLite schema with Drizzle tables and relations.
+ * @role    Source of truth for cashflow, asset snapshots, budgets, imports, subscriptions, loans, and ledger metadata.
+ * @deps    drizzle-orm SQLite builders and relation helpers.
+ * @gotcha  Keep cashflow, assets, and future obligations separate; migrations must preserve user data.
+ */
+
 import { index, integer, primaryKey, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core"
 
 export const categories = sqliteTable(

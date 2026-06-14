@@ -1,3 +1,10 @@
+/**
+ * @purpose Render and calculate the loan schedule bar workflow.
+ * @role    Renderer feature surface for future loan obligations.
+ * @deps    React, tRPC loan queries, schedule helpers, and UI primitives.
+ * @gotcha  Loan plans are forecasts; liabilities in net worth come from asset snapshots.
+ */
+
 import { useState } from "react"
 import { createPortal } from "react-dom"
 import { formatNumber } from "@/lib/format"

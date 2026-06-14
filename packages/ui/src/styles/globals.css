@@ -1,3 +1,10 @@
+/**
+ * @purpose Define shared Flowm UI theme tokens and base styles.
+ * @role    Workspace-wide CSS foundation imported by the desktop renderer.
+ * @deps    Tailwind layers, CSS variables, and component token conventions.
+ * @gotcha  Keep product-page overrides in the renderer instead of the shared package.
+ */
+
 @import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;700&display=swap");
 
 @import "@heroui/styles";

@@ -11,6 +11,14 @@
 - `packages/db/migrations/` - generated SQLite migrations and Drizzle metadata.
 - `packages/db/drizzle.config.ts` - Drizzle migration configuration.
 
+## Schema Areas
+
+- Ledger metadata and settings tables describe the database itself.
+- Imported statement records and `cashflow_events` describe past cashflow.
+- `asset_snapshots` describes present assets and liabilities.
+- Budgets, categories, subscriptions, and loans support planning and review workflows.
+- Subscription and loan occurrence tables are forecast artifacts, not actual cashflow.
+
 ## Data Flow
 
 Electron main opens the SQLite file, runs migrations, and passes the typed database handle into `@flowm/api`. Product code queries exported schema objects through Drizzle.
@@ -25,3 +33,4 @@ Electron main opens the SQLite file, runs migrations, and passes the typed datab
 - Schema changes must preserve the asymmetric layer boundaries: cashflow, asset snapshots, and future obligations are not one reconciled ledger.
 - Migration files are generated artifacts but still user-data critical. Review them before shipping.
 - Do not bypass the typed database handle from product code.
+- Handwritten database TypeScript files carry AI headers. Generated SQL/JSON migration artifacts are not part of file-header enforcement.

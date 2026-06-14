@@ -1,3 +1,10 @@
+/**
+ * @purpose Render the dock layout component for the desktop shell.
+ * @role    Reusable renderer shell/navigation building block.
+ * @deps    React, route state, platform metadata, and local UI primitives.
+ * @gotcha  Keep layout concerns separate from product data mutations.
+ */
+
 import { Link, useRouterState } from "@tanstack/react-router"
 import { flowmPerfLog } from "@/lib/debug/perf"
 

@@ -1,3 +1,10 @@
+/**
+ * @purpose Render and manage the present-asset assets page workflow.
+ * @role    Renderer feature surface for manually maintained asset snapshots.
+ * @deps    React, tRPC queries, and shared renderer UI components.
+ * @gotcha  Do not infer asset balances from imported statement lines.
+ */
+
 import { memo, useMemo, useState } from "react"
 import { Group as PanelGroup, Panel, Separator as PanelResizeHandle } from "react-resizable-panels"
 import { Button } from "@heroui/react"

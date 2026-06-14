@@ -1,3 +1,10 @@
+/**
+ * @purpose Provide lightweight renderer performance/debug helpers.
+ * @role    Development utility for measuring UI work without product side effects.
+ * @deps    Browser performance APIs.
+ * @gotcha  Do not leave noisy production logging on by default.
+ */
+
 import { useEffect, useRef } from "react"
 import type { QueryClient } from "@tanstack/react-query"
 

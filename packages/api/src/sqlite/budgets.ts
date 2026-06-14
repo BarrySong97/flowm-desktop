@@ -1,3 +1,10 @@
+/**
+ * @purpose Implement budgets queries and mutations for the SQLite-backed API facade.
+ * @role    Product API service module called by the Electron main tRPC router.
+ * @deps    @flowm/db schema, Drizzle query builder, and shared API helpers.
+ * @gotcha  Preserve Flowm layer boundaries and avoid raw SQL except targeted Drizzle sql fragments.
+ */
+
 import type { SqlParam } from "@flowm/db"
 import type { Result } from "@flowm/shared"
 import type { BudgetItemSummary, BudgetPeriodSummary, BudgetProgressRow, BudgetReferenceProgressInput, BudgetReferenceProgressRow, BudgetSetSummary, BusinessRecord, CreateBudgetInput, CreateBudgetItemInput, CreateBudgetPeriodInput, CreateBudgetSetInput, ListBudgetItemsInput, ListBudgetPeriodsInput, UpdateBudgetItemInput } from "../index"

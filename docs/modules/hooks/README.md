@@ -9,8 +9,9 @@
 - `scripts/check-docs.mjs` - checks AI file headers, local markdown links, and module doc drift.
 - `scripts/hooks/guard.mjs` - blocks high-risk shell commands in AI tool hooks.
 - `scripts/hooks/guard-files.mjs` - blocks edits to sensitive files such as `.env` and keys.
-- `scripts/hooks/format-lint.mjs` - optional post-edit lint/format feedback hook.
-- `scripts/hooks/pre-commit` - optional git hook entry point.
+- `scripts/hooks/format-lint.mjs` - post-edit Oxlint/Oxfmt feedback hook for one edited file.
+- `scripts/hooks/check-staged.mjs` - pre-commit Oxlint/Oxfmt gate for staged files.
+- `scripts/hooks/pre-commit` - optional git hook entry point for docs and staged-file checks.
 - `.claude/settings.json` - Claude Code hook wiring.
 - `.codex/hooks.json` and `.codex/config.toml` - Codex hook wiring.
 
@@ -21,6 +22,9 @@ AI tool event JSON is passed to hook scripts on stdin. Scripts either stay silen
 ## Interfaces
 
 - Manual check: `pnpm check-docs`.
+- Workspace lint: `pnpm lint`.
+- Workspace format check: `pnpm format:check`.
+- Staged-file hook check: `node scripts/hooks/check-staged.mjs`.
 - Stop hook check: `node scripts/check-docs.mjs --hook`.
 - Strict audit: `node scripts/check-docs.mjs --strict`.
 

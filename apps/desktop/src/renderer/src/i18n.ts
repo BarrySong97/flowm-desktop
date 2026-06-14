@@ -1,3 +1,10 @@
+/**
+ * @purpose Configure renderer internationalization resources and language fallback.
+ * @role    Shared i18n setup imported by the React app.
+ * @deps    i18next resources under renderer locales.
+ * @gotcha  Keep translation keys stable for tests and localized UI.
+ */
+
 import i18n from "i18next"
 import { initReactI18next } from "react-i18next"
 import enUS from "./locales/en-US/translation.json"

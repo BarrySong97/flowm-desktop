@@ -7,6 +7,12 @@
 - Types, React components, and classes: `PascalCase`.
 - Constants: use `UPPER_SNAKE_CASE` only for true constants; otherwise prefer named `const` values.
 
+## Formatting And Linting
+
+- Use Oxfmt for formatting and Oxlint for JavaScript/TypeScript linting.
+- Run `pnpm format:check` before broad verification; use `pnpm format` only when you intend to write formatting changes.
+- Run `pnpm lint` after tooling, shared code, or cross-package TypeScript changes.
+
 ## Architecture Boundaries
 
 - Renderer code must not import Electron main-process modules or open SQLite directly.
@@ -24,7 +30,7 @@
 
 ## File Headers
 
-New and substantially changed source files should carry a compact AI header near the top:
+Handwritten source files should carry a compact AI header near the top:
 
 ```ts
 /**
@@ -36,6 +42,8 @@ New and substantially changed source files should carry a compact AI header near
 ```
 
 Do not duplicate function signatures or implementation details in headers.
+
+Generated files and ambient tool declarations should be excluded in `check-docs.config.json` instead of edited. Current examples are `apps/desktop/src/renderer/src/routeTree.gen.ts` and `apps/desktop/src/renderer/src/vite-env.d.ts`.
 
 ## Errors And User Data
 

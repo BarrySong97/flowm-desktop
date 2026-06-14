@@ -1,3 +1,10 @@
+/**
+ * @purpose Render the net worth trend finance chart component.
+ * @role    Reusable renderer chart used by dashboard or feature pages.
+ * @deps    React charting primitives, formatted finance data, and CSS tokens.
+ * @gotcha  Charts must preserve the distinction between cashflow, snapshots, and forecasts.
+ */
+
 import { AreaChart, Area, ResponsiveContainer, Tooltip } from "recharts"
 import { formatCurrency } from "@/lib/format"
 

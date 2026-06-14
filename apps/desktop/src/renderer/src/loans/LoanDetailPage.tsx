@@ -1,3 +1,10 @@
+/**
+ * @purpose Render and calculate the loan detail page workflow.
+ * @role    Renderer feature surface for future loan obligations.
+ * @deps    React, tRPC loan queries, schedule helpers, and UI primitives.
+ * @gotcha  Loan plans are forecasts; liabilities in net worth come from asset snapshots.
+ */
+
 import React, { useMemo } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"

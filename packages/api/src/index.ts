@@ -1,3 +1,10 @@
+/**
+ * @purpose Export the Flowm product facade consumed by the Electron main router.
+ * @role    Public API surface for cashflow, assets, budgets, imports, subscriptions, loans, and dashboard data.
+ * @deps    @flowm/db schema, sqlite service modules, and seed helpers.
+ * @gotcha  Preserve the asymmetric finance model across all facade methods.
+ */
+
 import { type Database } from "@flowm/db"
 import { type Result } from "@flowm/shared"
 import { FlowmSqliteApi } from "./sqlite/dashboard"

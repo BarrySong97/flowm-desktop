@@ -1,3 +1,10 @@
+/**
+ * @purpose Provide account-name formatting and hierarchy helpers.
+ * @role    Platform-light account utility for imports and display code.
+ * @deps    String utilities only.
+ * @gotcha  Do not read balances or infer assets from account names.
+ */
+
 import { ACCOUNT_TYPES, type AccountType } from "../types/beancount"
 
 // Beancount account names are colon-delimited, with the leading component

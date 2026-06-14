@@ -1,3 +1,10 @@
+/**
+ * @purpose Layer desktop renderer styles on top of shared @flowm/ui styles.
+ * @role    Renderer-specific CSS for app chrome, calendars, charts, and scroll behavior.
+ * @deps    @flowm/ui/styles and CSS custom properties.
+ * @gotcha  Avoid broad global rules that break reusable UI primitives.
+ */
+
 @import "@flowm/ui/styles";
 
 /* Custom scrollbar for virtual table — matches Radix ScrollArea exactly */

@@ -1,3 +1,10 @@
+/**
+ * @purpose Render and manage imported cashflow add tx modal workflow.
+ * @role    Renderer feature surface for statement lines and cashflow details.
+ * @deps    React, tRPC import/cashflow queries, and table/detail UI.
+ * @gotcha  Imports describe past cashflow and must not update asset balances automatically.
+ */
+
 import { useEffect, useMemo, useState } from "react"
 import { Button, Calendar, DateField, DatePicker, Input, Label, Modal } from "@heroui/react"
 import type { DateValue } from "@internationalized/date"

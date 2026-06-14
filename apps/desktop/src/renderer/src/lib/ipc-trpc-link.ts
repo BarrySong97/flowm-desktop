@@ -1,3 +1,10 @@
+/**
+ * @purpose Provide renderer ipc trpc link helper functions.
+ * @role    Shared utility module for React feature code.
+ * @deps    Browser-safe TypeScript utilities and local domain types.
+ * @gotcha  Keep Node, Electron main, and SQLite access behind preload/tRPC.
+ */
+
 import { TRPCClientError, type TRPCLink } from "@trpc/client"
 import { observable } from "@trpc/server/observable"
 import type { AppRouter } from "../../../main/trpc/router"

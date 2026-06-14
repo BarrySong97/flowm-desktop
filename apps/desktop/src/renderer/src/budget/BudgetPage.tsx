@@ -1,3 +1,10 @@
+/**
+ * @purpose Render and manage the budget overview page workflow.
+ * @role    Renderer feature surface for budget review and editing.
+ * @deps    React, tRPC queries, and budget UI helpers.
+ * @gotcha  Budget views summarize cashflow without turning plans into actual expenses.
+ */
+
 import { useState } from "react"
 import { Shell } from "../components/layout/Shell"
 import { Button } from "@heroui/react"

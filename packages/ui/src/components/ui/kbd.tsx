@@ -1,3 +1,10 @@
+/**
+ * @purpose Render the kbd renderer UI primitive.
+ * @role    Local desktop UI atom shared across feature pages.
+ * @deps    React props, CSS tokens, and small formatting helpers.
+ * @gotcha  Keep product data fetching out of reusable UI atoms.
+ */
+
 import * as React from "react"
 import { cn } from "../../lib/utils"
 

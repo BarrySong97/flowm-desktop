@@ -1,3 +1,10 @@
+/**
+ * @purpose Render and manage imported cashflow imports page workflow.
+ * @role    Renderer feature surface for statement lines and cashflow details.
+ * @deps    React, tRPC import/cashflow queries, and table/detail UI.
+ * @gotcha  Imports describe past cashflow and must not update asset balances automatically.
+ */
+
 import { useRef, useMemo, useState } from "react"
 import { Button } from "@heroui/react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"

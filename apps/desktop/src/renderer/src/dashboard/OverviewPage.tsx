@@ -1,3 +1,10 @@
+/**
+ * @purpose Render the dashboard overview across Flowm finance layers.
+ * @role    Renderer overview that composes cashflow, assets, and obligations.
+ * @deps    React, tRPC dashboard queries, charts, and UI primitives.
+ * @gotcha  Show layers together without implying they reconcile into one ledger.
+ */
+
 import { useMemo } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"

@@ -47,6 +47,17 @@ pnpm check-types
 
 The alias `pnpm typecheck` also runs `turbo check-types`.
 
+## Lint And Format
+
+```bash
+pnpm lint
+pnpm lint:fix
+pnpm format:check
+pnpm format
+```
+
+`pnpm lint` runs Oxlint across the workspace. `pnpm format:check` checks Oxfmt formatting without writing files; `pnpm format` writes Oxfmt changes in place.
+
 ## Test
 
 ```bash

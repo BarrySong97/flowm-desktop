@@ -1,3 +1,10 @@
+/**
+ * @purpose Declare the renderer-visible Flowm preload bridge on window.
+ * @role    Type contract shared by renderer code and preload implementation.
+ * @deps    Electron preload types and IPC request shape.
+ * @gotcha  Update this declaration whenever preload APIs change.
+ */
+
 import type { ElectronAPI } from "@electron-toolkit/preload"
 
 declare global {

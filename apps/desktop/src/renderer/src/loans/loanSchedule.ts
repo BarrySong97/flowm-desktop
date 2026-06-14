@@ -1,3 +1,10 @@
+/**
+ * @purpose Calculate projected loan schedule values for renderer displays.
+ * @role    Renderer feature surface for future loan obligations.
+ * @deps    React, tRPC loan queries, schedule helpers, and UI primitives.
+ * @gotcha  Loan plans are forecasts; liabilities in net worth come from asset snapshots.
+ */
+
 import type { RouterOutputs } from "@/lib/trpc"
 
 export type LoanSummary = RouterOutputs["loans"]["list"][number]

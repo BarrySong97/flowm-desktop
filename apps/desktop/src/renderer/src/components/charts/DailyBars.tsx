@@ -1,3 +1,10 @@
+/**
+ * @purpose Render the daily bars finance chart component.
+ * @role    Reusable renderer chart used by dashboard or feature pages.
+ * @deps    React charting primitives, formatted finance data, and CSS tokens.
+ * @gotcha  Charts must preserve the distinction between cashflow, snapshots, and forecasts.
+ */
+
 import { BarChart, Bar, Cell, ResponsiveContainer, Tooltip } from "recharts"
 import { formatCurrency } from "@/lib/format"
 

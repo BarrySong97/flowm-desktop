@@ -1,3 +1,10 @@
+/**
+ * @purpose Render and manage the budget detail page workflow.
+ * @role    Renderer feature surface for budget review and editing.
+ * @deps    React, tRPC queries, and budget UI helpers.
+ * @gotcha  Budget views summarize cashflow without turning plans into actual expenses.
+ */
+
 import { useMemo, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"

@@ -1,3 +1,10 @@
+/**
+ * @purpose Render the asset treemap finance chart component.
+ * @role    Reusable renderer chart used by dashboard or feature pages.
+ * @deps    React charting primitives, formatted finance data, and CSS tokens.
+ * @gotcha  Charts must preserve the distinction between cashflow, snapshots, and forecasts.
+ */
+
 import { Treemap, ResponsiveContainer, Tooltip } from "recharts"
 import { formatNumber } from "@/lib/format"
 

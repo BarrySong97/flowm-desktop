@@ -1,3 +1,10 @@
+/**
+ * @purpose Verify command parser.test behavior in the renderer test suite.
+ * @role    Regression test for renderer utilities and shared UI behavior.
+ * @deps    Vitest and the module under test.
+ * @gotcha  Keep assertions deterministic and independent of live SQLite data.
+ */
+
 import { describe, expect, it } from "vitest"
 import { parseFlowmCommand } from "../lib/commands/parser"
 

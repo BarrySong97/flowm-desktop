@@ -1,3 +1,10 @@
+/**
+ * @purpose Render the transaction table renderer UI primitive.
+ * @role    Local desktop UI atom shared across feature pages.
+ * @deps    React props, CSS tokens, and small formatting helpers.
+ * @gotcha  Keep product data fetching out of reusable UI atoms.
+ */
+
 import { DataTable, DataTableRow, DataTableCell } from "./DataTable"
 import { ColorDot } from "./ColorDot"
 import { categoryColor } from "@/lib/domainDisplay"

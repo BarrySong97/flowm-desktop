@@ -78,6 +78,8 @@ const DEFAULTS = {
   headerMarker: "@purpose",
   headerScanLines: 20,
   docsDir: "docs",
+  ignoreFiles: [],
+  moduleAliases: {},
 };
 
 let CONFIG = { ...DEFAULTS };
@@ -94,6 +96,13 @@ const IGNORE = new Set(CONFIG.ignoreDirs);
 const NON_MODULE = new Set(CONFIG.nonModuleDirs);
 const hasSourceExt = (file) => CONFIG.sourceExts.some((ext) => file.endsWith(ext));
 const toPosix = (file) => file.split(sep).join("/");
+const ignoredFiles = new Set(CONFIG.ignoreFiles.map(toPosix));
+const moduleAliases = CONFIG.moduleAliases ?? {};
+
+function isIgnoredFile(file) {
+  const rel = toPosix(relative(ROOT, file));
+  return ignoredFiles.has(rel) || ignoredFiles.has(toPosix(file));
+}
 
 function walk(dir, acc = []) {
   let entries;
@@ -108,7 +117,7 @@ function walk(dir, acc = []) {
     if (entry.isDirectory()) {
       if (!IGNORE.has(entry.name)) walk(full, acc);
     } else if (entry.isFile()) {
-      acc.push(full);
+      if (!isIgnoredFile(full)) acc.push(full);
     }
   }
   return acc;
@@ -200,7 +209,7 @@ if (changed) {
     const parts = rel.split("/");
     if (parts.length < 2) continue;
 
-    const mod = parts[0];
+    const mod = moduleAliases[parts[0]] ?? parts[0];
     if (NON_MODULE.has(mod) || seen.has(mod)) continue;
     seen.add(mod);
 

@@ -1,3 +1,10 @@
+/**
+ * @purpose Implement dashboard queries and mutations for the SQLite-backed API facade.
+ * @role    Product API service module called by the Electron main tRPC router.
+ * @deps    @flowm/db schema, Drizzle query builder, and shared API helpers.
+ * @gotcha  Preserve Flowm layer boundaries and avoid raw SQL except targeted Drizzle sql fragments.
+ */
+
 import type { Result } from "@flowm/shared"
 import type { AddDashboardCardInput, CreateDashboardViewInput, CreateFinancialEventInput, CreateLoanInput, CreatePlanInput, DashboardCard, DashboardLayoutEntry, DashboardSnapshot, DashboardView, FinancialEventSummary, FlowQueryResult, FlowmApi, FlowmId, ListDashboardCardsInput, ListDashboardLayoutsInput, ListFinancialEventsInput, ListPlansInput, PlanSummary, RunFlowQueryInput, SaveDashboardLayoutsInput, UpdateDashboardCardInput, UpdateDashboardViewInput, UpdateFinancialEventInput, UpdatePlanInput } from "../index"
 import { LinksApi } from "./links"

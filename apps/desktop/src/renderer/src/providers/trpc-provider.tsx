@@ -1,3 +1,10 @@
+/**
+ * @purpose Provide trpc provider wiring for renderer React context.
+ * @role    Top-level renderer provider used by App.
+ * @deps    React context, tRPC client, and preload IPC link.
+ * @gotcha  Keep provider setup browser-safe and typed against preload APIs.
+ */
+
 import type { ReactNode } from "react"
 import { QueryClientProvider } from "@tanstack/react-query"
 import { Provider as JotaiProvider } from "jotai"

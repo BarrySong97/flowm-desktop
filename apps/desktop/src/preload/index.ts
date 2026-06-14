@@ -1,3 +1,10 @@
+/**
+ * @purpose Expose the typed Flowm bridge from Electron preload to the renderer.
+ * @role    Secure IPC adapter that keeps renderer code away from Node and SQLite.
+ * @deps    Electron contextBridge/ipcRenderer and platform metadata.
+ * @gotcha  Only expose narrow, typed APIs; avoid leaking raw Electron or filesystem access.
+ */
+
 import { contextBridge, ipcRenderer } from "electron"
 import { electronAPI } from "@electron-toolkit/preload"
 

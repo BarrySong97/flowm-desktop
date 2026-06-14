@@ -1,3 +1,10 @@
+/**
+ * @purpose Create deterministic demo data across Flowm cashflow, assets, budgets, subscriptions, and loans.
+ * @role    Demo fixture builder for app previews, tests, and packaged sample ledgers.
+ * @deps    @flowm/db schema and API seed utilities.
+ * @gotcha  Demo forecasts and snapshots still follow the asymmetric model; do not reconcile them artificially.
+ */
+
 import { createFlowmApi, type FlowmId } from "./index"
 import type { Database, SqlParam, SqlRow } from "@flowm/db"
 

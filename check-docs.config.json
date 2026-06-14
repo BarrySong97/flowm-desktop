@@ -1,6 +1,15 @@
 {
-  "sourceExts": [".js", ".mjs", ".cjs", ".ts", ".tsx"],
-  "sourceRoots": ["scripts"],
+  "sourceExts": [".js", ".mjs", ".cjs", ".ts", ".tsx", ".css"],
+  "sourceRoots": [
+    "apps/desktop/src",
+    "apps/desktop/scripts",
+    "packages/api/src",
+    "packages/api/tests",
+    "packages/db",
+    "packages/shared/src",
+    "packages/ui/src",
+    "scripts"
+  ],
   "ignoreDirs": [
     "node_modules",
     ".git",
@@ -28,5 +37,24 @@
   ],
   "headerMarker": "@purpose",
   "headerScanLines": 20,
-  "docsDir": "docs"
+  "docsDir": "docs",
+  "ignoreFiles": [
+    "apps/desktop/src/renderer/src/routeTree.gen.ts",
+    "apps/desktop/src/renderer/src/vite-env.d.ts"
+  ],
+  "moduleAliases": {
+    "main": "desktop",
+    "preload": "desktop",
+    "renderer": "desktop",
+    "trpc": "desktop",
+    "src": "db",
+    "schema": "db",
+    "sqlite": "api",
+    "types": "shared",
+    "utils": "shared",
+    "components": "ui",
+    "lib": "ui",
+    "styles": "ui",
+    "hooks": "hooks"
+  }
 }

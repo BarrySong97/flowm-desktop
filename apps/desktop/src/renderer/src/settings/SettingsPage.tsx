@@ -1,3 +1,10 @@
+/**
+ * @purpose Render and manage the settings page workflow.
+ * @role    Renderer feature surface for app configuration and reference data.
+ * @deps    React, tRPC settings/reference queries, and local UI components.
+ * @gotcha  Settings changes can affect user data paths and categories; keep destructive actions explicit.
+ */
+
 import { useState } from "react"
 import { Tabs } from "@heroui/react"
 import { useQuery } from "@tanstack/react-query"

@@ -1,3 +1,10 @@
+/**
+ * @purpose Render the dim renderer UI primitive.
+ * @role    Local desktop UI atom shared across feature pages.
+ * @deps    React props, CSS tokens, and small formatting helpers.
+ * @gotcha  Keep product data fetching out of reusable UI atoms.
+ */
+
 import type { CSSProperties, ReactNode } from "react"
 
 interface DimProps { children: ReactNode; className?: string; style?: CSSProperties }
