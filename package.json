@@ -11,6 +11,7 @@
     "dev": "turbo -F desktop dev",
     "build": "turbo build",
     "check-types": "turbo check-types",
+    "check-docs": "node scripts/check-docs.mjs",
     "typecheck": "turbo check-types",
     "test": "vitest",
     "seed:demo": "pnpm -F desktop seed:demo",

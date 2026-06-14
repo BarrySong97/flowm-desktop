@@ -16,8 +16,7 @@ apps/
   desktop/   Electron main/preload process plus React renderer
 packages/
   api/       Product facade used by the renderer
-  business/  Domain services
-  db/        SQLite schema, migrations, storage adapter, SQL executor
+  db/        Drizzle schema, migrations, and typed database handle
   shared/    Shared types and utilities
   ui/        Shared UI primitives and styles
 ```
@@ -39,13 +38,29 @@ Electron app can read the existing Flowm SQLite database.
 pnpm install
 pnpm dev
 pnpm check-types
+pnpm check-docs
 pnpm test
 pnpm build
 pnpm package
 ```
 
-The main workbench lives in:
+`pnpm test` runs Vitest through Electron's Node runtime after rebuilding native
+dependencies for Electron. This keeps `better-sqlite3` on the same ABI used by
+the desktop app.
+
+## Agent Harness Docs
+
+Agents should start at [AGENTS.md](AGENTS.md). Detailed run, testing, design,
+module, topic, and decision docs live under [docs/](docs/). The documentation
+sensor is:
+
+```bash
+pnpm check-docs
+```
+
+The renderer entry and route shell live in:
 
 ```text
-apps/desktop/src/renderer/src/components/terminal/TerminalApp.tsx
+apps/desktop/src/renderer/src/App.tsx
+apps/desktop/src/renderer/src/routes/__root.tsx
 ```

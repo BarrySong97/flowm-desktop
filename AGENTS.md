@@ -1,96 +1,48 @@
-# AGENTS.md — Flowm Desktop
+# Flowm Desktop - Agent Guide
 
-Flowm Desktop is an Electron desktop app for asymmetric personal finance tracking.
+**What:** Flowm Desktop is an Electron app for asymmetric personal finance tracking.
+**Architecture:** Electron main/preload + React renderer + tRPC IPC + Drizzle/SQLite. Run commands from [docs/run.md](docs/run.md).
 
 ## Product Model
 
-Flowm is not a traditional double-entry ledger that requires every account,
-balance, and reconciliation to line up perfectly. It separates personal finance
-into three intentionally independent layers:
+Flowm is not a traditional double-entry ledger. It keeps three independent layers:
 
-1. Past cashflow: how much was spent and how much was earned.
+1. Past cashflow: how much was spent and earned.
 2. Present assets: how much money and value exists now.
-3. Future obligations: how much will likely be paid later through subscriptions,
-   loans, and other plans.
+3. Future obligations: what will likely be paid later through subscriptions, loans, and plans.
 
-The important rule is asymmetry: imported statements, asset snapshots, and
-future plans can inform each other in the UI, but they do not have to reconcile
-into one perfectly balanced book.
+Imported statements, asset snapshots, and future plans may inform each other in the UI, but they do not have to reconcile into one balanced book.
 
-## Domain Boundaries
+## Red Lines
 
-- Past cashflow lives in `financial_events` and imported statement records.
-- Present assets live in `asset_snapshots`; balances are manually maintained and
-  are not inferred from transactions.
-- Future obligations live in `plans` and `plan_occurrences`; subscription and
-  loan plans are forecasting records and do not automatically become actual
-  expenses or asset-liability changes.
-- Liabilities in net worth come from liability asset snapshots, not from loan
-  plans.
+- Keep the asymmetric model intact; do not infer asset balances from imported statement lines. See [docs/topics/asymmetric-finance-model.md](docs/topics/asymmetric-finance-model.md).
+- Subscription and loan plans are forecasts. Do not turn them into actual expenses or asset-liability changes unless a feature explicitly asks for that workflow.
+- Liabilities in net worth come from liability asset snapshots, not from loan plans.
+- Preserve Electron boundaries: renderer code reaches app data only through preload/tRPC IPC. See [docs/topics/electron-ipc-trpc.md](docs/topics/electron-ipc-trpc.md).
+- Access SQLite through Drizzle against `@flowm/db` schema. Do not write raw SQL strings or reach through `db.$client`; use `sql\`...\`` only for expressions Drizzle cannot express.
+- Keep `better-sqlite3` on the Electron ABI. Do not run plain Vitest escape hatches unless you intentionally plan to rebuild app deps afterward. See [docs/topics/electron-node-abi.md](docs/topics/electron-node-abi.md).
 
-## Structure
+## Workflow
 
-- `apps/desktop` - Electron main/preload process and React renderer.
-- `packages/api` - Product facade used by the renderer.
-- `packages/business` - Domain services, import parsing, plans, and money logic.
-- `packages/db` - SQLite schema, migrations, storage adapter, SQL executor.
-- `packages/shared` - Shared types and utilities.
-- `packages/ui` - Shared UI primitives and styles.
+1. Read the relevant module doc in [docs/modules/](docs/modules/) plus any linked topic docs and file headers.
+2. For broad or risky work, write a plan in [docs/plans/](docs/plans/) before changing code.
+3. Change code according to [docs/conventions.md](docs/conventions.md), keeping edits scoped.
+4. Sync nearby docs: file headers for changed source files, the matching module doc, and an ADR in [docs/decisions/](docs/decisions/) for durable architecture decisions.
+5. Run the smallest meaningful verification from [docs/testing.md](docs/testing.md), then broaden to `pnpm check-types`, `pnpm test`, and `pnpm build` when feasible.
+6. Run `pnpm check-docs` or `node scripts/check-docs.mjs` before finishing and clear hard failures.
 
-## Runtime
+Ratchet rule: when an agent mistake reveals a repeatable risk, add a test, lint rule, sensor, or ADR so the same mistake is harder next time.
 
-The renderer talks to the Electron main process through tRPC IPC. The main
-process owns the SQLite connection, runs migrations, and serves product APIs
-backed by `@flowm/api` and `@flowm/db`.
+## Navigation
 
-The Electron main process sets `userData` to:
-
-```text
-~/Library/Application Support/com.flowm.desktop
-```
-
-The database file is:
-
-```text
-flowm.sqlite3
-```
-
-This keeps compatibility with the previous desktop app data location.
-
-## Commands
-
-```bash
-pnpm install
-pnpm dev
-pnpm check-types
-pnpm test
-pnpm build
-pnpm package
-```
-
-If `better-sqlite3` fails to load in Electron dev with a Node ABI mismatch, run:
-
-```bash
-pnpm -F desktop exec electron-builder install-app-deps
-```
-
-## Working Rules
-
-- Keep product logic aligned with the asymmetric model.
-- Do not infer asset balances from imported statements.
-- Do not turn subscription or loan plans into actual expenses unless a feature
-  explicitly asks for that workflow.
-- Preserve the separation between Electron main/preload and renderer code.
-- Renderer code must access SQLite only through the preload bridge.
-- Before finishing substantial changes, run `pnpm check-types`, `pnpm test`,
-  and `pnpm build` when feasible.
-
-## Key Files
-
-- Main shell: `apps/desktop/src/renderer/src/components/terminal/TerminalApp.tsx`
-- Electron main process: `apps/desktop/src/main/index.ts`
-- Preload bridge: `apps/desktop/src/preload/index.ts`
-- Product facade: `packages/api/src/index.ts`
-- SQL executor: `packages/db/src/adapters/sql/executor.ts`
-- Core schemas: `packages/db/src/schema/financial_events.ts`,
-  `packages/db/src/schema/asset_snapshots.ts`, `packages/db/src/schema/plans.ts`
+- Product model: [docs/topics/asymmetric-finance-model.md](docs/topics/asymmetric-finance-model.md)
+- Runtime and IPC: [docs/architecture.md](docs/architecture.md), [docs/topics/electron-ipc-trpc.md](docs/topics/electron-ipc-trpc.md)
+- Native dependency ABI: [docs/topics/electron-node-abi.md](docs/topics/electron-node-abi.md)
+- Modules: [desktop](docs/modules/desktop/), [api](docs/modules/api/), [db](docs/modules/db/), [shared](docs/modules/shared/), [ui](docs/modules/ui/), [hooks](docs/modules/hooks/)
+- Design system: [design.md](design.md)
+- Runbook: [docs/run.md](docs/run.md)
+- Conventions and terms: [docs/conventions.md](docs/conventions.md)
+- Testing and validation: [docs/testing.md](docs/testing.md)
+- Specs: [docs/specs/](docs/specs/)
+- Plans: [docs/plans/](docs/plans/)
+- Decisions: [docs/decisions/](docs/decisions/)

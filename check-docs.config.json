@@ -1,0 +1,32 @@
+{
+  "sourceExts": [".js", ".mjs", ".cjs", ".ts", ".tsx"],
+  "sourceRoots": ["scripts"],
+  "ignoreDirs": [
+    "node_modules",
+    ".git",
+    "dist",
+    "build",
+    "coverage",
+    ".turbo",
+    ".cache",
+    "templates"
+  ],
+  "nonModuleDirs": [
+    "hooks",
+    "scripts",
+    "test",
+    "tests",
+    "__tests__",
+    "spec",
+    "bin",
+    "config",
+    "public",
+    "assets",
+    "types",
+    "typings",
+    "migrations"
+  ],
+  "headerMarker": "@purpose",
+  "headerScanLines": 20,
+  "docsDir": "docs"
+}

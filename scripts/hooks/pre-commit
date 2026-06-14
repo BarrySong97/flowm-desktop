@@ -1,0 +1,11 @@
+#!/bin/sh
+# @purpose Git pre-commit harness entry point for documentation checks.
+# @role    Tool-independent final guard for doc drift before commits.
+# @gotcha  Install with: git config core.hooksPath scripts/hooks && chmod +x scripts/hooks/pre-commit
+set -e
+
+node scripts/check-docs.mjs
+
+# Uncomment once the team wants pre-commit to run the heavier gates:
+# pnpm check-types
+# pnpm test

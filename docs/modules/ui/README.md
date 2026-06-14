@@ -1,0 +1,26 @@
+# UI Package
+
+## Responsibility
+
+`packages/ui` owns reusable UI primitives, shared component helpers, and global styles that can be used by the desktop renderer.
+
+## Key Files
+
+- `packages/ui/src/components/ui/` - reusable primitives such as command, keyboard hint, scroll area, and toast.
+- `packages/ui/src/lib/utils.ts` - UI utility helpers.
+- `packages/ui/src/styles/globals.css` - shared global styles.
+- `packages/ui/components.json` - shadcn-style component configuration.
+
+## Data Flow
+
+The renderer imports primitives from `@flowm/ui` and composes them into product-specific pages and panels under `apps/desktop/src/renderer/src`.
+
+## Interfaces
+
+Consumers import from `@flowm/ui`.
+
+## Watchouts
+
+- Keep product-specific finance logic out of this package.
+- Match [design.md](../../../design.md) and the surrounding renderer style before adding new primitives.
+- Do not create duplicate primitives when an existing component can be extended safely.
