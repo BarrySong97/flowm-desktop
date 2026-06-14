@@ -1,0 +1,7 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "ignorePatterns": [
+    "apps/desktop/src/renderer/src/routeTree.gen.ts",
+    "apps/desktop/src/renderer/src/vite-env.d.ts"
+  ]
+}

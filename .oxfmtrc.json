@@ -1,0 +1,9 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "semi": false,
+  "sortPackageJson": false,
+  "ignorePatterns": [
+    "apps/desktop/src/renderer/src/routeTree.gen.ts",
+    "apps/desktop/src/renderer/src/vite-env.d.ts"
+  ]
+}
