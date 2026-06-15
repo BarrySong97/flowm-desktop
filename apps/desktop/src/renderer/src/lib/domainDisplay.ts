@@ -5,7 +5,7 @@
  * @gotcha  Keep Node, Electron main, and SQLite access behind preload/tRPC.
  */
 
-import type { AssetSnapshotType } from "@flowm/api"
+import type { AssetSnapshotType } from "@flowm/shared/contracts"
 
 export const CATEGORY_COLORS: Record<string, string> = {
   餐饮: "#e07b3a",

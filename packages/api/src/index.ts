@@ -7,37 +7,67 @@
 
 import { type Database } from "@flowm/db"
 import { type Result } from "@flowm/shared"
-import { FlowmSqliteApi } from "./sqlite/dashboard"
+import type {
+  ActiveStatus,
+  AddAssetSnapshotInput,
+  AssetChangeInput,
+  AssetChangeSummary,
+  AssetItemSummary,
+  AssetSnapshotSummary,
+  AssetSparklinePoint,
+  CashflowKind,
+  CreateAssetItemInput,
+  Direction,
+  FlowmId,
+  ListAssetItemsInput,
+  ListAssetSnapshotsInput,
+  ListAssetSparklinesInput,
+  MoneyAmount,
+  NetWorthInput,
+  NetWorthSnapshot,
+  UpdateAssetItemInput,
+  UpdateAssetSnapshotInput,
+  UpsertAssetSnapshotInput,
+} from "@flowm/shared/contracts"
+import { FlowmSqliteApi } from "./use-cases/dashboard/dashboard-api"
 
-export type FlowmId = string | number
-
-export type Direction = "in" | "out" | "neutral"
-export type CashflowKind = "income" | "expense" | "transfer" | "asset_movement" | "debt_payment" | "refund" | "adjustment"
-export type ActiveStatus = "active" | "ignored" | "deleted"
-export type AssetType =
-  | "cash"
-  | "bank"
-  | "wallet"
-  | "brokerage"
-  | "fund"
-  | "stock"
-  | "crypto"
-  | "real_estate"
-  | "vehicle"
-  | "fixed_asset"
-  | "liability"
-  | "other"
-
-export type AssetSnapshotType = AssetType | "investment"
+export type {
+  ActiveStatus,
+  AddAssetSnapshotInput,
+  AssetChangeInput,
+  AssetChangeSummary,
+  AssetItemSummary,
+  AssetSnapshotSummary,
+  AssetSnapshotType,
+  AssetSparklinePoint,
+  AssetType,
+  CashflowKind,
+  CreateAssetItemInput,
+  Direction,
+  FlowmId,
+  ListAssetItemsInput,
+  ListAssetSnapshotsInput,
+  ListAssetSparklinesInput,
+  MoneyAmount,
+  NetWorthInput,
+  NetWorthSnapshot,
+  UpdateAssetItemInput,
+  UpdateAssetSnapshotInput,
+  UpsertAssetSnapshotInput,
+} from "@flowm/shared/contracts"
 
 export interface FlowmApi {
   /** Wipe all user data. */
   resetAllData(): Promise<Result<void>>
 
   getCurrencySettings(): Promise<Result<CurrencySettingsSummary>>
-  updateCurrencySettings(input: UpdateCurrencySettingsInput): Promise<Result<CurrencySettingsSummary>>
+  updateCurrencySettings(
+    input: UpdateCurrencySettingsInput,
+  ): Promise<Result<CurrencySettingsSummary>>
   listExchangeRates(input?: ListExchangeRatesInput): Promise<Result<ExchangeRateSummary[]>>
-  refreshExchangeRates(input?: RefreshExchangeRatesInput): Promise<Result<RefreshExchangeRatesResult>>
+  refreshExchangeRates(
+    input?: RefreshExchangeRatesInput,
+  ): Promise<Result<RefreshExchangeRatesResult>>
 
   listCategories(input?: ListCategoriesInput): Promise<Result<CategorySummary[]>>
   createCategory(input: CreateCategoryInput): Promise<Result<CategorySummary>>
@@ -48,11 +78,15 @@ export interface FlowmApi {
   archiveTag(input: { id: FlowmId }): Promise<Result<void>>
 
   importStatement(input: ImportStatementInput): Promise<Result<ImportedBatchResult>>
-  importNormalizedStatementEntries(input: ImportNormalizedStatementEntriesInput): Promise<Result<ImportedBatchResult>>
+  importNormalizedStatementEntries(
+    input: ImportNormalizedStatementEntriesInput,
+  ): Promise<Result<ImportedBatchResult>>
   listStatementImports(input?: ListStatementImportsInput): Promise<Result<StatementImportSummary[]>>
   listStatementLines(input?: ListStatementLinesInput): Promise<Result<StatementLineSummary[]>>
   listImportedEntries(input?: ListImportedEntriesInput): Promise<Result<ImportedEntrySummary[]>>
-  convertStatementLinesToCashflowEvents(input?: ConvertStatementLinesInput): Promise<Result<{ created: number; skipped: number }>>
+  convertStatementLinesToCashflowEvents(
+    input?: ConvertStatementLinesInput,
+  ): Promise<Result<{ created: number; skipped: number }>>
 
   listCashflowEvents(input?: ListCashflowEventsInput): Promise<Result<CashflowEventSummary[]>>
   getCashflowEvent(id: FlowmId): Promise<Result<CashflowEventSummary | null>>
@@ -60,9 +94,15 @@ export interface FlowmApi {
   updateCashflowEvent(input: UpdateCashflowEventInput): Promise<Result<CashflowEventSummary>>
   ignoreCashflowEvent(input: { id: FlowmId }): Promise<Result<void>>
   deleteCashflowEvent(input: { id: FlowmId }): Promise<Result<void>>
-  setCashflowEventCategory(input: { id: FlowmId; categoryId: FlowmId | null }): Promise<Result<CashflowEventSummary>>
+  setCashflowEventCategory(input: {
+    id: FlowmId
+    categoryId: FlowmId | null
+  }): Promise<Result<CashflowEventSummary>>
   setCashflowEventTags(input: { id: FlowmId; tagIds: FlowmId[] }): Promise<Result<void>>
-  setCashflowEventAnalyticsIncluded(input: { id: FlowmId; includeInAnalytics: boolean }): Promise<Result<CashflowEventSummary>>
+  setCashflowEventAnalyticsIncluded(input: {
+    id: FlowmId
+    includeInAnalytics: boolean
+  }): Promise<Result<CashflowEventSummary>>
   getCashflowSummary(input?: CashflowSummaryInput): Promise<Result<CashflowSummary>>
   getCashflowBreakdown(input?: CashflowBreakdownInput): Promise<Result<CashflowBreakdownRow[]>>
 
@@ -82,16 +122,24 @@ export interface FlowmApi {
   createSubscription(input: CreateSubscriptionInput): Promise<Result<SubscriptionSummary>>
   updateSubscription(input: UpdateSubscriptionInput): Promise<Result<SubscriptionSummary>>
   archiveSubscription(input: { id: FlowmId }): Promise<Result<void>>
-  generateSubscriptionOccurrences(input: GenerateOccurrenceInput): Promise<Result<{ generated: number }>>
-  listSubscriptionOccurrences(input?: ListSubscriptionOccurrencesInput): Promise<Result<SubscriptionOccurrenceSummary[]>>
+  generateSubscriptionOccurrences(
+    input: GenerateOccurrenceInput,
+  ): Promise<Result<{ generated: number }>>
+  listSubscriptionOccurrences(
+    input?: ListSubscriptionOccurrencesInput,
+  ): Promise<Result<SubscriptionOccurrenceSummary[]>>
 
   listLoans(input?: ListLoansInput): Promise<Result<LoanSummary[]>>
   getLoan(input: { id: FlowmId }): Promise<Result<LoanSummary | null>>
   createLoan(input: CreateLoanInput): Promise<Result<LoanSummary>>
   updateLoan(input: UpdateLoanInput): Promise<Result<LoanSummary>>
   archiveLoan(input: { id: FlowmId }): Promise<Result<void>>
-  generateLoanPaymentOccurrences(input: GenerateOccurrenceInput): Promise<Result<{ generated: number }>>
-  listLoanPaymentOccurrences(input?: ListLoanPaymentOccurrencesInput): Promise<Result<LoanPaymentOccurrenceSummary[]>>
+  generateLoanPaymentOccurrences(
+    input: GenerateOccurrenceInput,
+  ): Promise<Result<{ generated: number }>>
+  listLoanPaymentOccurrences(
+    input?: ListLoanPaymentOccurrencesInput,
+  ): Promise<Result<LoanPaymentOccurrenceSummary[]>>
   getFutureFixedPressure(input?: FuturePressureInput): Promise<Result<FuturePressureSummary>>
 
   listBudgetSets(): Promise<Result<BudgetSetSummary[]>>
@@ -102,7 +150,9 @@ export interface FlowmApi {
   createBudgetItem(input: CreateBudgetItemInput): Promise<Result<BudgetItemSummary>>
   updateBudgetItem(input: UpdateBudgetItemInput): Promise<Result<BudgetItemSummary>>
   archiveBudgetItem(input: { id: FlowmId }): Promise<Result<void>>
-  getBudgetReferenceProgress(input: BudgetReferenceProgressInput): Promise<Result<BudgetReferenceProgressRow[]>>
+  getBudgetReferenceProgress(
+    input: BudgetReferenceProgressInput,
+  ): Promise<Result<BudgetReferenceProgressRow[]>>
 
   listObjectLinks(input?: ListObjectLinksInput): Promise<Result<ObjectLinkSummary[]>>
   createObjectLink(input: CreateObjectLinkInput): Promise<Result<ObjectLinkSummary>>
@@ -126,11 +176,6 @@ export interface FlowmApi {
   removeDashboardCard(input: { id: string }): Promise<Result<void>>
   saveDashboardLayouts(input: SaveDashboardLayoutsInput): Promise<Result<void>>
   resetDashboardLayout(): Promise<Result<void>>
-}
-
-export interface MoneyAmount {
-  number: string
-  currency: string
 }
 
 export interface DashboardSnapshot {
@@ -505,7 +550,14 @@ export interface UpdateCashflowEventInput {
 }
 
 export interface CashflowSummaryInput {
-  metric?: "everyday_spend" | "income" | "net_cashflow" | "debt_payments" | "asset_movements" | "refunds" | "all_activity"
+  metric?:
+    | "everyday_spend"
+    | "income"
+    | "net_cashflow"
+    | "debt_payments"
+    | "asset_movements"
+    | "refunds"
+    | "all_activity"
   dateFrom?: string
   dateTo?: string
   includeIgnored?: boolean
@@ -526,126 +578,6 @@ export interface CashflowBreakdownRow {
   label: string
   amount: string
   currency: string
-}
-
-export interface AssetItemSummary {
-  id: FlowmId
-  name: string
-  assetType: AssetType
-  institution: string | null
-  defaultCurrency: string
-  valuationMethod: string
-  archived: boolean
-  note: string | null
-}
-
-export interface ListAssetItemsInput {
-  assetType?: AssetType
-  includeArchived?: boolean
-}
-
-export interface CreateAssetItemInput {
-  name: string
-  assetType: AssetType | "investment"
-  institution?: string | null
-  defaultCurrency?: string
-  valuationMethod?: string
-  displayOrder?: number
-  note?: string | null
-}
-
-export interface UpdateAssetItemInput extends Partial<CreateAssetItemInput> {
-  id: FlowmId
-}
-
-export interface AssetSnapshotSummary {
-  id: FlowmId
-  assetItemId: FlowmId
-  accountName: string
-  assetType: AssetSnapshotType
-  snapshotAt: string
-  quantityNumber: string | null
-  quantityCurrency: string | null
-  quantityAmount: string | null
-  quantityUnit: string | null
-  valueNumber: string
-  valueCurrency: string
-  source: string
-  note: string | null
-  meta: Record<string, unknown> | null
-}
-
-export interface ListAssetSnapshotsInput {
-  assetItemId?: FlowmId
-  accountName?: string
-  latestOnly?: boolean
-}
-
-export interface ListAssetSparklinesInput {
-  limitPerAsset?: number
-}
-
-export interface AssetSparklinePoint {
-  assetItemId: FlowmId
-  snapshotAt: string
-  valueNumber: string
-}
-
-export interface AddAssetSnapshotInput {
-  assetItemId: FlowmId
-  snapshotAt?: string
-  valueAmount: string
-  valueCurrency?: string
-  quantityAmount?: string | null
-  quantityUnit?: string | null
-  costBasisAmount?: string | null
-  costBasisCurrency?: string | null
-  sourceKind?: string
-  note?: string | null
-}
-
-export interface UpdateAssetSnapshotInput extends Partial<AddAssetSnapshotInput> {
-  id: FlowmId
-}
-
-export interface UpsertAssetSnapshotInput {
-  id?: FlowmId
-  assetItemId?: FlowmId
-  accountName: string
-  assetType: AssetSnapshotType
-  snapshotAt?: string
-  quantityNumber?: string | null
-  quantityCurrency?: string | null
-  valueNumber: string
-  valueCurrency?: string
-  source?: string
-  note?: string | null
-  meta?: Record<string, unknown> | null
-}
-
-export interface NetWorthInput {
-  asOf?: string
-  displayCurrency?: string
-}
-
-export interface NetWorthSnapshot {
-  netWorth: MoneyAmount
-  assetValue: MoneyAmount
-  liabilityValue: MoneyAmount
-  missingFx: Array<{ assetItemId: FlowmId; currency: string; date: string }>
-}
-
-export interface AssetChangeInput {
-  assetItemId: FlowmId
-  comparison?: "previous" | "30d" | "90d" | "1y"
-}
-
-export interface AssetChangeSummary {
-  assetItemId: FlowmId
-  changeAmount: string
-  changePercent: string
-  comparisonLabel: string
-  valueCurrency: string
 }
 
 export interface SubscriptionSummary {
@@ -845,7 +777,14 @@ export interface UpdateBudgetItemInput {
 }
 
 export interface BudgetScopeInput {
-  scopeKind: "category" | "category_tree" | "tag" | "source" | "flow_kind" | "custom" | "all_consumption"
+  scopeKind:
+    | "category"
+    | "category_tree"
+    | "tag"
+    | "source"
+    | "flow_kind"
+    | "custom"
+    | "all_consumption"
   scopeValue?: string | null
 }
 
@@ -901,8 +840,14 @@ export interface DashboardView {
   isDefault: boolean
 }
 
-export interface CreateDashboardViewInput { name: string }
-export interface UpdateDashboardViewInput { id: string; name?: string; position?: number }
+export interface CreateDashboardViewInput {
+  name: string
+}
+export interface UpdateDashboardViewInput {
+  id: string
+  name?: string
+  position?: number
+}
 export interface DashboardCard {
   id: string
   viewId: string
@@ -921,8 +866,12 @@ export interface DashboardLayoutEntry {
   w: number
   h: number
 }
-export interface ListDashboardCardsInput { viewId?: string }
-export interface ListDashboardLayoutsInput { viewId?: string }
+export interface ListDashboardCardsInput {
+  viewId?: string
+}
+export interface ListDashboardLayoutsInput {
+  viewId?: string
+}
 export interface AddDashboardCardInput {
   viewId: string
   type: string

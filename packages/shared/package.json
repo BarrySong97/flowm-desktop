@@ -19,6 +19,11 @@
       "types": "./src/types/index.ts",
       "import": "./src/types/index.ts",
       "default": "./src/types/index.ts"
+    },
+    "./contracts": {
+      "types": "./src/contracts/index.ts",
+      "import": "./src/contracts/index.ts",
+      "default": "./src/contracts/index.ts"
     }
   },
   "scripts": {

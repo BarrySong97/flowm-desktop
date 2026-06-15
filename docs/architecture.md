@@ -7,6 +7,7 @@ business packages.
 
 ```text
 React UI
+  -> @flowm/shared/contracts DTOs
   -> React Query / tRPC client
   -> Electron preload IPC
   -> Electron main tRPC router
@@ -27,11 +28,13 @@ Database calls cross the preload bridge through:
 
 - `apps/desktop` owns the Electron app, preload bridge, renderer UI, routes,
   Vite config, and packaging config.
-- `packages/api` owns the product facade used by the UI.
-- `packages/business` owns domain services and calculations.
+- `packages/api` owns the product facade used by the UI, with backend-style
+  `domain/`, `use-cases/`, `infrastructure/`, and `presentation/` folders as
+  modules migrate.
 - `packages/db` owns schema, migrations, and SQL execution primitives used by
   the main process.
-- `packages/shared` owns shared primitives and utilities.
+- `packages/shared` owns browser-safe contracts, shared primitives, and
+  utilities.
 - `packages/ui` owns reusable UI primitives and global styles.
 
 ## SQLite Location
@@ -49,6 +52,26 @@ flowm.sqlite3
 ```
 
 This preserves compatibility with the previous desktop app data location.
+
+## Layered Package Shape
+
+The workspace maps the frontend/backend layered reference architecture onto the
+existing Electron monorepo:
+
+```text
+apps/desktop/src/renderer/          frontend
+packages/shared/src/contracts/      shared contracts
+apps/desktop/src/main/trpc/         presentation / tRPC adapter
+packages/api/src/use-cases/         application workflows
+packages/api/src/domain/            pure business rules
+packages/api/src/infrastructure/    database and side-effect adapters
+packages/api/src/presentation/      renderer-safe DTO mappers
+packages/db/                        Drizzle schema and migrations
+```
+
+Renderer code should prefer `@flowm/shared/contracts` for DTO-like types.
+Backend code may re-export contracts from `@flowm/api` for compatibility, but
+shared contracts must not import API, DB, Electron, or renderer modules.
 
 ## Validation
 

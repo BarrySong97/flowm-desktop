@@ -9,7 +9,12 @@ import { useMemo } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 import { Dock } from "../components/layout/Dock"
-import type { AssetSnapshotSummary, CashflowEventSummary, LoanPaymentOccurrenceSummary, SubscriptionOccurrenceSummary } from "@flowm/api"
+import type {
+  CashflowEventSummary,
+  LoanPaymentOccurrenceSummary,
+  SubscriptionOccurrenceSummary,
+} from "@flowm/api"
+import type { AssetSnapshotSummary } from "@flowm/shared/contracts"
 import { trpc } from "@/lib/trpc"
 import { usePagePerf } from "@/lib/debug/perf"
 import { addDays, dateKey, monthStart } from "@/lib/dates"
@@ -34,7 +39,8 @@ function useMonthStats(events: CashflowEventSummary[]) {
   return useMemo(() => {
     const now = new Date()
     const ym = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
-    let income = 0, expense = 0
+    let income = 0,
+      expense = 0
     for (const e of events) {
       if (!e.date.startsWith(ym)) continue
       const amt = Math.abs(Number(e.amount) || 0)
@@ -74,10 +80,12 @@ function useNetWorthTrend(snapshots: AssetSnapshotSummary[]): number[] {
     }
     const values = [...buckets.entries()]
       .sort(([a], [b]) => a.localeCompare(b))
-      .map(([, bucket]) => [...bucket.values()].reduce((sum, asset) => {
-        const amount = Math.abs(Number(asset.valueNumber || 0))
-        return sum + (asset.assetType === "liability" ? -amount : amount)
-      }, 0))
+      .map(([, bucket]) =>
+        [...bucket.values()].reduce((sum, asset) => {
+          const amount = Math.abs(Number(asset.valueNumber || 0))
+          return sum + (asset.assetType === "liability" ? -amount : amount)
+        }, 0),
+      )
     if (values.length >= 12) return values.slice(-12)
     return [...new Array(12 - values.length).fill(values[0] ?? 0), ...values]
   }, [snapshots])
@@ -124,17 +132,32 @@ export function OverviewPage() {
   const today = dateKey(new Date())
   const futureThrough = dateKey(addDays(new Date(), 60))
   const monthFrom = monthStart(new Date())
-  const cashflowQuery = useQuery(trpc.cashflow.list.queryOptions({ dateFrom: monthFrom, dateTo: today, status: "active", limit: 240 }))
+  const cashflowQuery = useQuery(
+    trpc.cashflow.list.queryOptions({
+      dateFrom: monthFrom,
+      dateTo: today,
+      status: "active",
+      limit: 240,
+    }),
+  )
   const assetSnapshotsQuery = useQuery(trpc.assets.snapshots.queryOptions({ latestOnly: true }))
   const assetHistoryQuery = useQuery(trpc.assets.snapshots.queryOptions({ latestOnly: false }))
   const netWorthQuery = useQuery(trpc.assets.netWorth.queryOptions())
   const subscriptionsQuery = useQuery(trpc.subscriptions.list.queryOptions({ status: "active" }))
-  const subscriptionOccurrencesQuery = useQuery(trpc.subscriptions.occurrences.queryOptions({ dateFrom: today, dateTo: futureThrough }))
+  const subscriptionOccurrencesQuery = useQuery(
+    trpc.subscriptions.occurrences.queryOptions({ dateFrom: today, dateTo: futureThrough }),
+  )
   const loansQuery = useQuery(trpc.loans.list.queryOptions({ status: "active" }))
-  const loanOccurrencesQuery = useQuery(trpc.loans.occurrences.queryOptions({ dateFrom: today, dateTo: futureThrough }))
-  const futurePressureQuery = useQuery(trpc.loans.futurePressure.queryOptions({ dateFrom: today, dateTo: futureThrough }))
+  const loanOccurrencesQuery = useQuery(
+    trpc.loans.occurrences.queryOptions({ dateFrom: today, dateTo: futureThrough }),
+  )
+  const futurePressureQuery = useQuery(
+    trpc.loans.futurePressure.queryOptions({ dateFrom: today, dateTo: futureThrough }),
+  )
   const budgetPeriodsQuery = useQuery(trpc.budgets.periods.queryOptions({ status: "active" }))
-  const currentBudgetPeriod = budgetPeriodsQuery.data?.find((period) => period.periodStart <= today && period.periodEnd >= today)
+  const currentBudgetPeriod = budgetPeriodsQuery.data?.find(
+    (period) => period.periodStart <= today && period.periodEnd >= today,
+  )
   const budgetProgressQuery = useQuery({
     ...trpc.budgets.progress.queryOptions({ budgetPeriodId: currentBudgetPeriod?.id ?? "" }),
     enabled: Boolean(currentBudgetPeriod),
@@ -158,12 +181,15 @@ export function OverviewPage() {
   const totalAssets = Number(netWorthQuery.data?.assetValue.number ?? 0)
   const totalLiab = Number(netWorthQuery.data?.liabilityValue.number ?? 0)
   const liquidAssets = useMemo(
-    () => assetSnapshots.filter((a) => ["cash", "bank", "wallet"].includes(a.assetType)).reduce((s, a) => s + Number(a.valueNumber || 0), 0),
+    () =>
+      assetSnapshots
+        .filter((a) => ["cash", "bank", "wallet"].includes(a.assetType))
+        .reduce((s, a) => s + Number(a.valueNumber || 0), 0),
     [assetSnapshots],
   )
   const netWorth = Number(netWorthQuery.data?.netWorth.number ?? totalAssets - totalLiab)
   const _netTrend = useNetWorthTrend(assetHistoryQuery.data ?? [])
-  const netGain       = _netTrend[11] - _netTrend[0]
+  const netGain = _netTrend[11] - _netTrend[0]
 
   const { income: _monthIn, expense: _monthOut, net: _monthNet } = useMonthStats(events)
   const monthIn = _monthIn
@@ -174,7 +200,8 @@ export function OverviewPage() {
 
   const budgets = (budgetProgressQuery.data ?? []).map((row) => ({
     cat: row.budgetName,
-    color: row.color ?? BUDGET_CATEGORY_COLORS[row.budgetName.replace(/预算$/, "")] ?? "var(--accent)",
+    color:
+      row.color ?? BUDGET_CATEGORY_COLORS[row.budgetName.replace(/预算$/, "")] ?? "var(--accent)",
     spent: Number(row.referenceUsed),
     limit: Number(row.budgeted),
   }))
@@ -215,7 +242,6 @@ export function OverviewPage() {
     <div className="relative flex flex-col h-full overflow-hidden bg-white">
       <ScrollArea className="flex-1 min-h-0">
         <div style={{ padding: "30px 34px 40px", display: "flex", flexDirection: "column" }}>
-
           {/* ── 净资产 + 趋势 ── */}
           <div className="flex items-stretch gap-9 pb-[18px]">
             <div>
@@ -233,7 +259,9 @@ export function OverviewPage() {
             <div className="ml-auto flex flex-col w-1/2 text-right">
               <Dim className="text-[11.5px] mb-2 block">
                 近 12 个月{" "}
-                <span className="font-['IBM_Plex_Mono'] text-[var(--green)] ml-1">+¥{fmt(netGain)}</span>
+                <span className="font-['IBM_Plex_Mono'] text-[var(--green)] ml-1">
+                  +¥{fmt(netGain)}
+                </span>
               </Dim>
               <div className="mt-auto">
                 <NetWorthTrend data={_netTrend} />
@@ -246,7 +274,9 @@ export function OverviewPage() {
             <div className="flex items-start mb-3">
               <div>
                 <Kicker className="mb-1.5">本月结余 · {monLabel}</Kicker>
-                <BigNumber style={{ fontSize: 26, color: monthNet >= 0 ? "var(--green)" : "var(--red)" }}>
+                <BigNumber
+                  style={{ fontSize: 26, color: monthNet >= 0 ? "var(--green)" : "var(--red)" }}
+                >
                   {signed(monthNet)}
                 </BigNumber>
               </div>
@@ -260,19 +290,30 @@ export function OverviewPage() {
             <DailyBars data={dailyBars} />
             <div className="flex justify-between mt-1.5">
               <Dim className="text-[10px]">30 天前</Dim>
-              <span className="text-[10px] font-semibold" style={{ color: "var(--accent)" }}>今天</span>
+              <span className="text-[10px] font-semibold" style={{ color: "var(--accent)" }}>
+                今天
+              </span>
             </div>
           </div>
 
           {/* ── 两列：预算 + 即将扣费 ── */}
-          <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1.25fr) minmax(0,1fr)", gap: 60, marginTop: 22 }}>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "minmax(0,1.25fr) minmax(0,1fr)",
+              gap: 60,
+              marginTop: 22,
+            }}
+          >
             {/* 左：消费预算 */}
             <div className="overflow-hidden">
               <div className="flex items-baseline mb-[15px]">
                 <SectionTitle>消费 · 本月预算</SectionTitle>
                 <Dim className="text-[10.5px] ml-auto whitespace-nowrap">
                   还能花{" "}
-                  <b className="font-['IBM_Plex_Mono'] text-[var(--ink)] font-semibold">¥{fmt(budgetRemain)}</b>
+                  <b className="font-['IBM_Plex_Mono'] text-[var(--ink)] font-semibold">
+                    ¥{fmt(budgetRemain)}
+                  </b>
                   {" · "}已用 {budgetTotal > 0 ? Math.round((budgetSpent / budgetTotal) * 100) : 0}%
                 </Dim>
               </div>
@@ -298,13 +339,19 @@ export function OverviewPage() {
             <div className="overflow-hidden">
               <div className="flex items-baseline mb-[14px]">
                 <SectionTitle>即将扣费</SectionTitle>
-                <Dim className="text-[10.5px] ml-auto whitespace-nowrap">未来 30 天 · {upcoming.length} 笔</Dim>
+                <Dim className="text-[10.5px] ml-auto whitespace-nowrap">
+                  未来 30 天 · {upcoming.length} 笔
+                </Dim>
               </div>
               <div className="flex items-baseline gap-2 mb-3">
-                <span className="font-['IBM_Plex_Mono'] text-[22px] font-semibold text-[var(--ink)]">¥{fmt(upSum)}</span>
+                <span className="font-['IBM_Plex_Mono'] text-[22px] font-semibold text-[var(--ink)]">
+                  ¥{fmt(upSum)}
+                </span>
                 <Dim className="text-[11px] ml-auto whitespace-nowrap">
                   月固定支出{" "}
-                  <b className="font-['IBM_Plex_Mono'] text-[var(--ink)] font-semibold">¥{fmt(monthlyFixed)}</b>
+                  <b className="font-['IBM_Plex_Mono'] text-[var(--ink)] font-semibold">
+                    ¥{fmt(monthlyFixed)}
+                  </b>
                 </Dim>
               </div>
               {upcoming.length === 0 ? (
@@ -358,7 +405,6 @@ export function OverviewPage() {
               </div>
             )}
           </div>
-
         </div>
       </ScrollArea>
       <Dock />

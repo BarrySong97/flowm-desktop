@@ -12,6 +12,7 @@
 ```bash
 pnpm lint
 pnpm format:check
+pnpm check-architecture
 pnpm check-types
 pnpm test
 pnpm build
@@ -39,7 +40,7 @@ pnpm rebuild:electron
 - Product facade and database behavior: package tests under `packages/*/tests`.
 - Renderer workflows: component or integration tests near the desktop renderer when available, plus manual app verification for user-facing flows.
 - Database schema changes: migration generation, migration application, and API tests that exercise the new shape.
-- Harness changes: `pnpm lint`, `pnpm format:check`, and `pnpm check-docs`.
+- Harness changes: `pnpm lint`, `pnpm format:check`, `pnpm check-architecture`, and `pnpm check-docs`.
 
 ## Manual Verification
 

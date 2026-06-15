@@ -11,6 +11,7 @@
     "dev": "turbo -F desktop dev",
     "build": "turbo build",
     "check-types": "turbo check-types",
+    "check-architecture": "node scripts/check-architecture.mjs",
     "check-docs": "node scripts/check-docs.mjs",
     "lint": "oxlint .",
     "lint:fix": "oxlint . --fix",
