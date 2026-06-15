@@ -17,7 +17,7 @@
 
 ## Data Flow
 
-AI tool event JSON is passed to hook scripts on stdin. Scripts either stay silent or return hook-specific JSON that denies the action or feeds extra context back to the agent.
+AI tool event JSON is passed to hook scripts on stdin. Pre/Post hook scripts either stay silent or return hook-specific JSON that denies the action or feeds extra context back to the agent. Codex Stop hooks must emit only Stop hook JSON: `{}` on success, or `{ "decision": "block", "reason": "..." }` on failure.
 
 ## Interfaces
 
