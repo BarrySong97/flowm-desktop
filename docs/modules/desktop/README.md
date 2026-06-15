@@ -50,4 +50,5 @@ Update `apps/desktop/src/preload/index.d.ts` whenever the preload contract chang
 - Keep `app.setPath("userData", ...)` compatible with `~/Library/Application Support/com.flowm.desktop`.
 - Desktop tests and development depend on the Electron ABI for `better-sqlite3`.
 - UI copy and flows must preserve the separation between cashflow, assets, and obligations.
+- The demo ledger banner is intentionally non-dismissible while a demo ledger is active; the explicit exit is switching to a non-demo ledger.
 - Handwritten desktop source files carry AI headers. Generated files such as `routeTree.gen.ts` and ambient Vite declarations are skipped in `check-docs.config.json`.
