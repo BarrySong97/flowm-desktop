@@ -125,7 +125,7 @@ interface Props {
   asset: AssetSnapshotSummary
   onBack: () => void
   onEdit: (asset: AssetSnapshotSummary, mode: "balance" | "account") => void
-  onDelete: (id: AssetSnapshotSummary["id"]) => void | Promise<void>
+  onDelete: (assetItemId: AssetSnapshotSummary["assetItemId"]) => void | Promise<void>
 }
 
 export function AssetDetailPanel({ asset, onBack, onEdit, onDelete }: Props) {
@@ -372,10 +372,10 @@ export function AssetDetailPanel({ asset, onBack, onEdit, onDelete }: Props) {
           onPress={() =>
             confirm({
               title: "删除账户",
-              description: `删除「${asset.accountName}」后无法恢复，确定继续？`,
+              description: `删除「${asset.accountName}」后，该账户会从资产列表中移除。确定继续？`,
               confirmText: "删除",
               danger: true,
-              onConfirm: () => onDelete(asset.id),
+              onConfirm: () => onDelete(asset.assetItemId),
             })
           }
         >

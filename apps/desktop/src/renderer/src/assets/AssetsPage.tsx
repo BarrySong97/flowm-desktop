@@ -112,9 +112,9 @@ export function AssetsPage() {
   const assetSparklinesQuery = useQuery(trpc.assets.sparklines.queryOptions({}))
   const createAssetItem = useMutation(trpc.assets.createItem.mutationOptions())
   const updateAssetItem = useMutation(trpc.assets.updateItem.mutationOptions())
+  const archiveAssetItem = useMutation(trpc.assets.archiveItem.mutationOptions())
   const addAssetSnapshot = useMutation(trpc.assets.addSnapshot.mutationOptions())
   const updateAssetSnapshot = useMutation(trpc.assets.updateSnapshot.mutationOptions())
-  const deleteAssetSnapshot = useMutation(trpc.assets.deleteSnapshot.mutationOptions())
   usePagePerf("assets", [
     { name: "assets.snapshots.latest", query: assetSnapshotsQuery },
     { name: "assets.sparklines", query: assetSparklinesQuery },
@@ -221,16 +221,16 @@ export function AssetsPage() {
     setShowForm(true)
   }
 
-  async function save() {
+  async function save(values: AssetForm) {
     if (formMode === "account") {
-      if (!form.assetItemId || !form.accountName.trim()) return
+      if (!values.assetItemId || !values.accountName.trim()) return
       setSaving(true)
       try {
         await updateAssetItem.mutateAsync({
-          id: form.assetItemId,
-          name: form.accountName.trim(),
-          assetType: form.assetType,
-          note: form.note.trim() || null,
+          id: values.assetItemId,
+          name: values.accountName.trim(),
+          assetType: values.assetType,
+          note: values.note.trim() || null,
         })
         await queryClient.invalidateQueries(trpc.assets.snapshots.queryFilter())
         setShowForm(false)
@@ -240,35 +240,35 @@ export function AssetsPage() {
       }
       return
     }
-    if (!form.accountName.trim() || !form.valueNumber) return
+    if (!values.accountName.trim() || !values.valueNumber) return
     setSaving(true)
     try {
-      const val = Number(form.valueNumber)
-      if (form.id) {
+      const val = Number(values.valueNumber)
+      if (values.id) {
         await updateAssetSnapshot.mutateAsync({
-          id: form.id,
-          snapshotAt: `${form.snapshotAt}T00:00:00.000Z`,
+          id: values.id,
+          snapshotAt: `${values.snapshotAt}T00:00:00.000Z`,
           valueAmount: Math.abs(val).toFixed(2),
-          valueCurrency: form.valueCurrency || "CNY",
-          note: form.note.trim() || null,
+          valueCurrency: values.valueCurrency || "CNY",
+          note: values.note.trim() || null,
         })
       } else {
         const item = await createAssetItem.mutateAsync({
-          name: form.accountName.trim(),
-          assetType: form.assetType,
-          defaultCurrency: form.valueCurrency || "CNY",
-          valuationMethod: ["fund", "stock", "crypto", "investment"].includes(form.assetType)
+          name: values.accountName.trim(),
+          assetType: values.assetType,
+          defaultCurrency: values.valueCurrency || "CNY",
+          valuationMethod: ["fund", "stock", "crypto", "investment"].includes(values.assetType)
             ? "manual_market_value"
             : "manual_balance",
-          note: form.note.trim() || null,
+          note: values.note.trim() || null,
         })
         await addAssetSnapshot.mutateAsync({
           assetItemId: item.id,
-          snapshotAt: `${form.snapshotAt}T00:00:00.000Z`,
+          snapshotAt: `${values.snapshotAt}T00:00:00.000Z`,
           valueAmount: Math.abs(val).toFixed(2),
-          valueCurrency: form.valueCurrency || "CNY",
+          valueCurrency: values.valueCurrency || "CNY",
           sourceKind: "manual",
-          note: form.note.trim() || null,
+          note: values.note.trim() || null,
         })
       }
       await queryClient.invalidateQueries(trpc.assets.snapshots.queryFilter())
@@ -281,8 +281,8 @@ export function AssetsPage() {
     }
   }
 
-  async function removeSnapshot(id: AssetSnapshotSummary["id"]) {
-    await deleteAssetSnapshot.mutateAsync({ id })
+  async function removeAsset(assetItemId: AssetSnapshotSummary["assetItemId"]) {
+    await archiveAssetItem.mutateAsync({ id: assetItemId })
     await queryClient.invalidateQueries(trpc.assets.snapshots.queryFilter())
     await queryClient.invalidateQueries(trpc.assets.sparklines.queryFilter())
     await queryClient.invalidateQueries(trpc.assets.netWorth.queryFilter())
@@ -420,8 +420,8 @@ export function AssetsPage() {
                 asset={detailAsset}
                 onBack={() => setDetailAsset(null)}
                 onEdit={openEdit}
-                onDelete={async (id) => {
-                  await removeSnapshot(id)
+                onDelete={async (assetItemId) => {
+                  await removeAsset(assetItemId)
                   setDetailAsset(null)
                 }}
               />
@@ -537,9 +537,8 @@ export function AssetsPage() {
         form={form}
         mode={formMode}
         saving={saving}
-        onSave={() => void save()}
+        onSave={(values) => void save(values)}
         onClose={() => setShowForm(false)}
-        onChange={(patch) => setForm((f) => ({ ...f, ...patch }))}
       />
     </div>
   )

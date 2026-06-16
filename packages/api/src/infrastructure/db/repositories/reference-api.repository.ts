@@ -29,6 +29,7 @@ import type {
   TagSummary,
   UpdateCategoryInput,
   UpdateCurrencySettingsInput,
+  UpdateTagInput,
 } from "../../../index"
 import { FlowmApiBase } from "../sqlite-api-base"
 import {
@@ -231,6 +232,30 @@ export abstract class ReferenceApiRepository extends FlowmApiBase {
         })
         .run()
       return ok(this.mapTag(this.db.select().from(tags).where(eq(tags.id, id)).get()!))
+    } catch (error) {
+      return fail(error)
+    }
+  }
+
+  async updateTag(input: UpdateTagInput): Promise<Result<TagSummary>> {
+    try {
+      const set: Partial<typeof tags.$inferInsert> = { updatedAt: nowIso() }
+      if (input.name !== undefined) set.name = input.name
+      if (input.color !== undefined) set.color = input.color
+      this.db
+        .update(tags)
+        .set(set)
+        .where(eq(tags.id, toSqlId(input.id)))
+        .run()
+      return ok(
+        this.mapTag(
+          this.db
+            .select()
+            .from(tags)
+            .where(eq(tags.id, toSqlId(input.id)))
+            .get()!,
+        ),
+      )
     } catch (error) {
       return fail(error)
     }

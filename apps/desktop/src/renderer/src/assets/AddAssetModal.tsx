@@ -11,15 +11,17 @@ import {
   DateField,
   DatePicker,
   Input,
-  Label,
   ListBox,
   Modal,
   Select,
 } from "@heroui/react"
+import { useEffect } from "react"
+import { Controller, useForm } from "react-hook-form"
 import type { DateValue } from "@internationalized/date"
 import { parseDate } from "@internationalized/date"
 import type { AssetSnapshotType, FlowmId } from "@flowm/shared/contracts"
 import { ASSET_TYPE_LABELS, ASSET_TYPES } from "@/lib/domainDisplay"
+import { FormField } from "../components/ui/FormField"
 
 export const TYPE_LABEL = ASSET_TYPE_LABELS
 
@@ -39,9 +41,8 @@ interface Props {
   form: AssetForm
   mode?: "add" | "balance" | "account"
   saving: boolean
-  onSave: () => void
+  onSave: (form: AssetForm) => void
   onClose: () => void
-  onChange: (patch: Partial<AssetForm>) => void
 }
 
 const TITLE: Record<NonNullable<Props["mode"]>, string> = {
@@ -50,17 +51,20 @@ const TITLE: Record<NonNullable<Props["mode"]>, string> = {
   account: "编辑账户",
 }
 
-export function AddAssetModal({
-  open,
-  form,
-  mode = "add",
-  saving,
-  onSave,
-  onClose,
-  onChange,
-}: Props) {
+export function AddAssetModal({ open, form, mode = "add", saving, onSave, onClose }: Props) {
   const showNameType = mode === "add" || mode === "account"
   const showBalance = mode === "add" || mode === "balance"
+  const {
+    control,
+    formState: { errors },
+    handleSubmit,
+    register,
+    reset,
+  } = useForm<AssetForm>({ defaultValues: form })
+
+  useEffect(() => {
+    if (open) reset(form)
+  }, [form, open, reset])
 
   return (
     <Modal.Backdrop
@@ -84,78 +88,65 @@ export function AddAssetModal({
           </Modal.Header>
 
           <Modal.Body>
-            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <form
+              id="asset-form"
+              onSubmit={(event) => {
+                event.preventDefault()
+                void handleSubmit(onSave)()
+              }}
+              style={{ display: "flex", flexDirection: "column", gap: 14 }}
+            >
               {/* Account name */}
               {showNameType && (
-                <div>
-                  <Label
-                    style={{
-                      fontSize: 12,
-                      color: "var(--ink-3)",
-                      marginBottom: 6,
-                      display: "block",
-                    }}
-                  >
-                    账户名称
-                  </Label>
+                <FormField label="账户名称" required error={errors.accountName?.message}>
                   <Input
                     variant="secondary"
-                    value={form.accountName}
                     placeholder="例如：招商银行储蓄卡"
-                    onChange={(e) => onChange({ accountName: e.target.value })}
+                    aria-invalid={Boolean(errors.accountName)}
+                    {...register("accountName", {
+                      validate: (value) =>
+                        !showNameType || value.trim().length > 0 || "请输入账户名称",
+                    })}
                   />
-                </div>
+                </FormField>
               )}
 
               {/* Asset type */}
               {showNameType && (
-                <div>
-                  <Label
-                    style={{
-                      fontSize: 12,
-                      color: "var(--ink-3)",
-                      marginBottom: 6,
-                      display: "block",
-                    }}
-                  >
-                    类型
-                  </Label>
-                  <Select
-                    variant="secondary"
-                    selectedKey={form.assetType}
-                    onSelectionChange={(key) => onChange({ assetType: key as AssetSnapshotType })}
-                  >
-                    <Select.Trigger>
-                      <Select.Value />
-                      <Select.Indicator />
-                    </Select.Trigger>
-                    <Select.Popover>
-                      <ListBox>
-                        {ASSET_TYPES.map((t) => (
-                          <ListBox.Item key={t} id={t} textValue={TYPE_LABEL[t]}>
-                            {TYPE_LABEL[t]}
-                            <ListBox.ItemIndicator />
-                          </ListBox.Item>
-                        ))}
-                      </ListBox>
-                    </Select.Popover>
-                  </Select>
-                </div>
+                <FormField label="类型" required error={errors.assetType?.message}>
+                  <Controller
+                    control={control}
+                    name="assetType"
+                    rules={{ required: "请选择账户类型" }}
+                    render={({ field }) => (
+                      <Select
+                        variant="secondary"
+                        selectedKey={field.value}
+                        onSelectionChange={(key) => field.onChange(key as AssetSnapshotType)}
+                      >
+                        <Select.Trigger>
+                          <Select.Value />
+                          <Select.Indicator />
+                        </Select.Trigger>
+                        <Select.Popover>
+                          <ListBox>
+                            {ASSET_TYPES.map((t) => (
+                              <ListBox.Item key={t} id={t} textValue={TYPE_LABEL[t]}>
+                                {TYPE_LABEL[t]}
+                                <ListBox.ItemIndicator />
+                              </ListBox.Item>
+                            ))}
+                          </ListBox>
+                        </Select.Popover>
+                      </Select>
+                    )}
+                  />
+                </FormField>
               )}
 
               {/* Balance */}
               {showBalance && (
-                <div>
-                  <Label
-                    style={{
-                      fontSize: 12,
-                      color: "var(--ink-3)",
-                      marginBottom: 6,
-                      display: "block",
-                    }}
-                  >
-                    当前余额
-                  </Label>
+                <FormField label="当前余额" required error={errors.valueNumber?.message}>
                   <div style={{ display: "flex", gap: 8 }}>
                     <Input
                       variant="secondary"
@@ -163,92 +154,98 @@ export function AddAssetModal({
                       type="number"
                       min="0"
                       step="0.01"
-                      value={form.valueNumber}
                       placeholder="0.00"
-                      onChange={(e) => onChange({ valueNumber: e.target.value })}
+                      aria-invalid={Boolean(errors.valueNumber)}
+                      {...register("valueNumber", {
+                        validate: (value) =>
+                          !showBalance ||
+                          (value.trim().length > 0 && Number(value) >= 0) ||
+                          "请输入有效余额",
+                      })}
                     />
                     <Input
                       variant="secondary"
                       style={{ width: 72 }}
-                      value={form.valueCurrency}
-                      onChange={(e) => onChange({ valueCurrency: e.target.value.toUpperCase() })}
+                      aria-invalid={Boolean(errors.valueCurrency)}
+                      {...register("valueCurrency", {
+                        setValueAs: (value) => String(value ?? "").toUpperCase(),
+                        validate: (value) =>
+                          !showBalance || /^[A-Z]{3}$/.test(value) || "币种需为 3 位字母代码",
+                      })}
                     />
                   </div>
-                </div>
+                </FormField>
               )}
 
               {/* Date */}
               {showBalance && (
-                <div>
-                  <DatePicker
-                    value={parseDate(form.snapshotAt)}
-                    onChange={(v: DateValue | null) => {
-                      if (v) onChange({ snapshotAt: v.toString() })
+                <FormField label="日期" required error={errors.snapshotAt?.message}>
+                  <Controller
+                    control={control}
+                    name="snapshotAt"
+                    rules={{
+                      validate: (value) => !showBalance || Boolean(value) || "请选择日期",
                     }}
-                  >
-                    <Label
-                      style={{
-                        fontSize: 12,
-                        color: "var(--ink-3)",
-                        marginBottom: 6,
-                        display: "block",
-                      }}
-                    >
-                      日期
-                    </Label>
-                    <DateField.Group fullWidth variant="secondary">
-                      <DateField.Input>
-                        {(segment) => <DateField.Segment segment={segment} />}
-                      </DateField.Input>
-                      <DateField.Suffix>
-                        <DatePicker.Trigger>
-                          <DatePicker.TriggerIndicator />
-                        </DatePicker.Trigger>
-                      </DateField.Suffix>
-                    </DateField.Group>
-                    <DatePicker.Popover placement="top" style={{ maxWidth: "none" }}>
-                      <Calendar>
-                        <Calendar.Header>
-                          <Calendar.YearPickerTrigger>
-                            <Calendar.YearPickerTriggerHeading />
-                            <Calendar.YearPickerTriggerIndicator />
-                          </Calendar.YearPickerTrigger>
-                          <Calendar.NavButton slot="previous" />
-                          <Calendar.NavButton slot="next" />
-                        </Calendar.Header>
-                        <Calendar.Grid>
-                          <Calendar.GridHeader>
-                            {(day) => <Calendar.HeaderCell>{day}</Calendar.HeaderCell>}
-                          </Calendar.GridHeader>
-                          <Calendar.GridBody>
-                            {(date) => <Calendar.Cell date={date} />}
-                          </Calendar.GridBody>
-                        </Calendar.Grid>
-                      </Calendar>
-                    </DatePicker.Popover>
-                  </DatePicker>
-                </div>
+                    render={({ field }) => (
+                      <DatePicker
+                        value={parseDate(field.value)}
+                        onChange={(v: DateValue | null) => {
+                          if (v) field.onChange(v.toString())
+                        }}
+                      >
+                        <DateField.Group fullWidth variant="secondary">
+                          <DateField.Input>
+                            {(segment) => <DateField.Segment segment={segment} />}
+                          </DateField.Input>
+                          <DateField.Suffix>
+                            <DatePicker.Trigger>
+                              <DatePicker.TriggerIndicator />
+                            </DatePicker.Trigger>
+                          </DateField.Suffix>
+                        </DateField.Group>
+                        <DatePicker.Popover placement="top" style={{ maxWidth: "none" }}>
+                          <Calendar>
+                            <Calendar.Header>
+                              <Calendar.YearPickerTrigger>
+                                <Calendar.YearPickerTriggerHeading />
+                                <Calendar.YearPickerTriggerIndicator />
+                              </Calendar.YearPickerTrigger>
+                              <Calendar.NavButton slot="previous" />
+                              <Calendar.NavButton slot="next" />
+                            </Calendar.Header>
+                            <Calendar.Grid>
+                              <Calendar.GridHeader>
+                                {(day) => <Calendar.HeaderCell>{day}</Calendar.HeaderCell>}
+                              </Calendar.GridHeader>
+                              <Calendar.GridBody>
+                                {(date) => <Calendar.Cell date={date} />}
+                              </Calendar.GridBody>
+                            </Calendar.Grid>
+                          </Calendar>
+                        </DatePicker.Popover>
+                      </DatePicker>
+                    )}
+                  />
+                </FormField>
               )}
 
               {/* Note */}
-              <div>
-                <Label
-                  style={{ fontSize: 12, color: "var(--ink-3)", marginBottom: 6, display: "block" }}
-                >
-                  备注 <span className="opt">可选</span>
-                </Label>
+              <FormField label="备注">
                 <Input
                   variant="secondary"
-                  value={form.note}
                   placeholder="银行名称、账号后四位等"
-                  onChange={(e) => onChange({ note: e.target.value })}
+                  {...register("note")}
                 />
-              </div>
-            </div>
+              </FormField>
+            </form>
           </Modal.Body>
 
           <Modal.Footer>
-            <Button variant="primary" isDisabled={saving} onPress={onSave}>
+            <Button
+              variant="primary"
+              isDisabled={saving}
+              onPress={() => void handleSubmit(onSave)()}
+            >
               {saving ? "保存中…" : "保存"}
             </Button>
             <Button variant="outline" slot="close">

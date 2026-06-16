@@ -5,21 +5,32 @@
  * @gotcha  Subscription occurrences are forecasts until an explicit actual-cashflow workflow records them.
  */
 
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Button } from "@heroui/react"
+import { Button, Input, Modal } from "@heroui/react"
+import { useForm } from "react-hook-form"
 import { trpc } from "@/lib/trpc"
 import { CYCLE_LABELS } from "@/lib/domainDisplay"
 import { dateKey } from "@/lib/dates"
 import { formatNumber } from "@/lib/format"
 import { useConfirm } from "../components/ui/ConfirmModal"
 import type { SubscriptionOccurrenceSummary } from "@flowm/api"
+import { FormField } from "../components/ui/FormField"
 
 const fmt = formatNumber
 
 function InfoRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", padding: "9px 0", borderBottom: "1px solid var(--hair-3)", gap: 12 }}>
+    <div
+      style={{
+        display: "flex",
+        alignItems: "flex-start",
+        justifyContent: "space-between",
+        padding: "9px 0",
+        borderBottom: "1px solid var(--hair-3)",
+        gap: 12,
+      }}
+    >
       <span style={{ fontSize: 12, color: "var(--ink-4)", flexShrink: 0 }}>{label}</span>
       <span style={{ fontSize: 12, color: "var(--ink-2)", textAlign: "right" }}>{children}</span>
     </div>
@@ -35,7 +46,9 @@ interface Props {
 export function SubscriptionDetailPanel({ id, onBack }: Props) {
   const confirm = useConfirm()
   const queryClient = useQueryClient()
+  const [editing, setEditing] = useState(false)
   const archiveSubscription = useMutation(trpc.subscriptions.archive.mutationOptions())
+  const updateSubscription = useMutation(trpc.subscriptions.update.mutationOptions())
 
   const today = useMemo(() => dateKey(new Date()), [])
   const sixMonthsAgo = useMemo(() => {
@@ -59,13 +72,40 @@ export function SubscriptionDetailPanel({ id, onBack }: Props) {
   )
 
   const sub = subscriptionsQuery.data?.find((s) => String(s.id) === id)
+  const editForm = useForm({
+    values: {
+      name: sub?.name ?? "",
+      amount: sub?.amount ?? "",
+      nextChargeDate: sub?.nextChargeDate ?? dateKey(new Date()),
+      note: sub?.note ?? "",
+    },
+  })
 
-  const { pastOccs, totalPaid, startDate, monthsSubscribed, amount, yearlyAmt, cycleLabel, nextDateFormatted } = useMemo(() => {
+  async function refreshSubscriptionViews() {
+    await queryClient.invalidateQueries(trpc.subscriptions.list.queryFilter())
+    await queryClient.invalidateQueries(trpc.subscriptions.occurrences.queryFilter())
+    await queryClient.invalidateQueries(trpc.loans.futurePressure.queryFilter())
+  }
+
+  const {
+    pastOccs,
+    totalPaid,
+    startDate,
+    monthsSubscribed,
+    amount,
+    yearlyAmt,
+    cycleLabel,
+    nextDateFormatted,
+  } = useMemo(() => {
     if (!sub) return {} as any
 
     const allOccs = (occurrencesQuery.data ?? []).filter((o) => String(o.subscriptionId) === id)
-    const pastOccs = allOccs.filter((o) => o.dueDate <= today).sort((a, b) => b.dueDate.localeCompare(a.dueDate))
-    const futureOccs = allOccs.filter((o) => o.dueDate > today).sort((a, b) => a.dueDate.localeCompare(b.dueDate))
+    const pastOccs = allOccs
+      .filter((o) => o.dueDate <= today)
+      .sort((a, b) => b.dueDate.localeCompare(a.dueDate))
+    const futureOccs = allOccs
+      .filter((o) => o.dueDate > today)
+      .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
     const firstFutureOcc = futureOccs[0] ?? null
 
     const totalPaid = pastOccs.reduce((s, o) => s + parseFloat(o.amount), 0)
@@ -74,19 +114,32 @@ export function SubscriptionDetailPanel({ id, onBack }: Props) {
 
     const startD = new Date(startDate)
     const todayD = new Date(today)
-    const monthsSubscribed = (todayD.getFullYear() - startD.getFullYear()) * 12 + (todayD.getMonth() - startD.getMonth())
+    const monthsSubscribed =
+      (todayD.getFullYear() - startD.getFullYear()) * 12 + (todayD.getMonth() - startD.getMonth())
 
     const amount = parseFloat(sub.amount)
     const yearlyAmt =
-      sub.billingCycle === "monthly" ? amount * 12
-        : sub.billingCycle === "yearly" ? amount
-          : sub.billingCycle === "weekly" ? amount * 52
+      sub.billingCycle === "monthly"
+        ? amount * 12
+        : sub.billingCycle === "yearly"
+          ? amount
+          : sub.billingCycle === "weekly"
+            ? amount * 52
             : amount
 
     const cycleLabel = CYCLE_LABELS[sub.billingCycle] ?? sub.billingCycle
     const nextDateFormatted = firstFutureOcc?.dueDate.slice(5) ?? sub.nextChargeDate.slice(5)
 
-    return { pastOccs, totalPaid, startDate, monthsSubscribed, amount, yearlyAmt, cycleLabel, nextDateFormatted }
+    return {
+      pastOccs,
+      totalPaid,
+      startDate,
+      monthsSubscribed,
+      amount,
+      yearlyAmt,
+      cycleLabel,
+      nextDateFormatted,
+    }
   }, [sub, occurrencesQuery.data, id, today])
 
   return (
@@ -99,13 +152,26 @@ export function SubscriptionDetailPanel({ id, onBack }: Props) {
         size="sm"
         onPress={onBack}
         style={{
-          display: "inline-flex", alignItems: "center", gap: 4,
-          fontSize: 12, color: "var(--ink-4)", height: "auto",
-          padding: "3px 8px", borderRadius: 6, minWidth: 0, marginLeft: -8,
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 4,
+          fontSize: 12,
+          color: "var(--ink-4)",
+          height: "auto",
+          padding: "3px 8px",
+          borderRadius: 6,
+          minWidth: 0,
+          marginLeft: -8,
         }}
       >
         <svg width="15" height="15" viewBox="0 0 14 14" fill="none" style={{ flexShrink: 0 }}>
-          <path d="M9 2L4 7L9 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          <path
+            d="M9 2L4 7L9 12"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
         </svg>
         返回订阅
       </Button>
@@ -123,16 +189,51 @@ export function SubscriptionDetailPanel({ id, onBack }: Props) {
         {sub && (
           <>
             {/* Header */}
-            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12 }}>
-              <div style={{ display: "flex", alignItems: "center", fontSize: 11, color: "var(--ink-4)", fontWeight: 500 }}>
-                <span style={{ width: 8, height: 8, borderRadius: 2, background: "var(--accent)", display: "inline-block", marginRight: 6 }} />
+            <div
+              style={{
+                display: "flex",
+                alignItems: "baseline",
+                justifyContent: "space-between",
+                gap: 12,
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  fontSize: 11,
+                  color: "var(--ink-4)",
+                  fontWeight: 500,
+                }}
+              >
+                <span
+                  style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: 2,
+                    background: "var(--accent)",
+                    display: "inline-block",
+                    marginRight: 6,
+                  }}
+                />
                 订阅{sub.categoryId ? " · 娱乐" : ""}
               </div>
               <div style={{ display: "flex", alignItems: "baseline", gap: 2, flexShrink: 0 }}>
-                <span style={{ fontFamily: "var(--mono)", fontSize: 32, fontWeight: 700, color: "var(--ink)", letterSpacing: "-0.02em" }}>
-                  ¥{fmt(
-                    sub.billingCycle === "yearly" ? amount / 12
-                      : sub.billingCycle === "weekly" ? (amount * 52) / 12
+                <span
+                  style={{
+                    fontFamily: "var(--mono)",
+                    fontSize: 32,
+                    fontWeight: 700,
+                    color: "var(--ink)",
+                    letterSpacing: "-0.02em",
+                  }}
+                >
+                  ¥
+                  {fmt(
+                    sub.billingCycle === "yearly"
+                      ? amount / 12
+                      : sub.billingCycle === "weekly"
+                        ? (amount * 52) / 12
                         : amount,
                     2,
                   )}
@@ -142,7 +243,15 @@ export function SubscriptionDetailPanel({ id, onBack }: Props) {
             </div>
 
             {/* Name */}
-            <div style={{ fontSize: 26, fontWeight: 700, color: "var(--ink)", lineHeight: 1.1, marginTop: 6 }}>
+            <div
+              style={{
+                fontSize: 26,
+                fontWeight: 700,
+                color: "var(--ink)",
+                lineHeight: 1.1,
+                marginTop: 6,
+              }}
+            >
               {sub.name}
             </div>
 
@@ -152,26 +261,60 @@ export function SubscriptionDetailPanel({ id, onBack }: Props) {
             </div>
 
             {/* Yearly equivalent row */}
-            <div style={{ marginTop: 16, display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+            <div
+              style={{
+                marginTop: 16,
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "baseline",
+              }}
+            >
               <span style={{ fontSize: 12, color: "var(--ink-4)" }}>折合每年</span>
-              <span style={{ fontFamily: "var(--mono)", fontSize: 15, fontWeight: 600, color: "var(--ink)" }}>
-                ¥{fmt(yearlyAmt, 0)} <span style={{ fontWeight: 400, color: "var(--ink-4)" }}>/年</span>
+              <span
+                style={{
+                  fontFamily: "var(--mono)",
+                  fontSize: 15,
+                  fontWeight: 600,
+                  color: "var(--ink)",
+                }}
+              >
+                ¥{fmt(yearlyAmt, 0)}{" "}
+                <span style={{ fontWeight: 400, color: "var(--ink-4)" }}>/年</span>
               </span>
             </div>
 
             {/* Grey stats card */}
-            <div style={{
-              background: "var(--surface-2)", borderRadius: 10, padding: "12px 16px",
-              marginTop: 14, border: "1px solid var(--hair-2)",
-              display: "grid", gridTemplateColumns: "1fr 1fr",
-            }}>
+            <div
+              style={{
+                background: "var(--surface-2)",
+                borderRadius: 10,
+                padding: "12px 16px",
+                marginTop: 14,
+                border: "1px solid var(--hair-2)",
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+              }}
+            >
               <div>
-                <div style={{ fontSize: 12, color: "var(--ink-4)" }}>已订阅 {monthsSubscribed} 个月</div>
-                <div style={{ fontSize: 12.5, fontWeight: 500, color: "var(--ink)", marginTop: 2 }}>自 {startDate} 起</div>
+                <div style={{ fontSize: 12, color: "var(--ink-4)" }}>
+                  已订阅 {monthsSubscribed} 个月
+                </div>
+                <div style={{ fontSize: 12.5, fontWeight: 500, color: "var(--ink)", marginTop: 2 }}>
+                  自 {startDate} 起
+                </div>
               </div>
               <div style={{ textAlign: "right" }}>
                 <div style={{ fontSize: 11, color: "var(--ink-4)" }}>累计已扣</div>
-                <div style={{ fontFamily: "var(--mono)", fontSize: 22, fontWeight: 700, color: "var(--ink)", letterSpacing: "-0.02em", marginTop: 2 }}>
+                <div
+                  style={{
+                    fontFamily: "var(--mono)",
+                    fontSize: 22,
+                    fontWeight: 700,
+                    color: "var(--ink)",
+                    letterSpacing: "-0.02em",
+                    marginTop: 2,
+                  }}
+                >
                   ¥{fmt(totalPaid, 0)}
                 </div>
               </div>
@@ -179,7 +322,14 @@ export function SubscriptionDetailPanel({ id, onBack }: Props) {
 
             {/* Charges section */}
             <div style={{ marginTop: 20 }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  marginBottom: 4,
+                }}
+              >
                 <span style={{ fontSize: 12, fontWeight: 600, color: "var(--ink)" }}>扣款</span>
                 <span style={{ fontSize: 11, color: "var(--ink-4)" }}>
                   下次 {nextDateFormatted} · {sub.autoRenew ? "自动" : "手动"}
@@ -188,7 +338,12 @@ export function SubscriptionDetailPanel({ id, onBack }: Props) {
               {(pastOccs as SubscriptionOccurrenceSummary[]).slice(0, 5).map((occ) => (
                 <div
                   key={occ.id}
-                  style={{ display: "flex", alignItems: "center", padding: "8px 0", borderBottom: "1px solid var(--hair-3)" }}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    padding: "8px 0",
+                    borderBottom: "1px solid var(--hair-3)",
+                  }}
                 >
                   <span style={{ fontSize: 11.5, color: "var(--ink-4)", width: 50, flexShrink: 0 }}>
                     {occ.dueDate.slice(5)}
@@ -202,7 +357,9 @@ export function SubscriptionDetailPanel({ id, onBack }: Props) {
                 </div>
               ))}
               {pastOccs.length === 0 && (
-                <div style={{ fontSize: 12, color: "var(--ink-4)", padding: "8px 0" }}>暂无扣款记录</div>
+                <div style={{ fontSize: 12, color: "var(--ink-4)", padding: "8px 0" }}>
+                  暂无扣款记录
+                </div>
               )}
             </div>
 
@@ -211,17 +368,15 @@ export function SubscriptionDetailPanel({ id, onBack }: Props) {
               <InfoRow label="计费周期">
                 {cycleLabel} · ¥{fmt(amount, 2)}
               </InfoRow>
-              <InfoRow label="自动续费">
-                {sub.autoRenew ? "已开启" : "未开启"}
-              </InfoRow>
+              <InfoRow label="自动续费">{sub.autoRenew ? "已开启" : "未开启"}</InfoRow>
               <InfoRow label="扣款方式">
                 {sub.merchant
                   ? `${sub.merchant} · ${sub.autoRenew ? "自动扣款" : "手动付款"}`
-                  : sub.autoRenew ? "自动扣款" : "手动付款"}
+                  : sub.autoRenew
+                    ? "自动扣款"
+                    : "手动付款"}
               </InfoRow>
-              {sub.note && (
-                <InfoRow label="备注">{sub.note}</InfoRow>
-              )}
+              {sub.note && <InfoRow label="备注">{sub.note}</InfoRow>}
             </div>
 
             {/* Footer note */}
@@ -231,26 +386,43 @@ export function SubscriptionDetailPanel({ id, onBack }: Props) {
 
             {/* Actions */}
             <div style={{ display: "flex", gap: 8, marginTop: 28, alignItems: "center" }}>
-              <Button size="sm" variant="primary" style={{ borderRadius: 5 }}>关闭自动续费</Button>
-              <Button size="sm" variant="outline" style={{ borderRadius: 5 }}>编辑</Button>
+              <Button
+                size="sm"
+                variant="primary"
+                style={{ borderRadius: 5 }}
+                onPress={async () => {
+                  await updateSubscription.mutateAsync({ id, autoRenew: !sub.autoRenew })
+                  await refreshSubscriptionViews()
+                }}
+              >
+                {sub.autoRenew ? "关闭自动续费" : "开启自动续费"}
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                style={{ borderRadius: 5 }}
+                onPress={() => setEditing(true)}
+              >
+                编辑
+              </Button>
               <div style={{ flex: 1 }} />
               <Button
                 size="sm"
                 variant="danger-soft"
                 style={{ borderRadius: 5 }}
-                onPress={() => confirm({
-                  title: "取消订阅",
-                  description: `取消「${sub.name}」后，它将从订阅列表移除。确定继续？`,
-                  confirmText: "取消订阅",
-                  danger: true,
-                  onConfirm: async () => {
-                    await archiveSubscription.mutateAsync({ id })
-                    await queryClient.invalidateQueries(trpc.subscriptions.list.queryFilter())
-                    await queryClient.invalidateQueries(trpc.subscriptions.occurrences.queryFilter())
-                    await queryClient.invalidateQueries(trpc.loans.futurePressure.queryFilter())
-                    onBack()
-                  },
-                })}
+                onPress={() =>
+                  confirm({
+                    title: "取消订阅",
+                    description: `取消「${sub.name}」后，它将从订阅列表移除。确定继续？`,
+                    confirmText: "取消订阅",
+                    danger: true,
+                    onConfirm: async () => {
+                      await archiveSubscription.mutateAsync({ id })
+                      await refreshSubscriptionViews()
+                      onBack()
+                    },
+                  })
+                }
               >
                 取消订阅
               </Button>
@@ -258,6 +430,108 @@ export function SubscriptionDetailPanel({ id, onBack }: Props) {
           </>
         )}
       </div>
+      <Modal.Backdrop
+        isOpen={editing}
+        onOpenChange={(v) => {
+          if (!v) setEditing(false)
+        }}
+      >
+        <Modal.Container>
+          <Modal.Dialog style={{ maxWidth: 420 }}>
+            <Modal.CloseTrigger />
+            <Modal.Header>
+              <Modal.Heading>编辑订阅</Modal.Heading>
+              <p style={{ fontSize: 12, color: "var(--ink-4)", marginTop: 2 }}>
+                修改名称、金额和下次扣费日期
+              </p>
+            </Modal.Header>
+            <Modal.Body>
+              <form
+                id="subscription-edit-form"
+                onSubmit={(event) => {
+                  event.preventDefault()
+                  void editForm.handleSubmit(async (values) => {
+                    await updateSubscription.mutateAsync({
+                      id,
+                      name: values.name.trim(),
+                      amount: Math.abs(Number(values.amount) || 0).toFixed(2),
+                      nextChargeDate: values.nextChargeDate,
+                      note: values.note.trim() || null,
+                    })
+                    await refreshSubscriptionViews()
+                    setEditing(false)
+                  })()
+                }}
+                style={{ display: "flex", flexDirection: "column", gap: 14 }}
+              >
+                <FormField label="名称" required error={editForm.formState.errors.name?.message}>
+                  <Input
+                    variant="secondary"
+                    {...editForm.register("name", {
+                      validate: (value) => value.trim().length > 0 || "请输入订阅名称",
+                    })}
+                  />
+                </FormField>
+                <FormField
+                  label="扣费金额"
+                  required
+                  error={editForm.formState.errors.amount?.message}
+                >
+                  <Input
+                    variant="secondary"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    {...editForm.register("amount", {
+                      validate: (value) =>
+                        (String(value).trim().length > 0 && Number(value) > 0) ||
+                        "请输入大于 0 的金额",
+                    })}
+                  />
+                </FormField>
+                <FormField
+                  label="下次扣费日期"
+                  required
+                  error={editForm.formState.errors.nextChargeDate?.message}
+                >
+                  <Input
+                    variant="secondary"
+                    type="date"
+                    {...editForm.register("nextChargeDate", { required: "请选择扣费日期" })}
+                  />
+                </FormField>
+                <FormField label="备注">
+                  <Input variant="secondary" {...editForm.register("note")} />
+                </FormField>
+              </form>
+            </Modal.Body>
+            <Modal.Footer>
+              <Button
+                variant="primary"
+                isDisabled={editForm.formState.isSubmitting || updateSubscription.isPending}
+                onPress={() =>
+                  void editForm.handleSubmit(async (values) => {
+                    await updateSubscription.mutateAsync({
+                      id,
+                      name: values.name.trim(),
+                      amount: Math.abs(Number(values.amount) || 0).toFixed(2),
+                      nextChargeDate: values.nextChargeDate,
+                      note: values.note.trim() || null,
+                    })
+                    await refreshSubscriptionViews()
+                    setEditing(false)
+                  })()
+                }
+              >
+                {updateSubscription.isPending ? "保存中…" : "保存"}
+              </Button>
+              <Button variant="outline" onPress={() => setEditing(false)}>
+                取消
+              </Button>
+            </Modal.Footer>
+          </Modal.Dialog>
+        </Modal.Container>
+      </Modal.Backdrop>
     </div>
   )
 }

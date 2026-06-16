@@ -5,10 +5,14 @@
  * @gotcha  Keep native and database access behind the tRPC/preload boundary.
  */
 
-import { createRouter, RouterProvider } from "@tanstack/react-router"
+import { createHashHistory, createRouter, RouterProvider } from "@tanstack/react-router"
 import { routeTree } from "./routeTree.gen"
 
-const router = createRouter({ routeTree, defaultPreload: "intent" })
+const router = createRouter({
+  routeTree,
+  defaultPreload: "intent",
+  history: createHashHistory(),
+})
 
 declare module "@tanstack/react-router" {
   interface Register {

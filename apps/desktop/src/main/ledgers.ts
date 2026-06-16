@@ -13,7 +13,7 @@ import { drizzle } from "drizzle-orm/better-sqlite3"
 import { migrate } from "drizzle-orm/better-sqlite3/migrator"
 
 import { createFlowmApi, type FlowmApi } from "@flowm/api"
-import { seedDefaultCategories } from "@flowm/api/default-seed"
+import { seedDefaultCategories, seedPersonalStarterData } from "@flowm/api/default-seed"
 import { schema, type Database as DrizzleDatabase } from "@flowm/db"
 
 const PERSONAL_FILE = "flowm.sqlite3"
@@ -109,13 +109,25 @@ export class LedgerStore {
       copyFileSync(this.demoResourcePath(), demoPath)
     }
 
-    // Personal: create an empty, migrated, category-seeded ledger (unless one already exists).
+    // Personal: create a migrated ledger with default categories and lightweight editable starter data.
     if (!personalExisted) {
       await this.createLedgerFile(personalPath, true)
     }
 
-    const personal: LedgerRecord = { id: crypto.randomUUID(), name: "我的账本", file: PERSONAL_FILE, isDemo: false, createdAt: nowIso() }
-    const demo: LedgerRecord = { id: "demo", name: "示例账本", file: DEMO_FILE, isDemo: true, createdAt: nowIso() }
+    const personal: LedgerRecord = {
+      id: crypto.randomUUID(),
+      name: "我的账本",
+      file: PERSONAL_FILE,
+      isDemo: false,
+      createdAt: nowIso(),
+    }
+    const demo: LedgerRecord = {
+      id: "demo",
+      name: "示例账本",
+      file: DEMO_FILE,
+      isDemo: true,
+      createdAt: nowIso(),
+    }
 
     return {
       // Existing users (legacy flowm.sqlite3 present) keep their data active; fresh installs start on the demo.
@@ -124,14 +136,17 @@ export class LedgerStore {
     }
   }
 
-  /** Create a brand-new ledger file: migrate the schema and optionally seed default categories. */
-  private async createLedgerFile(absPath: string, seedCategories: boolean): Promise<void> {
+  /** Create a brand-new ledger file: migrate the schema and optionally seed personal starter data. */
+  private async createLedgerFile(absPath: string, seedStarterData: boolean): Promise<void> {
     mkdirSync(dirname(absPath), { recursive: true })
     const client = new Database(absPath)
     client.pragma("foreign_keys = ON")
     const db = drizzle(client, { schema })
     migrate(db, { migrationsFolder: this.migrationsFolder() })
-    if (seedCategories) await seedDefaultCategories(db)
+    if (seedStarterData) {
+      await seedDefaultCategories(db)
+      await seedPersonalStarterData(db)
+    }
     client.close()
   }
 
@@ -189,7 +204,12 @@ export class LedgerStore {
 
   list(): LedgerListEntry[] {
     const registry = this.requireRegistry()
-    return registry.ledgers.map((ledger) => ({ id: ledger.id, name: ledger.name, isDemo: ledger.isDemo, active: ledger.id === registry.activeId }))
+    return registry.ledgers.map((ledger) => ({
+      id: ledger.id,
+      name: ledger.name,
+      isDemo: ledger.isDemo,
+      active: ledger.id === registry.activeId,
+    }))
   }
 
   getActive(): ActiveLedger {
@@ -217,7 +237,13 @@ export class LedgerStore {
     const id = crypto.randomUUID()
     const file = `ledger-${id}.sqlite3`
     await this.createLedgerFile(this.resolveFile(file), true)
-    const record: LedgerRecord = { id, name: name.trim() || "新账本", file, isDemo: false, createdAt: nowIso() }
+    const record: LedgerRecord = {
+      id,
+      name: name.trim() || "新账本",
+      file,
+      isDemo: false,
+      createdAt: nowIso(),
+    }
     this.requireRegistry().ledgers.push(record)
     this.writeRegistry()
     return record
@@ -230,7 +256,9 @@ export class LedgerStore {
       filters: [{ name: "SQLite", extensions: ["sqlite3", "sqlite", "db"] }],
     }
     const focused = BrowserWindow.getFocusedWindow()
-    const result = focused ? await dialog.showOpenDialog(focused, options) : await dialog.showOpenDialog(options)
+    const result = focused
+      ? await dialog.showOpenDialog(focused, options)
+      : await dialog.showOpenDialog(options)
     if (result.canceled || result.filePaths.length === 0) return null
     const absPath = result.filePaths[0]
     // Bring an existing database up to the current schema; references the file in place.
@@ -238,7 +266,13 @@ export class LedgerStore {
     client.pragma("foreign_keys = ON")
     migrate(drizzle(client, { schema }), { migrationsFolder: this.migrationsFolder() })
     client.close()
-    const record: LedgerRecord = { id: crypto.randomUUID(), name: basename(absPath), file: absPath, isDemo: false, createdAt: nowIso() }
+    const record: LedgerRecord = {
+      id: crypto.randomUUID(),
+      name: basename(absPath),
+      file: absPath,
+      isDemo: false,
+      createdAt: nowIso(),
+    }
     this.requireRegistry().ledgers.push(record)
     this.writeRegistry()
     return record

@@ -5,8 +5,11 @@
  * @gotcha  Budget views summarize cashflow without turning plans into actual expenses.
  */
 
-import { useEffect, useState } from "react"
-import { Button, Input, Label, Modal } from "@heroui/react"
+import { useEffect } from "react"
+import { Button, Input, Modal } from "@heroui/react"
+import { Controller, useForm } from "react-hook-form"
+import { ColorPickerField, DEFAULT_COLOR_SWATCHES } from "../components/ui/ColorPickerField"
+import { FormField } from "../components/ui/FormField"
 
 export interface BudgetForm {
   name: string
@@ -14,13 +17,7 @@ export interface BudgetForm {
   color: string
 }
 
-const SWATCHES = [
-  "#e07b3a", "#4a8fc4", "#c46a9e", "#7c6ac4",
-  "#d4a017", "#5bac8e", "#2e86ab", "#5e9e9f",
-  "#14794a", "#c5242a", "#d4071c", "#e60012",
-]
-
-const EMPTY: BudgetForm = { name: "", plannedAmount: "", color: SWATCHES[0] }
+const EMPTY: BudgetForm = { name: "", plannedAmount: "", color: DEFAULT_COLOR_SWATCHES[0] }
 
 interface Props {
   open: boolean
@@ -34,78 +31,97 @@ interface Props {
 }
 
 export function AddBudgetModal({ open, saving, onSave, onClose, initial, title, subtitle }: Props) {
-  const [form, setForm] = useState<BudgetForm>(initial ?? EMPTY)
-  function patch(p: Partial<BudgetForm>) { setForm((f) => ({ ...f, ...p })) }
+  const {
+    control,
+    formState: { errors },
+    handleSubmit,
+    register,
+    reset,
+  } = useForm<BudgetForm>({ defaultValues: initial ?? EMPTY })
 
   // Re-seed the form whenever the modal is (re)opened.
   useEffect(() => {
-    if (open) setForm(initial ?? EMPTY)
-  }, [open, initial])
+    if (open) reset(initial ?? EMPTY)
+  }, [open, initial, reset])
 
-  function handleClose() { setForm(EMPTY); onClose() }
-  function handleSave() {
-    if (!form.name.trim() || !form.plannedAmount) return
-    onSave(form)
+  function handleClose() {
+    reset(EMPTY)
+    onClose()
   }
 
   return (
-    <Modal.Backdrop isOpen={open} onOpenChange={(v) => { if (!v) handleClose() }}>
+    <Modal.Backdrop
+      isOpen={open}
+      onOpenChange={(v) => {
+        if (!v) handleClose()
+      }}
+    >
       <Modal.Container>
         <Modal.Dialog>
           <Modal.CloseTrigger />
           <Modal.Header>
             <Modal.Heading>{title ?? "添加预算项"}</Modal.Heading>
-            <p style={{ fontSize: 12, color: "var(--ink-4)", marginTop: 2 }}>{subtitle ?? "为当前预算周期添加一个支出限额"}</p>
+            <p style={{ fontSize: 12, color: "var(--ink-4)", marginTop: 2 }}>
+              {subtitle ?? "为当前预算周期添加一个支出限额"}
+            </p>
           </Modal.Header>
 
           <Modal.Body>
-            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              <div>
-                <Label style={{ fontSize: 12, color: "var(--ink-3)", marginBottom: 6, display: "block" }}>预算名称</Label>
+            <form
+              id="budget-form"
+              onSubmit={(event) => {
+                event.preventDefault()
+                void handleSubmit(onSave)()
+              }}
+              style={{ display: "flex", flexDirection: "column", gap: 14 }}
+            >
+              <FormField label="预算名称" required error={errors.name?.message}>
                 <Input
                   variant="secondary"
-                  value={form.name}
                   placeholder="例如：餐饮预算"
-                  onChange={(e) => patch({ name: e.target.value })}
+                  aria-invalid={Boolean(errors.name)}
+                  {...register("name", {
+                    validate: (value) => value.trim().length > 0 || "请输入预算名称",
+                  })}
                 />
-              </div>
-              <div>
-                <Label style={{ fontSize: 12, color: "var(--ink-3)", marginBottom: 6, display: "block" }}>金额限制</Label>
+              </FormField>
+              <FormField label="金额限制" required error={errors.plannedAmount?.message}>
                 <Input
                   variant="secondary"
                   type="number"
                   min="0"
                   step="0.01"
-                  value={form.plannedAmount}
                   placeholder="0.00"
-                  onChange={(e) => patch({ plannedAmount: e.target.value })}
+                  aria-invalid={Boolean(errors.plannedAmount)}
+                  {...register("plannedAmount", {
+                    validate: (value) =>
+                      (value.trim().length > 0 && Number(value) > 0) || "请输入大于 0 的金额",
+                  })}
                 />
-              </div>
-              <div>
-                <Label style={{ fontSize: 12, color: "var(--ink-3)", marginBottom: 8, display: "block" }}>颜色</Label>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                  {SWATCHES.map((c) => (
-                    <button
-                      key={c}
-                      onClick={() => patch({ color: c })}
-                      style={{
-                        width: 24, height: 24, borderRadius: 6, background: c, border: "none",
-                        cursor: "pointer", flexShrink: 0,
-                        outline: form.color === c ? `2px solid ${c}` : "2px solid transparent",
-                        outlineOffset: 2,
-                      }}
-                    />
-                  ))}
-                </div>
-              </div>
-            </div>
+              </FormField>
+              <FormField label="颜色">
+                <Controller
+                  control={control}
+                  name="color"
+                  render={({ field }) => (
+                    <ColorPickerField value={field.value} onChange={field.onChange} />
+                  )}
+                />
+              </FormField>
+            </form>
           </Modal.Body>
 
           <Modal.Footer>
-            <Button variant="primary" isDisabled={saving || !form.name.trim() || !form.plannedAmount} onPress={handleSave}>
+            <Button
+              variant="primary"
+              isDisabled={saving}
+              onPress={() => void handleSubmit(onSave)()}
+            >
               {saving ? "保存中…" : "保存"}
             </Button>
-            <Button variant="outline" slot="close">取消</Button>
+            <Button variant="outline" slot="close">
+              取消
+            </Button>
           </Modal.Footer>
         </Modal.Dialog>
       </Modal.Container>

@@ -67,16 +67,16 @@ export function BudgetDetailPage() {
       })
       setShowEdit(false)
       await invalidateBudgetQueries(queryClient)
-    } finally { setSaving(false) }
+    } finally {
+      setSaving(false)
+    }
   }
 
   // Days left in current period
   const periodEnd = currentPeriod?.periodEnd ?? today
   const daysLeft = Math.max(
     0,
-    Math.ceil(
-      (new Date(periodEnd).getTime() - new Date(today).getTime()) / (1000 * 60 * 60 * 24),
-    ),
+    Math.ceil((new Date(periodEnd).getTime() - new Date(today).getTime()) / (1000 * 60 * 60 * 24)),
   )
   const dailyAvail = daysLeft > 0 ? remaining / daysLeft : 0
 
@@ -110,9 +110,7 @@ export function BudgetDetailPage() {
       (e) =>
         e.direction === "out" &&
         e.includeInAnalytics &&
-        (row?.budgetItemId
-          ? e.categoryName?.includes(baseName) || baseName === ""
-          : true),
+        (row?.budgetItemId ? e.categoryName?.includes(baseName) || baseName === "" : true),
     )
     const byMonth: Record<string, number> = {}
     for (const e of filtered) {
@@ -130,9 +128,7 @@ export function BudgetDetailPage() {
           e.direction === "out" &&
           e.includeInAnalytics &&
           e.eventDate >= currentMonth + "-01" &&
-          (row?.budgetItemId
-            ? e.categoryName?.includes(baseName) || baseName === ""
-            : true),
+          (row?.budgetItemId ? e.categoryName?.includes(baseName) || baseName === "" : true),
       )
       .sort((a, b) => b.eventDate.localeCompare(a.eventDate))
       .slice(0, 5)
@@ -183,7 +179,9 @@ export function BudgetDetailPage() {
           {/* Centered content */}
           <div style={{ maxWidth: 680, margin: "20px auto 0" }}>
             {/* Header section */}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+            <div
+              style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}
+            >
               <span
                 style={{
                   display: "inline-flex",
@@ -480,7 +478,13 @@ export function BudgetDetailPage() {
 
             {/* Actions */}
             <div style={{ display: "flex", gap: 8, marginTop: 28 }}>
-              <Button variant="primary" size="sm" style={{ borderRadius: 5 }} isDisabled={!row} onPress={() => setShowEdit(true)}>
+              <Button
+                variant="primary"
+                size="sm"
+                style={{ borderRadius: 5 }}
+                isDisabled={!row}
+                onPress={() => setShowEdit(true)}
+              >
                 编辑预算
               </Button>
               <Button variant="outline" size="sm" style={{ borderRadius: 5 }}>
@@ -519,7 +523,11 @@ export function BudgetDetailPage() {
         saving={saving}
         title="编辑预算"
         subtitle="修改预算名称、额度与颜色"
-        initial={{ name: budgetName, plannedAmount: limit ? String(limit) : "", color: row?.color ?? "#e07b3a" }}
+        initial={{
+          name: budgetName,
+          plannedAmount: limit ? String(limit) : "",
+          color: row?.color ?? "#e07b3a",
+        }}
         onSave={handleEditSave}
         onClose={() => setShowEdit(false)}
       />

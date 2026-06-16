@@ -1,5 +1,5 @@
 appId: com.flowm.desktop
-productName: Flowm
+productName: FlowM
 directories:
   output: release
 files:

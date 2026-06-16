@@ -1,8 +1,8 @@
 {
   "name": "desktop",
   "version": "0.1.0",
-  "description": "Electron desktop app for Flowm",
-  "author": "Flowm",
+  "description": "Electron desktop app for FlowM",
+  "author": "FlowM",
   "private": true,
   "type": "module",
   "main": "./out/main/index.js",
@@ -47,6 +47,7 @@
     "jotai": "^2.20.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
+    "react-hook-form": "^7.79.0",
     "react-i18next": "^17.0.8",
     "react-resizable-panels": "^4.11.2",
     "recharts": "^3.8.1",

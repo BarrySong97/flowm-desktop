@@ -75,6 +75,7 @@ export interface FlowmApi {
   archiveCategory(input: { id: FlowmId }): Promise<Result<void>>
   listTags(input?: ListTagsInput): Promise<Result<TagSummary[]>>
   createTag(input: CreateTagInput): Promise<Result<TagSummary>>
+  updateTag(input: UpdateTagInput): Promise<Result<TagSummary>>
   archiveTag(input: { id: FlowmId }): Promise<Result<void>>
 
   importStatement(input: ImportStatementInput): Promise<Result<ImportedBatchResult>>
@@ -340,6 +341,12 @@ export interface ListTagsInput {
 
 export interface CreateTagInput {
   name: string
+  color?: string | null
+}
+
+export interface UpdateTagInput {
+  id: FlowmId
+  name?: string
   color?: string | null
 }
 

@@ -5,12 +5,14 @@
  * @gotcha  Imports describe past cashflow and must not update asset balances automatically.
  */
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo } from "react"
 import { Button, Calendar, DateField, DatePicker, Input, Label, Modal } from "@heroui/react"
+import { Controller, useForm } from "react-hook-form"
 import type { DateValue } from "@internationalized/date"
 import { parseDate } from "@internationalized/date"
 import type { CategorySummary } from "@flowm/api"
 import { todayKey } from "@/lib/dates"
+import { FormField } from "../components/ui/FormField"
 
 export interface TxForm {
   flowKind: "expense" | "income"
@@ -19,9 +21,10 @@ export interface TxForm {
   categoryId: CategorySummary["id"] | null
   source: string
   date: string
+  note: string
 }
 
-function emptyForm(): TxForm {
+export function emptyTxForm(): TxForm {
   return {
     flowKind: "expense",
     amount: "",
@@ -29,39 +32,72 @@ function emptyForm(): TxForm {
     categoryId: null,
     source: "现金",
     date: todayKey(),
+    note: "",
   }
 }
 
 interface Props {
   open: boolean
   categories: CategorySummary[]
+  initial?: TxForm
+  title?: string
+  subtitle?: string
   onClose: () => void
   onSave: (form: TxForm) => void
 }
 
-function TypeButton({ active, onPress, children }: { active: boolean; onPress: () => void; children: string }) {
+function TypeButton({
+  active,
+  onPress,
+  children,
+}: {
+  active: boolean
+  onPress: () => void
+  children: string
+}) {
   return (
     <button
+      type="button"
       onClick={onPress}
       style={{
-        padding: "5px 18px", borderRadius: 7, fontSize: 13, fontWeight: 500, cursor: "pointer",
+        padding: "5px 18px",
+        borderRadius: 7,
+        fontSize: 13,
+        fontWeight: 500,
+        cursor: "pointer",
         border: active ? "none" : "1px solid var(--hair-2)",
         background: active ? "var(--accent)" : "white",
         color: active ? "white" : "var(--ink-3)",
         transition: "all 0.15s",
       }}
-    >{children}</button>
+    >
+      {children}
+    </button>
   )
 }
 
-function CatChip({ category, active, onPress }: { category: CategorySummary; active: boolean; onPress: () => void }) {
+function CatChip({
+  category,
+  active,
+  onPress,
+}: {
+  category: CategorySummary
+  active: boolean
+  onPress: () => void
+}) {
   const color = category.color ?? "var(--c-other)"
   return (
     <button
+      type="button"
       onClick={onPress}
       style={{
-        display: "inline-flex", alignItems: "center", gap: 5,
-        padding: "4px 10px", borderRadius: 6, fontSize: 12, cursor: "pointer",
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 5,
+        padding: "4px 10px",
+        borderRadius: 6,
+        fontSize: 12,
+        cursor: "pointer",
         border: active ? "none" : "1px solid var(--hair-2)",
         background: active ? `${color}22` : "white",
         color: active ? color : "var(--ink-3)",
@@ -75,122 +111,192 @@ function CatChip({ category, active, onPress }: { category: CategorySummary; act
   )
 }
 
-export function AddTxModal({ open, categories, onClose, onSave }: Props) {
-  const [form, setForm] = useState<TxForm>(() => emptyForm())
-  const [saving, setSaving] = useState(false)
+export function AddTxModal({
+  open,
+  categories,
+  initial,
+  title = "记一笔",
+  subtitle = "用于现金等未绑卡的支出",
+  onClose,
+  onSave,
+}: Props) {
+  const {
+    control,
+    formState: { errors, isSubmitting },
+    handleSubmit,
+    register,
+    reset,
+    setValue,
+    watch,
+  } = useForm<TxForm>({ defaultValues: initial ?? emptyTxForm() })
+  const form = watch()
 
   const categoryOptions = useMemo(() => {
     const active = categories.filter((category) => !category.archived)
-    const preferred = active.filter((category) => category.categoryKind === form.flowKind || category.kind === form.flowKind)
+    const preferred = active.filter(
+      (category) => category.categoryKind === form.flowKind || category.kind === form.flowKind,
+    )
     return preferred.length > 0 ? preferred : active
   }, [categories, form.flowKind])
 
   useEffect(() => {
     if (!open) return
+    reset(initial ?? emptyTxForm())
+  }, [initial, open, reset])
+
+  useEffect(() => {
+    if (!open) return
     if (categoryOptions.length === 0) {
-      if (form.categoryId != null) setForm((current) => ({ ...current, categoryId: null }))
+      if (form.categoryId != null) setValue("categoryId", null)
       return
     }
     if (!categoryOptions.some((category) => String(category.id) === String(form.categoryId))) {
-      setForm((current) => ({ ...current, categoryId: categoryOptions[0]?.id ?? null }))
+      setValue("categoryId", categoryOptions[0]?.id ?? null)
     }
-  }, [categoryOptions, form.categoryId, open])
-
-  function patch(p: Partial<TxForm>) { setForm((f) => ({ ...f, ...p })) }
+  }, [categoryOptions, form.categoryId, open, setValue])
 
   const amtNum = parseFloat(form.amount) || 0
-  const amtDisplay = form.flowKind === "expense"
-    ? `−¥ ${amtNum.toFixed(2)}`
-    : `+¥ ${amtNum.toFixed(2)}`
+  const amtDisplay =
+    form.flowKind === "expense" ? `−¥ ${amtNum.toFixed(2)}` : `+¥ ${amtNum.toFixed(2)}`
 
-  function handleClose() { setForm(emptyForm()); onClose() }
-
-  function handleSave() {
-    if (!form.amount || !form.counterparty) return
-    setSaving(true)
-    try { onSave(form) } finally { setSaving(false); handleClose() }
+  function handleClose() {
+    reset(emptyTxForm())
+    onClose()
   }
 
   return (
-    <Modal.Backdrop isOpen={open} onOpenChange={(v) => { if (!v) handleClose() }}>
+    <Modal.Backdrop
+      isOpen={open}
+      onOpenChange={(v) => {
+        if (!v) handleClose()
+      }}
+    >
       <Modal.Container>
         <Modal.Dialog style={{ maxWidth: 400 }}>
           <Modal.CloseTrigger />
           <Modal.Header>
-            <Modal.Heading>记一笔</Modal.Heading>
-            <p style={{ fontSize: 12, color: "var(--ink-4)", marginTop: 2 }}>用于现金等未绑卡的支出</p>
+            <Modal.Heading>{title}</Modal.Heading>
+            <p style={{ fontSize: 12, color: "var(--ink-4)", marginTop: 2 }}>{subtitle}</p>
           </Modal.Header>
 
           <Modal.Body>
-            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-
+            <form
+              id="tx-form"
+              onSubmit={(event) => {
+                event.preventDefault()
+                void handleSubmit((values) => {
+                  onSave(values)
+                  handleClose()
+                })()
+              }}
+              style={{ display: "flex", flexDirection: "column", gap: 16 }}
+            >
               {/* 类型 */}
               <div>
-                <Label style={{ fontSize: 12, color: "var(--ink-3)", marginBottom: 8, display: "block" }}>类型</Label>
+                <Label
+                  style={{ fontSize: 12, color: "var(--ink-3)", marginBottom: 8, display: "block" }}
+                >
+                  类型
+                </Label>
                 <div style={{ display: "flex", gap: 8 }}>
-                  <TypeButton active={form.flowKind === "expense"} onPress={() => patch({ flowKind: "expense" })}>支出</TypeButton>
-                  <TypeButton active={form.flowKind === "income"} onPress={() => patch({ flowKind: "income" })}>收入</TypeButton>
+                  <TypeButton
+                    active={form.flowKind === "expense"}
+                    onPress={() => setValue("flowKind", "expense")}
+                  >
+                    支出
+                  </TypeButton>
+                  <TypeButton
+                    active={form.flowKind === "income"}
+                    onPress={() => setValue("flowKind", "income")}
+                  >
+                    收入
+                  </TypeButton>
                 </div>
               </div>
 
               {/* 金额 */}
               <div>
-                <Label style={{ fontSize: 12, color: "var(--ink-3)", marginBottom: 8, display: "block" }}>金额</Label>
-                <div style={{
-                  border: "1px solid var(--hair-2)", borderRadius: 10,
-                  padding: "12px 16px", background: "var(--surface-2)",
-                  display: "flex", alignItems: "center",
-                }}>
-                  <span style={{
-                    fontFamily: "IBM Plex Mono, monospace", fontSize: 28, fontWeight: 700, flex: 1,
-                    color: form.flowKind === "expense" ? "var(--red)" : "var(--accent)",
-                    letterSpacing: "-0.02em",
-                  }}>
+                <Label
+                  style={{ fontSize: 12, color: "var(--ink-3)", marginBottom: 8, display: "block" }}
+                >
+                  金额
+                </Label>
+                <div
+                  style={{
+                    border: "1px solid var(--hair-2)",
+                    borderRadius: 10,
+                    padding: "12px 16px",
+                    background: "var(--surface-2)",
+                    display: "flex",
+                    alignItems: "center",
+                  }}
+                >
+                  <span
+                    style={{
+                      fontFamily: "IBM Plex Mono, monospace",
+                      fontSize: 28,
+                      fontWeight: 700,
+                      flex: 1,
+                      color: form.flowKind === "expense" ? "var(--red)" : "var(--accent)",
+                      letterSpacing: "-0.02em",
+                    }}
+                  >
                     {amtDisplay}
                   </span>
                   <input
-                    type="number" min="0" step="0.01"
-                    value={form.amount}
-                    onChange={(e) => patch({ amount: e.target.value })}
-                    placeholder="0.00"
-                    style={{
-                      position: "absolute", opacity: 0, width: 1, height: 1, pointerEvents: "none",
-                    }}
-                  />
-                  <input
-                    type="number" min="0" step="0.01"
-                    value={form.amount}
-                    onChange={(e) => patch({ amount: e.target.value })}
+                    type="number"
+                    min="0"
+                    step="0.01"
                     placeholder="输入金额"
+                    aria-invalid={Boolean(errors.amount)}
+                    {...register("amount", {
+                      validate: (value) =>
+                        (value.trim().length > 0 && Number(value) > 0) || "请输入大于 0 的金额",
+                    })}
                     style={{
-                      border: "none", background: "transparent", outline: "none",
-                      fontSize: 14, color: "var(--ink-3)", width: 90, textAlign: "right",
+                      border: "none",
+                      background: "transparent",
+                      outline: "none",
+                      fontSize: 14,
+                      color: "var(--ink-3)",
+                      width: 90,
+                      textAlign: "right",
                     }}
                   />
                 </div>
+                {errors.amount?.message && (
+                  <div style={{ marginTop: 5, fontSize: 11, lineHeight: 1.4, color: "var(--red)" }}>
+                    {errors.amount.message}
+                  </div>
+                )}
               </div>
 
               {/* 项目 */}
-              <div>
-                <Label style={{ fontSize: 12, color: "var(--ink-3)", marginBottom: 8, display: "block" }}>项目</Label>
+              <FormField label="项目" required error={errors.counterparty?.message}>
                 <Input
                   variant="secondary"
-                  value={form.counterparty}
                   placeholder="例如：菜市场/现金红包"
-                  onChange={(e) => patch({ counterparty: e.target.value })}
+                  aria-invalid={Boolean(errors.counterparty)}
+                  {...register("counterparty", {
+                    validate: (value) => value.trim().length > 0 || "请输入项目",
+                  })}
                 />
-              </div>
+              </FormField>
 
               {/* 类别 */}
               <div>
-                <Label style={{ fontSize: 12, color: "var(--ink-3)", marginBottom: 8, display: "block" }}>类别</Label>
+                <Label
+                  style={{ fontSize: 12, color: "var(--ink-3)", marginBottom: 8, display: "block" }}
+                >
+                  类别
+                </Label>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                   {categoryOptions.map((category) => (
                     <CatChip
                       key={category.id}
                       category={category}
                       active={String(form.categoryId) === String(category.id)}
-                      onPress={() => patch({ categoryId: category.id })}
+                      onPress={() => setValue("categoryId", category.id)}
                     />
                   ))}
                   {categoryOptions.length === 0 && (
@@ -202,60 +308,98 @@ export function AddTxModal({ open, categories, onClose, onSave }: Props) {
               {/* 来源 + 日期 */}
               <div style={{ display: "flex", gap: 12 }}>
                 <div style={{ flex: 1 }}>
-                  <Label style={{ fontSize: 12, color: "var(--ink-3)", marginBottom: 8, display: "block" }}>来源</Label>
-                  <Input
-                    variant="secondary"
-                    value={form.source}
-                    placeholder="例如：现金"
-                    onChange={(e) => patch({ source: e.target.value })}
-                  />
+                  <Label
+                    style={{
+                      fontSize: 12,
+                      color: "var(--ink-3)",
+                      marginBottom: 8,
+                      display: "block",
+                    }}
+                  >
+                    来源
+                  </Label>
+                  <Input variant="secondary" placeholder="例如：现金" {...register("source")} />
                 </div>
                 <div style={{ flex: 1 }}>
-                  <DatePicker
-                    value={parseDate(form.date)}
-                    onChange={(v: DateValue | null) => { if (v) patch({ date: v.toString() }) }}
-                  >
-                    <Label style={{ fontSize: 12, color: "var(--ink-3)", marginBottom: 8, display: "block" }}>日期</Label>
-                    <DateField.Group fullWidth variant="secondary">
-                      <DateField.Input>
-                        {(segment) => <DateField.Segment segment={segment} />}
-                      </DateField.Input>
-                      <DateField.Suffix>
-                        <DatePicker.Trigger><DatePicker.TriggerIndicator /></DatePicker.Trigger>
-                      </DateField.Suffix>
-                    </DateField.Group>
-                    <DatePicker.Popover placement="top" style={{ maxWidth: "none" }}>
-                      <Calendar>
-                        <Calendar.Header>
-                          <Calendar.YearPickerTrigger>
-                            <Calendar.YearPickerTriggerHeading />
-                            <Calendar.YearPickerTriggerIndicator />
-                          </Calendar.YearPickerTrigger>
-                          <Calendar.NavButton slot="previous" />
-                          <Calendar.NavButton slot="next" />
-                        </Calendar.Header>
-                        <Calendar.Grid>
-                          <Calendar.GridHeader>
-                            {(day) => <Calendar.HeaderCell>{day}</Calendar.HeaderCell>}
-                          </Calendar.GridHeader>
-                          <Calendar.GridBody>
-                            {(date) => <Calendar.Cell date={date} />}
-                          </Calendar.GridBody>
-                        </Calendar.Grid>
-                      </Calendar>
-                    </DatePicker.Popover>
-                  </DatePicker>
+                  <Controller
+                    control={control}
+                    name="date"
+                    rules={{ required: "请选择日期" }}
+                    render={({ field }) => (
+                      <DatePicker
+                        value={parseDate(field.value)}
+                        onChange={(v: DateValue | null) => {
+                          if (v) field.onChange(v.toString())
+                        }}
+                      >
+                        <Label
+                          style={{
+                            fontSize: 12,
+                            color: "var(--ink-3)",
+                            marginBottom: 8,
+                            display: "block",
+                          }}
+                        >
+                          日期
+                        </Label>
+                        <DateField.Group fullWidth variant="secondary">
+                          <DateField.Input>
+                            {(segment) => <DateField.Segment segment={segment} />}
+                          </DateField.Input>
+                          <DateField.Suffix>
+                            <DatePicker.Trigger>
+                              <DatePicker.TriggerIndicator />
+                            </DatePicker.Trigger>
+                          </DateField.Suffix>
+                        </DateField.Group>
+                        <DatePicker.Popover placement="top" style={{ maxWidth: "none" }}>
+                          <Calendar>
+                            <Calendar.Header>
+                              <Calendar.YearPickerTrigger>
+                                <Calendar.YearPickerTriggerHeading />
+                                <Calendar.YearPickerTriggerIndicator />
+                              </Calendar.YearPickerTrigger>
+                              <Calendar.NavButton slot="previous" />
+                              <Calendar.NavButton slot="next" />
+                            </Calendar.Header>
+                            <Calendar.Grid>
+                              <Calendar.GridHeader>
+                                {(day) => <Calendar.HeaderCell>{day}</Calendar.HeaderCell>}
+                              </Calendar.GridHeader>
+                              <Calendar.GridBody>
+                                {(date) => <Calendar.Cell date={date} />}
+                              </Calendar.GridBody>
+                            </Calendar.Grid>
+                          </Calendar>
+                        </DatePicker.Popover>
+                      </DatePicker>
+                    )}
+                  />
                 </div>
               </div>
-
-            </div>
+              <FormField label="备注">
+                <Input variant="secondary" placeholder="可选" {...register("note")} />
+              </FormField>
+            </form>
           </Modal.Body>
 
           <Modal.Footer>
-            <Button variant="primary" style={{ borderRadius: 5 }} isDisabled={saving || !form.amount || !form.counterparty} onPress={handleSave}>
-              {saving ? "保存中…" : "保存"}
+            <Button
+              variant="primary"
+              style={{ borderRadius: 5 }}
+              isDisabled={isSubmitting}
+              onPress={() =>
+                void handleSubmit((values) => {
+                  onSave(values)
+                  handleClose()
+                })()
+              }
+            >
+              {isSubmitting ? "保存中…" : "保存"}
             </Button>
-            <Button variant="outline" style={{ borderRadius: 5 }} slot="close">取消</Button>
+            <Button variant="outline" style={{ borderRadius: 5 }} slot="close">
+              取消
+            </Button>
           </Modal.Footer>
         </Modal.Dialog>
       </Modal.Container>

@@ -11,8 +11,9 @@ Record durable architecture and product-model decisions here so agents do not re
 
 ## Index
 
-| Number | Title | Status | Date |
-|---|---|---|---|
-| 0000 | Template | - | - |
-| 0001 | Keep Finance Layers Asymmetric | Accepted | 2026-06-14 |
-| 0003 | Desktop App Icon Assets | Accepted | 2026-06-16 |
+| Number | Title                                            | Status   | Date       |
+| ------ | ------------------------------------------------ | -------- | ---------- |
+| 0000   | Template                                         | -        | -          |
+| 0001   | Keep Finance Layers Asymmetric                   | Accepted | 2026-06-14 |
+| 0002   | Separate Demo Ledger And Personal Starter Ledger | Accepted | 2026-06-15 |
+| 0003   | Desktop App Icon Assets                          | Accepted | 2026-06-16 |

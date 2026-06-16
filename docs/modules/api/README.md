@@ -17,7 +17,8 @@
 - `packages/api/src/use-cases/assets/upsert-asset-snapshot.ts` - multi-step asset snapshot upsert workflow.
 - `packages/api/src/infrastructure/db/repositories/assets.repository.ts` - Drizzle-backed asset item and snapshot persistence.
 - `packages/api/src/presentation/mappers/sqlite-row-mappers.ts` - SQLite row to renderer contract mappers.
-- `packages/api/src/default-seed.ts` and `demo-seed.ts` - seed data helpers.
+- `packages/api/src/default-seed.ts` - default categories and lightweight personal starter data.
+- `packages/api/src/demo-seed.ts` - full deterministic demo ledger data.
 - `packages/api/tests/api.test.ts` - integration tests for the facade against SQLite.
 
 ## Use-Case Map
@@ -29,7 +30,7 @@
 - `imports/imports-api.ts` - imported statement records and transaction review surfaces.
 - `links/links-api.ts` - relationships between imported records and explanatory domain objects.
 - `loans/loans-api.ts` - loan plans and projected payment occurrences.
-- `reference/reference-api.ts` - reference/category-style data used by UI workflows.
+- `reference/reference-api.ts` - reference/category/tag data used by UI workflows, including category and tag create/update/archive operations.
 - `subscriptions/subscriptions-api.ts` - subscription plans and projected occurrences.
 
 ## Data Flow
@@ -40,11 +41,22 @@ The Electron main router calls this package with a typed `Database` handle from 
 
 The package exports the facade consumed by `apps/desktop/src/main/trpc/router.ts`. Browser-safe asset contracts are owned by `@flowm/shared/contracts` and re-exported from `@flowm/api` for compatibility while renderer imports migrate to the shared contract layer.
 
+## Seed Data
+
+`default-seed.ts` owns the editable starter data for non-demo personal ledgers: default categories, one current budget period, five starter budget items, two asset examples with manual snapshots, two subscription plans, and two loan plans. It intentionally does not create cashflow events or imported statements.
+
+`demo-seed.ts` owns the larger packaged sample ledger used by `flowm-demo.sqlite3`.
+
+The personal starter seed should be idempotent and conservative. It should only run for new non-demo ledgers and must use the public Flowm API facade for domain objects instead of inserting cross-domain starter rows directly. This keeps the seed aligned with validation, occurrence generation, and the asymmetric finance model.
+
 ## Watchouts
 
 - `packages/api/src/sqlite/` is compatibility glue only; new implementation code should use the layered folders directly.
 - `pnpm check-architecture` enforces that `use-cases/` do not import Drizzle or `@flowm/db`, infrastructure does not import use cases, shared contracts stay browser-safe, and `sqlite/` remains compatibility glue.
 - Do not infer asset balances from imports.
 - Do not materialize subscription or loan forecasts as actual cashflow unless an explicit workflow is being built.
+- Keep personal starter seed small and editable; larger explanatory datasets belong in the demo ledger.
+- Starter assets are examples with manual snapshots; starter subscriptions and loans are future plans. Do not convert them into cashflow or liability snapshots.
+- Keep demo seed and personal starter seed separate. Demo data can be broad and explanatory; personal starter data should feel like the user's own editable first ledger.
 - Prefer Drizzle expressions. Raw SQL strings and `db.$client` are outside the product boundary.
 - Handwritten API and test files carry AI headers; update them when the file's responsibility or boundary changes.

@@ -38,6 +38,17 @@ React renderer -> tRPC client -> preload IPC -> Electron main router -> `@flowm/
 
 The renderer should never open SQLite directly and should not import Node-only main process code.
 
+## Built-In Ledgers
+
+On first launch, `apps/desktop/src/main/ledgers.ts` materializes two SQLite files under `~/Library/Application Support/com.flowm.desktop`:
+
+- `flowm-demo.sqlite3` - copied from the packaged demo resource and used for the full sample ledger.
+- `flowm.sqlite3` - migrated in place and seeded as the user's editable personal ledger with default categories plus small starter budgets, assets, subscriptions, and loans.
+
+Fresh installs start on the demo ledger, while the personal ledger is already present so the user can switch out of demo mode without landing on an empty database.
+
+Ledger switching changes the active SQLite connection in the Electron main process, not a renderer-side filter. After any successful switch, renderer code must clear query state, route to a stable screen, show a short transition state, and reload the window so already-mounted pages cannot keep showing data from the previous ledger.
+
 ## Interfaces
 
 - `window.flowm.trpcRequest(operation)`
@@ -49,6 +60,12 @@ Update `apps/desktop/src/preload/index.d.ts` whenever the preload contract chang
 ## Watchouts
 
 - Keep `app.setPath("userData", ...)` compatible with `~/Library/Application Support/com.flowm.desktop`.
+- The desktop-visible app name is `FlowM`; keep the bundle id and userData path stable for existing installs.
+- Do not overwrite `flowm.sqlite3` when it already exists; that file is user data, even if the starter seed changes later.
+- New non-demo ledgers created from settings use the same personal starter seed as `flowm.sqlite3`.
+- Ledger switching happens in the main process. Invalidating one route's queries is not enough; use the shared renderer switch helper so cache clearing, transition UI, navigation, and reload stay consistent.
+- Renderer CRUD forms should use React Hook Form for state and validation, with current HeroUI controls plus `components/ui/FormField.tsx` for field-level labels and error state.
+- Budget creation must work on an empty personal ledger by lazily creating the default budget set and current monthly period before inserting the first item.
 - Desktop tests and development depend on the Electron ABI for `better-sqlite3`.
 - UI copy and flows must preserve the separation between cashflow, assets, and obligations.
 - The demo ledger banner is intentionally non-dismissible while a demo ledger is active; the explicit exit is switching to a non-demo ledger.

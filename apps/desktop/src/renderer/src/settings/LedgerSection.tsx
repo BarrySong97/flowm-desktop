@@ -8,6 +8,7 @@
 import { useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Button } from "@heroui/react"
+import { useForm } from "react-hook-form"
 import { useConfirm } from "../components/ui/ConfirmModal"
 import { trpc } from "@/lib/trpc"
 import { useLedgerSwitch } from "@/lib/switchLedger"
@@ -16,7 +17,11 @@ const INPUT_CLASS =
   "min-w-0 flex-[0_1_220px] rounded-[7px] border border-[var(--hair)] bg-white px-[9px] py-[5px] text-[13px] font-medium text-[var(--ink)] outline-none focus:border-[var(--accent)]"
 
 function GroupLabel({ children }: { children: string }) {
-  return <div className="mb-1 text-[10.5px] font-semibold uppercase tracking-[.1em] text-[var(--ink-4)]">{children}</div>
+  return (
+    <div className="mb-1 text-[10.5px] font-semibold uppercase tracking-[.1em] text-[var(--ink-4)]">
+      {children}
+    </div>
+  )
 }
 
 export function LedgerSection() {
@@ -35,9 +40,9 @@ export function LedgerSection() {
   const setDemoMut = useMutation(trpc.ledgers.setDemo.mutationOptions())
 
   const [creating, setCreating] = useState(false)
-  const [newName, setNewName] = useState("")
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [editName, setEditName] = useState("")
+  const createForm = useForm({ defaultValues: { name: "" } })
+  const renameForm = useForm({ defaultValues: { name: "" } })
 
   const refreshList = () =>
     Promise.all([
@@ -49,12 +54,12 @@ export function LedgerSection() {
     await switchLedger(() => switchMut.mutateAsync({ id }))
   }
 
-  async function handleCreate() {
-    const name = newName.trim()
+  async function handleCreate(values: { name: string }) {
+    const name = values.name.trim()
     if (!name) return
     const record = await createMut.mutateAsync({ name })
     setCreating(false)
-    setNewName("")
+    createForm.reset({ name: "" })
     await switchLedger(() => switchMut.mutateAsync({ id: record.id }))
   }
 
@@ -67,18 +72,19 @@ export function LedgerSection() {
     }
   }
 
-  async function handleRename(id: string) {
-    const name = editName.trim()
+  async function handleRename(id: string, values: { name: string }) {
+    const name = values.name.trim()
     if (name) await renameMut.mutateAsync({ id, name })
     setEditingId(null)
-    setEditName("")
+    renameForm.reset({ name: "" })
     await refreshList()
   }
 
   function handleDelete(id: string, name: string) {
     confirm({
       title: `删除账本「${name}」`,
-      description: "这会从列表移除该账本。内置账本会一并删除其数据文件，导入的外部文件不会被删除。此操作无法恢复，确定继续？",
+      description:
+        "这会从列表移除该账本。内置账本会一并删除其数据文件，导入的外部文件不会被删除。此操作无法恢复，确定继续？",
       confirmText: "删除账本",
       danger: true,
       onConfirm: async () => {
@@ -98,20 +104,33 @@ export function LedgerSection() {
       <GroupLabel>账本</GroupLabel>
 
       {ledgers.map((ledger, index) => (
-        <div key={ledger.id} className={`flex items-center gap-3 py-[13px] ${index === 0 ? "" : "border-t border-[var(--hair-3)]"}`}>
-          <span className={`h-[7px] w-[7px] shrink-0 rounded-full ${ledger.active ? "bg-[var(--accent)]" : "bg-[var(--hair)]"}`} />
+        <div
+          key={ledger.id}
+          className={`flex items-center gap-3 py-[13px] ${index === 0 ? "" : "border-t border-[var(--hair-3)]"}`}
+        >
+          <span
+            className={`h-[7px] w-[7px] shrink-0 rounded-full ${ledger.active ? "bg-[var(--accent)]" : "bg-[var(--hair)]"}`}
+          />
 
           {editingId === ledger.id ? (
             <input
               autoFocus
-              value={editName}
-              onChange={(e) => setEditName(e.target.value)}
+              {...renameForm.register("name", {
+                validate: (value) => value.trim().length > 0 || "请输入账本名称",
+              })}
               onKeyDown={(e) => {
-                if (e.key === "Enter") handleRename(ledger.id)
-                if (e.key === "Escape") setEditingId(null)
+                if (e.key === "Enter")
+                  void renameForm.handleSubmit((values) => handleRename(ledger.id, values))()
+                if (e.key === "Escape") {
+                  setEditingId(null)
+                  renameForm.reset({ name: "" })
+                }
               }}
-              onBlur={() => handleRename(ledger.id)}
+              onBlur={() =>
+                void renameForm.handleSubmit((values) => handleRename(ledger.id, values))()
+              }
               className={INPUT_CLASS}
+              aria-invalid={Boolean(renameForm.formState.errors.name)}
             />
           ) : (
             <span className="min-w-0 truncate text-[13.5px] text-[var(--ink)]">{ledger.name}</span>
@@ -127,13 +146,36 @@ export function LedgerSection() {
             {ledger.active ? (
               <span className="px-1 text-[11.5px] text-[var(--ink-4)]">使用中</span>
             ) : (
-              <Button size="sm" variant="ghost" onPress={() => handleSwitch(ledger.id)}>切换</Button>
+              <Button size="sm" variant="ghost" onPress={() => handleSwitch(ledger.id)}>
+                切换
+              </Button>
             )}
-            <Button size="sm" variant="ghost" onPress={() => { setEditingId(ledger.id); setEditName(ledger.name) }}>重命名</Button>
-            <Button size="sm" variant="ghost" onPress={() => handleToggleDemo(ledger.id, !ledger.isDemo)}>
+            <Button
+              size="sm"
+              variant="ghost"
+              onPress={() => {
+                setEditingId(ledger.id)
+                renameForm.reset({ name: ledger.name })
+              }}
+            >
+              重命名
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onPress={() => handleToggleDemo(ledger.id, !ledger.isDemo)}
+            >
               {ledger.isDemo ? "取消示例" : "设为示例"}
             </Button>
-            {!ledger.active && <Button size="sm" variant="ghost" onPress={() => handleDelete(ledger.id, ledger.name)}>删除</Button>}
+            {!ledger.active && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onPress={() => handleDelete(ledger.id, ledger.name)}
+              >
+                删除
+              </Button>
+            )}
           </div>
         </div>
       ))}
@@ -142,27 +184,53 @@ export function LedgerSection() {
         <div className="flex items-center gap-2 border-t border-[var(--hair-3)] py-[13px]">
           <input
             autoFocus
-            value={newName}
             placeholder="账本名称"
-            onChange={(e) => setNewName(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter") handleCreate()
-              if (e.key === "Escape") { setCreating(false); setNewName("") }
+              if (e.key === "Enter") void createForm.handleSubmit(handleCreate)()
+              if (e.key === "Escape") {
+                setCreating(false)
+                createForm.reset({ name: "" })
+              }
             }}
             className={INPUT_CLASS}
+            aria-invalid={Boolean(createForm.formState.errors.name)}
+            {...createForm.register("name", {
+              validate: (value) => value.trim().length > 0 || "请输入账本名称",
+            })}
           />
-          <Button size="sm" variant="secondary" style={{ borderRadius: 6 }} onPress={handleCreate}>创建并切换</Button>
-          <Button size="sm" variant="ghost" onPress={() => { setCreating(false); setNewName("") }}>取消</Button>
+          <Button
+            size="sm"
+            variant="secondary"
+            style={{ borderRadius: 6 }}
+            onPress={() => void createForm.handleSubmit(handleCreate)()}
+          >
+            创建并切换
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onPress={() => {
+              setCreating(false)
+              createForm.reset({ name: "" })
+            }}
+          >
+            取消
+          </Button>
         </div>
       ) : (
         <div className="flex items-center gap-3 border-t border-[var(--hair-3)] py-[13px]">
-          <Button size="sm" variant="ghost" onPress={() => setCreating(true)}>＋ 新建账本</Button>
-          <Button size="sm" variant="ghost" onPress={handleImport}>导入 .sqlite3 文件</Button>
+          <Button size="sm" variant="ghost" onPress={() => setCreating(true)}>
+            ＋ 新建账本
+          </Button>
+          <Button size="sm" variant="ghost" onPress={handleImport}>
+            导入 .sqlite3 文件
+          </Button>
         </div>
       )}
 
       <div className="mt-2.5 text-[11.5px] leading-relaxed text-[var(--ink-4)]">
-        每个账本是一份独立的本地 SQLite 文件。被标记为「示例」的账本会在顶部显示样例提示条。切换账本会重新加载全部数据。
+        每个账本是一份独立的本地 SQLite
+        文件。被标记为「示例」的账本会在顶部显示样例提示条。切换账本会重新加载全部数据。
       </div>
     </div>
   )

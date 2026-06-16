@@ -33,7 +33,7 @@ type TRPCProfile = {
 let trpcRequestSeq = 0
 
 function configureUserDataPath(): void {
-  app.setName("Flowm")
+  app.setName("FlowM")
   app.setPath("userData", join(app.getPath("appData"), "com.flowm.desktop"))
 }
 
@@ -150,7 +150,7 @@ function createWindow(): BrowserWindow {
     show: false,
     autoHideMenuBar: true,
     icon: devIcon,
-    title: "Flowm",
+    title: "FlowM",
     titleBarStyle: process.platform === "darwin" ? "hiddenInset" : "default",
     ...macWindowOptions,
     webPreferences: {
