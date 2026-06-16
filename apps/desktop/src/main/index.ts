@@ -5,7 +5,7 @@
  * @gotcha  Keep userData at com.flowm.desktop and keep SQLite ownership in the main process.
  */
 
-import { app, BrowserWindow, ipcMain, shell } from "electron"
+import { app, BrowserWindow, ipcMain, nativeImage, shell } from "electron"
 import { electronApp, is, optimizer } from "@electron-toolkit/utils"
 import { existsSync } from "node:fs"
 import { join } from "node:path"
@@ -35,6 +35,26 @@ let trpcRequestSeq = 0
 function configureUserDataPath(): void {
   app.setName("Flowm")
   app.setPath("userData", join(app.getPath("appData"), "com.flowm.desktop"))
+}
+
+function getDevIconPath(): string {
+  return join(__dirname, "../../resources/icons/flowm.iconset/icon_512x512@2x.png")
+}
+
+function getDevIcon() {
+  const icon = nativeImage.createFromPath(getDevIconPath())
+  return icon.isEmpty() ? undefined : icon
+}
+
+function configureDevDockIcon(): void {
+  if (!is.dev || process.platform !== "darwin" || !app.dock) {
+    return
+  }
+
+  const icon = getDevIcon()
+  if (icon) {
+    app.dock.setIcon(icon)
+  }
 }
 
 function roundMs(value: number): number {
@@ -100,12 +120,17 @@ function registerTrpcHandler(): void {
       const data = await procedure(request.input)
       return { ok: true, data, profile: finishTRPCProfile(request, startedAt) }
     } catch (error) {
-      return { ok: false, error: serializeError(error), profile: finishTRPCProfile(request, startedAt) }
+      return {
+        ok: false,
+        error: serializeError(error),
+        profile: finishTRPCProfile(request, startedAt),
+      }
     }
   })
 }
 
 function createWindow(): BrowserWindow {
+  const devIcon = is.dev ? getDevIcon() : undefined
   const macWindowOptions =
     process.platform === "darwin"
       ? ({
@@ -124,6 +149,7 @@ function createWindow(): BrowserWindow {
     minHeight: 560,
     show: false,
     autoHideMenuBar: true,
+    icon: devIcon,
     title: "Flowm",
     titleBarStyle: process.platform === "darwin" ? "hiddenInset" : "default",
     ...macWindowOptions,
@@ -136,6 +162,7 @@ function createWindow(): BrowserWindow {
 
   mainWindow.on("ready-to-show", () => {
     mainWindow.show()
+    configureDevDockIcon()
     if (is.dev) {
       mainWindow.webContents.openDevTools({ mode: "detach" })
     }
@@ -160,6 +187,7 @@ configureUserDataPath()
 
 app.whenReady().then(async () => {
   electronApp.setAppUserModelId("com.flowm.desktop")
+  configureDevDockIcon()
 
   app.on("browser-window-created", (_, window) => {
     optimizer.watchWindowShortcuts(window)

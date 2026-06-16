@@ -15,3 +15,4 @@ Record durable architecture and product-model decisions here so agents do not re
 |---|---|---|---|
 | 0000 | Template | - | - |
 | 0001 | Keep Finance Layers Asymmetric | Accepted | 2026-06-14 |
+| 0003 | Desktop App Icon Assets | Accepted | 2026-06-16 |

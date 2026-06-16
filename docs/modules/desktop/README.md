@@ -12,6 +12,7 @@
 - `apps/desktop/src/main/trpc/trpc.ts` - tRPC helpers for the Electron main process.
 - `apps/desktop/src/preload/index.ts` - typed preload bridge exposed as `window.flowm`.
 - `apps/desktop/src/renderer/src` - React renderer routes, feature pages, providers, and app styles.
+- `apps/desktop/resources/icons` - packaged desktop app icon sources and macOS `.icns` asset.
 - `apps/desktop/scripts/seed-demo.ts` - developer script for seeding local demo data.
 - `apps/desktop/scripts/build-demo-ledger.ts` - script for building the packaged demo ledger resource.
 - `apps/desktop/electron-builder.yml` - desktop packaging configuration.

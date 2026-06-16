@@ -14,6 +14,7 @@ extraResources:
     to: migrations
 npmRebuild: true
 mac:
+  icon: resources/icons/flowm.icns
   target:
     - dmg
 win:
