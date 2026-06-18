@@ -6,7 +6,7 @@
  */
 
 import { useEffect, useState } from "react"
-import { Button, Input, Modal, Tabs } from "@heroui/react"
+import { Button, Input, Modal } from "@heroui/react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 import { Controller, useForm } from "react-hook-form"
@@ -17,184 +17,9 @@ import { useConfirm } from "../components/ui/ConfirmModal"
 import { ColorPickerField } from "../components/ui/ColorPickerField"
 import { FormField } from "../components/ui/FormField"
 import { LedgerSection } from "./LedgerSection"
+import { GroupLabel, LinkRow, Row, Toggle } from "./components"
 import { trpc } from "@/lib/trpc"
 import { usePagePerf } from "@/lib/debug/perf"
-
-const CHEVRON = (
-  <svg
-    width="15"
-    height="15"
-    viewBox="0 0 16 16"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.6"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M6 3l5 5-5 5" />
-  </svg>
-)
-
-function GroupLabel({ children }: { children: string }) {
-  return (
-    <div
-      style={{
-        fontSize: 10.5,
-        fontWeight: 600,
-        letterSpacing: ".1em",
-        textTransform: "uppercase" as const,
-        color: "var(--ink-4)",
-        marginBottom: 4,
-      }}
-    >
-      {children}
-    </div>
-  )
-}
-
-function Row({
-  label,
-  sub,
-  first,
-  children,
-}: {
-  label: string
-  sub?: string
-  first?: boolean
-  children: React.ReactNode
-}) {
-  return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 18,
-        padding: "15px 0",
-        borderTop: first ? "none" : "1px solid var(--hair-3)",
-      }}
-    >
-      <div style={{ minWidth: 0 }}>
-        <div style={{ fontSize: 13.5, color: "var(--ink)" }}>{label}</div>
-        {sub && (
-          <div style={{ fontSize: 11.5, color: "var(--ink-3)", marginTop: 3, lineHeight: 1.5 }}>
-            {sub}
-          </div>
-        )}
-      </div>
-      <div style={{ marginLeft: "auto", flexShrink: 0 }}>{children}</div>
-    </div>
-  )
-}
-
-function LinkRow({
-  children,
-  note,
-  danger,
-  onClick,
-}: {
-  children: string
-  note?: string
-  danger?: boolean
-  onClick?: () => void
-}) {
-  const [hov, setHov] = useState(false)
-  return (
-    <button
-      onClick={onClick}
-      onMouseEnter={() => setHov(true)}
-      onMouseLeave={() => setHov(false)}
-      style={{
-        font: "500 13px var(--sans)",
-        color: danger ? (hov ? "#a23a31" : "#b4493f") : hov ? "var(--ink)" : "var(--ink-2)",
-        display: "flex",
-        alignItems: "center",
-        gap: 18,
-        padding: "15px 0",
-        borderTop: "1px solid var(--hair-3)",
-        width: "100%",
-        textAlign: "left",
-        background: "none",
-        cursor: "pointer",
-        transition: "color .12s",
-      }}
-    >
-      {children}
-      {note && (
-        <span
-          style={{
-            fontWeight: 400,
-            fontSize: 11.5,
-            marginLeft: "auto",
-            whiteSpace: "nowrap",
-            color: "var(--ink-4)",
-          }}
-        >
-          {note}
-        </span>
-      )}
-      <span style={{ marginLeft: note ? 0 : "auto", color: "var(--ink-4)" }}>{CHEVRON}</span>
-    </button>
-  )
-}
-
-function Toggle({ on, onChange }: { on: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <div
-      onClick={() => onChange(!on)}
-      style={{
-        width: 40,
-        height: 23,
-        borderRadius: 100,
-        cursor: "pointer",
-        flexShrink: 0,
-        background: on ? "var(--accent)" : "var(--hair)",
-        position: "relative",
-        transition: "background .18s",
-      }}
-    >
-      <span
-        style={{
-          position: "absolute",
-          top: 2.5,
-          left: 2.5,
-          width: 18,
-          height: 18,
-          borderRadius: "50%",
-          background: "#fff",
-          boxShadow: "0 1px 3px rgba(20,40,30,.28)",
-          transform: on ? "translateX(17px)" : "none",
-          transition: "transform .18s",
-          display: "block",
-        }}
-      />
-    </div>
-  )
-}
-
-function SegTabs({
-  opts,
-  val,
-  onChange,
-}: {
-  opts: string[]
-  val: string
-  onChange: (v: string) => void
-}) {
-  return (
-    <Tabs selectedKey={val} onSelectionChange={(k) => onChange(String(k))}>
-      <Tabs.ListContainer>
-        <Tabs.List>
-          {opts.map((o) => (
-            <Tabs.Tab key={o} id={o} className="h-6 px-3 text-xs">
-              {o}
-              <Tabs.Indicator />
-            </Tabs.Tab>
-          ))}
-        </Tabs.List>
-      </Tabs.ListContainer>
-    </Tabs>
-  )
-}
 
 interface TagForm {
   name: string
@@ -311,14 +136,11 @@ export function SettingsPage() {
   const confirm = useConfirm()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const resetAll = useMutation(trpc.system.resetAll.mutationOptions())
   const createTag = useMutation(trpc.reference.createTag.mutationOptions())
   const updateTag = useMutation(trpc.reference.updateTag.mutationOptions())
   const archiveTag = useMutation(trpc.reference.archiveTag.mutationOptions())
-  const [dec, setDec] = useState("2")
   const [grp, setGrp] = useState(true)
   const [hide, setHide] = useState(false)
-  const [cache, setCache] = useState("自动")
   const [editingTag, setEditingTag] = useState<TagSummary | null>(null)
   const [showTagForm, setShowTagForm] = useState(false)
   const tagsQuery = useQuery(trpc.reference.tags.queryOptions())
@@ -436,9 +258,6 @@ export function SettingsPage() {
                 {displayCurrency}
               </span>
             </Row>
-            <Row label="金额小数位" sub="流水与余额的显示精度">
-              <SegTabs opts={["0", "2"]} val={dec} onChange={setDec} />
-            </Row>
             <Row label="千分位分隔" sub="¥1,234,567 / ¥1234567">
               <Toggle on={grp} onChange={setGrp} />
             </Row>
@@ -515,47 +334,6 @@ export function SettingsPage() {
 
           {/* 账本 */}
           <LedgerSection />
-
-          {/* 数据与隐私 */}
-          <div style={{ marginTop: 30 }}>
-            <GroupLabel>数据与隐私</GroupLabel>
-            <Row first label="本地缓存" sub="账单解析后是否在本机留存副本">
-              <SegTabs opts={["关闭", "自动"]} val={cache} onChange={setCache} />
-            </Row>
-            <LinkRow note="CSV · Excel">导出全部数据</LinkRow>
-            <LinkRow
-              onClick={() =>
-                confirm({
-                  title: "清除本地缓存",
-                  description: "清除后会重新从本地数据库加载数据，不会删除任何记录。确定继续？",
-                  confirmText: "清除缓存",
-                  onConfirm: async () => {
-                    await queryClient.invalidateQueries()
-                  },
-                })
-              }
-            >
-              清除本地缓存
-            </LinkRow>
-            <LinkRow
-              danger
-              onClick={() =>
-                confirm({
-                  title: "清空所有数据并重置",
-                  description:
-                    "这会永久删除所有流水、资产、订阅、贷款、预算、分类与标签。此操作无法恢复，确定继续？",
-                  confirmText: "清空并重置",
-                  danger: true,
-                  onConfirm: async () => {
-                    await resetAll.mutateAsync()
-                    await queryClient.invalidateQueries()
-                  },
-                })
-              }
-            >
-              清空所有数据并重置
-            </LinkRow>
-          </div>
 
           {/* 关于 */}
           <div style={{ marginTop: 30 }}>

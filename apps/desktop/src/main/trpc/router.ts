@@ -406,6 +406,12 @@ export const appRouter = router({
         return ctx.ledgers.list()
       }),
     importFromFile: publicProcedure.mutation(({ ctx }) => ctx.ledgers.importFromFile()),
+    reveal: publicProcedure
+      .input((v) => v as { id: string })
+      .mutation(({ ctx, input }) => {
+        ctx.ledgers.revealInFinder(input.id)
+        return null
+      }),
   }),
   links: router({
     list: publicProcedure
