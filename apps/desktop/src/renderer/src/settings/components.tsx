@@ -5,7 +5,6 @@
  * @gotcha  RowShell is the single source of row sizing — keep every settings row on it.
  */
 
-import { useState } from "react"
 import type { CSSProperties, ReactNode } from "react"
 import { Tabs } from "@heroui/react"
 
@@ -24,30 +23,19 @@ const CHEVRON = (
   </svg>
 )
 
-/** Shared row metrics — the single source of truth for settings row sizing. */
-const ROW_BASE: CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: 18,
-  padding: "15px 0",
-}
+/**
+ * Shared row metrics — the single source of truth for settings row sizing.
+ * Plain Tailwind utilities so every row keeps the same height and rhythm.
+ */
+const ROW_CLASS = "flex items-center gap-[18px] py-[15px]"
 
-function rowBorder(first?: boolean): string {
-  return first ? "none" : "1px solid var(--hair-3)"
+function borderClass(first?: boolean): string {
+  return first ? "" : "border-t border-[var(--hair-3)]"
 }
 
 export function GroupLabel({ children }: { children: string }) {
   return (
-    <div
-      style={{
-        fontSize: 10.5,
-        fontWeight: 600,
-        letterSpacing: ".1em",
-        textTransform: "uppercase",
-        color: "var(--ink-4)",
-        marginBottom: 4,
-      }}
-    >
+    <div className="mb-1 text-[10.5px] font-semibold uppercase tracking-[.1em] text-[var(--ink-4)]">
       {children}
     </div>
   )
@@ -56,7 +44,7 @@ export function GroupLabel({ children }: { children: string }) {
 /** A settings group: top margin + group label + its rows. */
 export function SettingsGroup({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <div style={{ marginTop: 30 }}>
+    <div className="mt-[30px]">
       <GroupLabel>{title}</GroupLabel>
       {children}
     </div>
@@ -66,7 +54,7 @@ export function SettingsGroup({ title, children }: { title: string; children: Re
 /**
  * Row container that owns the shared sizing (padding / divider / flex). Every
  * settings row — Row, LinkRow, ledger rows — renders through this so heights and
- * separators stay consistent. `gap` may be overridden for layout-specific rows.
+ * separators stay consistent. `gap` is runtime-dynamic so it stays inline.
  */
 export function RowShell({
   first,
@@ -83,13 +71,8 @@ export function RowShell({
 }) {
   return (
     <div
-      className={className}
-      style={{
-        ...ROW_BASE,
-        ...(gap != null ? { gap } : null),
-        borderTop: rowBorder(first),
-        ...style,
-      }}
+      className={`${ROW_CLASS} ${borderClass(first)} ${className ?? ""}`}
+      style={gap != null ? { gap, ...style } : style}
     >
       {children}
     </div>
@@ -109,15 +92,13 @@ export function Row({
 }) {
   return (
     <RowShell first={first}>
-      <div style={{ minWidth: 0 }}>
-        <div style={{ fontSize: 13.5, color: "var(--ink)" }}>{label}</div>
+      <div className="min-w-0">
+        <div className="text-[13.5px] text-[var(--ink)]">{label}</div>
         {sub && (
-          <div style={{ fontSize: 11.5, color: "var(--ink-3)", marginTop: 3, lineHeight: 1.5 }}>
-            {sub}
-          </div>
+          <div className="mt-[3px] text-[11.5px] leading-normal text-[var(--ink-3)]">{sub}</div>
         )}
       </div>
-      <div style={{ marginLeft: "auto", flexShrink: 0 }}>{children}</div>
+      <div className="ml-auto shrink-0">{children}</div>
     </RowShell>
   )
 }
@@ -133,39 +114,22 @@ export function LinkRow({
   danger?: boolean
   onClick?: () => void
 }) {
-  const [hov, setHov] = useState(false)
   return (
     <button
       onClick={onClick}
-      onMouseEnter={() => setHov(true)}
-      onMouseLeave={() => setHov(false)}
-      style={{
-        ...ROW_BASE,
-        borderTop: rowBorder(),
-        font: "500 13.5px var(--sans)",
-        color: danger ? (hov ? "#a23a31" : "#b4493f") : hov ? "var(--ink)" : "var(--ink-2)",
-        width: "100%",
-        textAlign: "left",
-        background: "none",
-        cursor: "pointer",
-        transition: "color .12s",
-      }}
+      className={`${ROW_CLASS} ${borderClass()} w-full cursor-pointer bg-transparent text-left text-[13.5px] transition-colors ${
+        danger
+          ? "text-[#b4493f] hover:text-[#a23a31]"
+          : "text-[var(--ink)] hover:text-[var(--accent)]"
+      }`}
     >
       {children}
       {note && (
-        <span
-          style={{
-            fontWeight: 400,
-            fontSize: 11.5,
-            marginLeft: "auto",
-            whiteSpace: "nowrap",
-            color: "var(--ink-4)",
-          }}
-        >
+        <span className="ml-auto whitespace-nowrap text-[11.5px] font-normal text-[var(--ink-4)]">
           {note}
         </span>
       )}
-      <span style={{ marginLeft: note ? 0 : "auto", color: "var(--ink-4)" }}>{CHEVRON}</span>
+      <span className={`${note ? "" : "ml-auto"} text-[var(--ink-4)]`}>{CHEVRON}</span>
     </button>
   )
 }
@@ -174,31 +138,14 @@ export function Toggle({ on, onChange }: { on: boolean; onChange: (v: boolean) =
   return (
     <div
       onClick={() => onChange(!on)}
-      style={{
-        width: 40,
-        height: 23,
-        borderRadius: 100,
-        cursor: "pointer",
-        flexShrink: 0,
-        background: on ? "var(--accent)" : "var(--hair)",
-        position: "relative",
-        transition: "background .18s",
-      }}
+      className={`relative h-[23px] w-10 shrink-0 cursor-pointer rounded-full transition-colors duration-[180ms] ${
+        on ? "bg-[var(--accent)]" : "bg-[var(--hair)]"
+      }`}
     >
       <span
-        style={{
-          position: "absolute",
-          top: 2.5,
-          left: 2.5,
-          width: 18,
-          height: 18,
-          borderRadius: "50%",
-          background: "#fff",
-          boxShadow: "0 1px 3px rgba(20,40,30,.28)",
-          transform: on ? "translateX(17px)" : "none",
-          transition: "transform .18s",
-          display: "block",
-        }}
+        className={`absolute left-[2.5px] top-[2.5px] block h-[18px] w-[18px] rounded-full bg-white shadow-[0_1px_3px_rgba(20,40,30,.28)] transition-transform duration-[180ms] ${
+          on ? "translate-x-[17px]" : "translate-x-0"
+        }`}
       />
     </div>
   )
