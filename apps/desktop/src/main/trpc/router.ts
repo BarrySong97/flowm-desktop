@@ -66,26 +66,6 @@ export const appRouter = router({
       .mutation(({ ctx, input }) =>
         callApi(ctx, (api) => api.archiveCategory(requiredInput<"archiveCategory">(input))),
       ),
-    tags: publicProcedure
-      .input(apiInput<"listTags">())
-      .query(({ ctx, input }) =>
-        callApi(ctx, (api) => api.listTags(inputOrEmpty<"listTags">(input))),
-      ),
-    createTag: publicProcedure
-      .input(apiInput<"createTag">())
-      .mutation(({ ctx, input }) =>
-        callApi(ctx, (api) => api.createTag(requiredInput<"createTag">(input))),
-      ),
-    updateTag: publicProcedure
-      .input(apiInput<"updateTag">())
-      .mutation(({ ctx, input }) =>
-        callApi(ctx, (api) => api.updateTag(requiredInput<"updateTag">(input))),
-      ),
-    archiveTag: publicProcedure
-      .input(apiInput<"archiveTag">())
-      .mutation(({ ctx, input }) =>
-        callApi(ctx, (api) => api.archiveTag(requiredInput<"archiveTag">(input))),
-      ),
     currencySettings: publicProcedure.query(({ ctx }) =>
       callApi(ctx, (api) => api.getCurrencySettings()),
     ),

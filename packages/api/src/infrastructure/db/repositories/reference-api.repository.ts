@@ -10,7 +10,6 @@ import {
   categories,
   currencySettings,
   exchangeRates,
-  tags,
   type CategoryInsert,
   type CategoryRow,
 } from "@flowm/db"
@@ -18,18 +17,14 @@ import type { Result } from "@flowm/shared"
 import type {
   CategorySummary,
   CreateCategoryInput,
-  CreateTagInput,
   CurrencySettingsSummary,
   ExchangeRateSummary,
   FlowmId,
   ListCategoriesInput,
   ListExchangeRatesInput,
-  ListTagsInput,
   RefreshExchangeRatesResult,
-  TagSummary,
   UpdateCategoryInput,
   UpdateCurrencySettingsInput,
-  UpdateTagInput,
 } from "../../../index"
 import { FlowmApiBase } from "../sqlite-api-base"
 import {
@@ -196,77 +191,6 @@ export abstract class ReferenceApiRepository extends FlowmApiBase {
         .update(categories)
         .set({ archivedAt: nowIso(), updatedAt: nowIso() })
         .where(eq(categories.id, toSqlId(input.id)))
-        .run()
-      return ok(undefined)
-    } catch (error) {
-      return fail(error)
-    }
-  }
-
-  async listTags(input: ListTagsInput = {}): Promise<Result<TagSummary[]>> {
-    try {
-      const rows = this.db
-        .select()
-        .from(tags)
-        .where(input.includeArchived ? undefined : isNull(tags.archivedAt))
-        .orderBy(asc(tags.name))
-        .all()
-      return ok(rows.map((row) => this.mapTag(row)))
-    } catch (error) {
-      return fail(error)
-    }
-  }
-
-  async createTag(input: CreateTagInput): Promise<Result<TagSummary>> {
-    try {
-      const id = newId("tag")
-      const timestamp = nowIso()
-      this.db
-        .insert(tags)
-        .values({
-          id,
-          name: input.name,
-          color: input.color ?? null,
-          createdAt: timestamp,
-          updatedAt: timestamp,
-        })
-        .run()
-      return ok(this.mapTag(this.db.select().from(tags).where(eq(tags.id, id)).get()!))
-    } catch (error) {
-      return fail(error)
-    }
-  }
-
-  async updateTag(input: UpdateTagInput): Promise<Result<TagSummary>> {
-    try {
-      const set: Partial<typeof tags.$inferInsert> = { updatedAt: nowIso() }
-      if (input.name !== undefined) set.name = input.name
-      if (input.color !== undefined) set.color = input.color
-      this.db
-        .update(tags)
-        .set(set)
-        .where(eq(tags.id, toSqlId(input.id)))
-        .run()
-      return ok(
-        this.mapTag(
-          this.db
-            .select()
-            .from(tags)
-            .where(eq(tags.id, toSqlId(input.id)))
-            .get()!,
-        ),
-      )
-    } catch (error) {
-      return fail(error)
-    }
-  }
-
-  async archiveTag(input: { id: FlowmId }): Promise<Result<void>> {
-    try {
-      this.db
-        .update(tags)
-        .set({ archivedAt: nowIso(), updatedAt: nowIso() })
-        .where(eq(tags.id, toSqlId(input.id)))
         .run()
       return ok(undefined)
     } catch (error) {

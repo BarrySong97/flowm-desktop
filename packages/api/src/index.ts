@@ -73,10 +73,6 @@ export interface FlowmApi {
   createCategory(input: CreateCategoryInput): Promise<Result<CategorySummary>>
   updateCategory(input: UpdateCategoryInput): Promise<Result<CategorySummary>>
   archiveCategory(input: { id: FlowmId }): Promise<Result<void>>
-  listTags(input?: ListTagsInput): Promise<Result<TagSummary[]>>
-  createTag(input: CreateTagInput): Promise<Result<TagSummary>>
-  updateTag(input: UpdateTagInput): Promise<Result<TagSummary>>
-  archiveTag(input: { id: FlowmId }): Promise<Result<void>>
 
   importStatement(input: ImportStatementInput): Promise<Result<ImportedBatchResult>>
   importNormalizedStatementEntries(
@@ -337,21 +333,6 @@ export interface TagSummary {
   name: string
   color?: string | null
   archived: boolean
-}
-
-export interface ListTagsInput {
-  includeArchived?: boolean
-}
-
-export interface CreateTagInput {
-  name: string
-  color?: string | null
-}
-
-export interface UpdateTagInput {
-  id: FlowmId
-  name?: string
-  color?: string | null
 }
 
 export interface ImportStatementInput {

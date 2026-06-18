@@ -5,197 +5,28 @@
  * @gotcha  Settings changes can affect user data paths and categories; keep destructive actions explicit.
  */
 
-import { useEffect, useState } from "react"
-import { Button, Input, Modal } from "@heroui/react"
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useState } from "react"
+import { useQuery } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
-import { Controller, useForm } from "react-hook-form"
-import type { TagSummary } from "@flowm/api"
 import { Dock } from "../components/layout/Dock"
 import { ScrollArea } from "../components/ui/ScrollArea"
-import { useConfirm } from "../components/ui/ConfirmModal"
-import { ColorPickerField } from "../components/ui/ColorPickerField"
-import { FormField } from "../components/ui/FormField"
 import { LedgerSection } from "./LedgerSection"
 import { GroupLabel, LinkRow, Row, Toggle } from "./components"
 import { trpc } from "@/lib/trpc"
 import { usePagePerf } from "@/lib/debug/perf"
 
-interface TagForm {
-  name: string
-  color: string
-}
-
-const EMPTY_TAG_FORM: TagForm = {
-  name: "",
-  color: "#8a9590",
-}
-
-function TagModal({
-  open,
-  tag,
-  saving,
-  onClose,
-  onSave,
-  onArchive,
-}: {
-  open: boolean
-  tag: TagSummary | null
-  saving: boolean
-  onClose: () => void
-  onSave: (form: TagForm) => void | Promise<void>
-  onArchive: (tag: TagSummary) => void
-}) {
-  const {
-    formState: { errors, isSubmitting },
-    control,
-    handleSubmit,
-    register,
-    reset,
-  } = useForm<TagForm>({ defaultValues: EMPTY_TAG_FORM })
-
-  useEffect(() => {
-    if (!open) return
-    reset(tag ? { name: tag.name, color: tag.color ?? "#8a9590" } : EMPTY_TAG_FORM)
-  }, [open, reset, tag])
-
-  return (
-    <Modal.Backdrop
-      isOpen={open}
-      onOpenChange={(value) => {
-        if (!value) onClose()
-      }}
-    >
-      <Modal.Container>
-        <Modal.Dialog style={{ maxWidth: 380 }}>
-          <Modal.CloseTrigger />
-          <Modal.Header>
-            <Modal.Heading>{tag ? "编辑标签" : "新建标签"}</Modal.Heading>
-            <p style={{ fontSize: 12, color: "var(--ink-4)", marginTop: 2 }}>
-              标签用于细分流水场景，可跨分类使用。
-            </p>
-          </Modal.Header>
-          <Modal.Body>
-            <form
-              id="tag-form"
-              onSubmit={(event) => {
-                event.preventDefault()
-                void handleSubmit(onSave)()
-              }}
-              style={{ display: "flex", flexDirection: "column", gap: 14 }}
-            >
-              <FormField label="标签名称" required error={errors.name?.message}>
-                <Input
-                  variant="secondary"
-                  placeholder="例如：咖啡"
-                  aria-invalid={Boolean(errors.name)}
-                  {...register("name", {
-                    validate: (value) => value.trim().length > 0 || "请输入标签名称",
-                  })}
-                />
-              </FormField>
-              <FormField label="颜色">
-                <Controller
-                  control={control}
-                  name="color"
-                  render={({ field }) => (
-                    <ColorPickerField value={field.value} onChange={field.onChange} />
-                  )}
-                />
-              </FormField>
-            </form>
-          </Modal.Body>
-          <Modal.Footer>
-            {tag && (
-              <Button
-                variant="ghost"
-                style={{ color: "var(--red)", marginRight: "auto" }}
-                onPress={() => onArchive(tag)}
-              >
-                归档
-              </Button>
-            )}
-            <Button
-              variant="primary"
-              isDisabled={saving || isSubmitting}
-              onPress={() => void handleSubmit(onSave)()}
-            >
-              {saving ? "保存中…" : "保存"}
-            </Button>
-            <Button variant="outline" onPress={onClose}>
-              取消
-            </Button>
-          </Modal.Footer>
-        </Modal.Dialog>
-      </Modal.Container>
-    </Modal.Backdrop>
-  )
-}
-
 export function SettingsPage() {
-  const confirm = useConfirm()
   const navigate = useNavigate()
-  const queryClient = useQueryClient()
-  const createTag = useMutation(trpc.reference.createTag.mutationOptions())
-  const updateTag = useMutation(trpc.reference.updateTag.mutationOptions())
-  const archiveTag = useMutation(trpc.reference.archiveTag.mutationOptions())
   const [grp, setGrp] = useState(true)
   const [hide, setHide] = useState(false)
-  const [editingTag, setEditingTag] = useState<TagSummary | null>(null)
-  const [showTagForm, setShowTagForm] = useState(false)
-  const tagsQuery = useQuery(trpc.reference.tags.queryOptions())
   const categoriesQuery = useQuery(trpc.reference.categories.queryOptions())
   const currencyQuery = useQuery(trpc.reference.currencySettings.queryOptions())
   usePagePerf("settings", [
-    { name: "reference.tags", query: tagsQuery },
     { name: "reference.categories", query: categoriesQuery },
     { name: "reference.currencySettings", query: currencyQuery },
   ])
-  const tags = tagsQuery.data ?? []
   const categories = categoriesQuery.data ?? []
   const displayCurrency = currencyQuery.data?.displayCurrency ?? "—"
-
-  async function refreshTags() {
-    await queryClient.invalidateQueries(trpc.reference.tags.queryFilter())
-  }
-
-  function openTagForm(tag: TagSummary | null) {
-    setEditingTag(tag)
-    setShowTagForm(true)
-  }
-
-  function closeTagForm() {
-    setShowTagForm(false)
-    setEditingTag(null)
-  }
-
-  async function handleSaveTag(form: TagForm) {
-    const input = {
-      name: form.name.trim(),
-      color: form.color || null,
-    }
-    if (editingTag) {
-      await updateTag.mutateAsync({ id: editingTag.id, ...input })
-    } else {
-      await createTag.mutateAsync(input)
-    }
-    closeTagForm()
-    await refreshTags()
-  }
-
-  function confirmArchiveTag(tag: TagSummary) {
-    confirm({
-      title: "归档标签",
-      description: `归档「${tag.name}」后，新流水选择标签时不再显示它；历史流水仍保留引用。确定继续？`,
-      confirmText: "归档",
-      danger: true,
-      onConfirm: async () => {
-        await archiveTag.mutateAsync({ id: tag.id })
-        closeTagForm()
-        await refreshTags()
-      },
-    })
-  }
 
   return (
     <div
@@ -266,70 +97,15 @@ export function SettingsPage() {
             </Row>
           </div>
 
-          {/* 分类与标签 */}
+          {/* 分类 */}
           <div style={{ marginTop: 30 }}>
-            <GroupLabel>分类与标签</GroupLabel>
+            <GroupLabel>分类</GroupLabel>
             <LinkRow
               note={`${categories.length} 个`}
               onClick={() => void navigate({ to: "/settings-categories" })}
             >
               分类管理
             </LinkRow>
-            <div style={{ padding: "14px 0 4px", borderTop: "1px solid var(--hair-3)" }}>
-              <div style={{ display: "flex", alignItems: "baseline", marginBottom: 4 }}>
-                <span style={{ fontSize: 13.5, color: "var(--ink)", fontWeight: 500 }}>标签</span>
-                <span style={{ fontSize: 11, color: "var(--ink-4)", marginLeft: "auto" }}>
-                  {tags.length} 个 · 跨分类的细分场景
-                </span>
-              </div>
-              <div
-                style={{ fontSize: 11.5, color: "var(--ink-3)", marginBottom: 12, lineHeight: 1.5 }}
-              >
-                分类回答「哪一类支出」，标签回答「咖啡 / 外卖 / 出差」这类场景，可跨分类、一笔多打。
-              </div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 0" }}>
-                {tags.map((tag) => (
-                  <button
-                    key={tag.id}
-                    onClick={() => openTagForm(tag)}
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 7,
-                      font: "500 13px var(--sans)",
-                      color: "var(--ink-2)",
-                      padding: "4px 10px 4px 2px",
-                      background: "none",
-                      border: "none",
-                      cursor: "pointer",
-                    }}
-                  >
-                    <span style={{ opacity: 0.4 }}>#</span>
-                    {tag.name}
-                  </button>
-                ))}
-                {tags.length === 0 && (
-                  <span style={{ fontSize: 12, color: "var(--ink-4)", padding: "4px 0" }}>
-                    暂无标签
-                  </span>
-                )}
-                <button
-                  onClick={() => openTagForm(null)}
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    font: "500 13px var(--sans)",
-                    color: "var(--accent)",
-                    padding: "4px 2px",
-                    background: "none",
-                    border: "none",
-                    cursor: "pointer",
-                  }}
-                >
-                  ＋ 新建标签
-                </button>
-              </div>
-            </div>
           </div>
 
           {/* 账本 */}
@@ -371,14 +147,6 @@ export function SettingsPage() {
         </div>
       </ScrollArea>
 
-      <TagModal
-        open={showTagForm}
-        tag={editingTag}
-        saving={createTag.isPending || updateTag.isPending}
-        onClose={closeTagForm}
-        onSave={handleSaveTag}
-        onArchive={confirmArchiveTag}
-      />
       <Dock />
     </div>
   )
