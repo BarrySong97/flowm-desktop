@@ -5,7 +5,7 @@
  * @gotcha  Never silently replace the user ledger with demo data; switching must be explicit.
  */
 
-import { app, BrowserWindow, dialog } from "electron"
+import { app, BrowserWindow, dialog, shell } from "electron"
 import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { basename, dirname, isAbsolute, join } from "node:path"
 import Database from "better-sqlite3"
@@ -302,5 +302,11 @@ export class LedgerStore {
   setDemo(id: string, isDemo: boolean): void {
     this.recordById(id).isDemo = isDemo
     this.writeRegistry()
+  }
+
+  /** Reveal the ledger's database file in the OS file manager (Finder/Explorer). */
+  revealInFinder(id: string): void {
+    const record = this.recordById(id)
+    shell.showItemInFolder(this.resolveFile(record.file))
   }
 }

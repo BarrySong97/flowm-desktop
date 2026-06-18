@@ -10,19 +10,15 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Button } from "@heroui/react"
 import { useForm } from "react-hook-form"
 import { useConfirm } from "../components/ui/ConfirmModal"
+import { GroupLabel, RowShell } from "./components"
 import { trpc } from "@/lib/trpc"
 import { useLedgerSwitch } from "@/lib/switchLedger"
 
 const INPUT_CLASS =
   "min-w-0 flex-[0_1_220px] rounded-[7px] border border-[var(--hair)] bg-white px-[9px] py-[5px] text-[13px] font-medium text-[var(--ink)] outline-none focus:border-[var(--accent)]"
 
-function GroupLabel({ children }: { children: string }) {
-  return (
-    <div className="mb-1 text-[10.5px] font-semibold uppercase tracking-[.1em] text-[var(--ink-4)]">
-      {children}
-    </div>
-  )
-}
+/** Compact styling for ledger action buttons — smaller than HeroUI's `sm`. */
+const ACTION_BTN = "h-auto min-h-0 px-2 py-[3px] text-[11.5px]"
 
 export function LedgerSection() {
   const queryClient = useQueryClient()
@@ -38,6 +34,7 @@ export function LedgerSection() {
   const renameMut = useMutation(trpc.ledgers.rename.mutationOptions())
   const removeMut = useMutation(trpc.ledgers.remove.mutationOptions())
   const setDemoMut = useMutation(trpc.ledgers.setDemo.mutationOptions())
+  const revealMut = useMutation(trpc.ledgers.reveal.mutationOptions())
 
   const [creating, setCreating] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -104,10 +101,7 @@ export function LedgerSection() {
       <GroupLabel>账本</GroupLabel>
 
       {ledgers.map((ledger, index) => (
-        <div
-          key={ledger.id}
-          className={`flex items-center gap-3 py-[13px] ${index === 0 ? "" : "border-t border-[var(--hair-3)]"}`}
-        >
+        <RowShell key={ledger.id} first={index === 0} gap={12}>
           <span
             className={`h-[7px] w-[7px] shrink-0 rounded-full ${ledger.active ? "bg-[var(--accent)]" : "bg-[var(--hair)]"}`}
           />
@@ -146,13 +140,19 @@ export function LedgerSection() {
             {ledger.active ? (
               <span className="px-1 text-[11.5px] text-[var(--ink-4)]">使用中</span>
             ) : (
-              <Button size="sm" variant="ghost" onPress={() => handleSwitch(ledger.id)}>
+              <Button
+                size="sm"
+                variant="ghost"
+                className={ACTION_BTN}
+                onPress={() => handleSwitch(ledger.id)}
+              >
                 切换
               </Button>
             )}
             <Button
               size="sm"
               variant="ghost"
+              className={ACTION_BTN}
               onPress={() => {
                 setEditingId(ledger.id)
                 renameForm.reset({ name: ledger.name })
@@ -163,25 +163,35 @@ export function LedgerSection() {
             <Button
               size="sm"
               variant="ghost"
+              className={ACTION_BTN}
               onPress={() => handleToggleDemo(ledger.id, !ledger.isDemo)}
             >
               {ledger.isDemo ? "取消示例" : "设为示例"}
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className={ACTION_BTN}
+              onPress={() => revealMut.mutate({ id: ledger.id })}
+            >
+              在 Finder 中显示
             </Button>
             {!ledger.active && (
               <Button
                 size="sm"
                 variant="ghost"
+                className={ACTION_BTN}
                 onPress={() => handleDelete(ledger.id, ledger.name)}
               >
                 删除
               </Button>
             )}
           </div>
-        </div>
+        </RowShell>
       ))}
 
       {creating ? (
-        <div className="flex items-center gap-2 border-t border-[var(--hair-3)] py-[13px]">
+        <RowShell gap={8}>
           <input
             autoFocus
             placeholder="账本名称"
@@ -201,6 +211,7 @@ export function LedgerSection() {
           <Button
             size="sm"
             variant="secondary"
+            className={ACTION_BTN}
             style={{ borderRadius: 6 }}
             onPress={() => void createForm.handleSubmit(handleCreate)()}
           >
@@ -209,6 +220,7 @@ export function LedgerSection() {
           <Button
             size="sm"
             variant="ghost"
+            className={ACTION_BTN}
             onPress={() => {
               setCreating(false)
               createForm.reset({ name: "" })
@@ -216,16 +228,21 @@ export function LedgerSection() {
           >
             取消
           </Button>
-        </div>
+        </RowShell>
       ) : (
-        <div className="flex items-center gap-3 border-t border-[var(--hair-3)] py-[13px]">
-          <Button size="sm" variant="ghost" onPress={() => setCreating(true)}>
+        <RowShell gap={12}>
+          <Button
+            size="sm"
+            variant="ghost"
+            className={ACTION_BTN}
+            onPress={() => setCreating(true)}
+          >
             ＋ 新建账本
           </Button>
-          <Button size="sm" variant="ghost" onPress={handleImport}>
+          <Button size="sm" variant="ghost" className={ACTION_BTN} onPress={handleImport}>
             导入 .sqlite3 文件
           </Button>
-        </div>
+        </RowShell>
       )}
 
       <div className="mt-2.5 text-[11.5px] leading-relaxed text-[var(--ink-4)]">
