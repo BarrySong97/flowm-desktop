@@ -60,7 +60,14 @@ const TARGET_TABLES = [
 
 type TargetTable = (typeof TARGET_TABLES)[number]
 type Direction = "in" | "out" | "neutral"
-type CashflowKind = "income" | "expense" | "transfer" | "asset_movement" | "debt_payment" | "refund" | "adjustment"
+type CashflowKind =
+  | "income"
+  | "expense"
+  | "transfer"
+  | "asset_movement"
+  | "debt_payment"
+  | "refund"
+  | "adjustment"
 type StatementStatus = "pending" | "converted" | "ignored"
 type CashflowStatus = "active" | "ignored" | "deleted"
 
@@ -85,7 +92,13 @@ const TABLE_MAP: Record<TargetTable, SQLiteTable> = {
   exchange_rates: exchangeRates,
 }
 
-const SPECIAL_FLOW_KINDS: CashflowEventRow["flowKind"][] = ["transfer", "asset_movement", "debt_payment", "refund", "adjustment"]
+const SPECIAL_FLOW_KINDS: CashflowEventRow["flowKind"][] = [
+  "transfer",
+  "asset_movement",
+  "debt_payment",
+  "refund",
+  "adjustment",
+]
 
 export interface DemoSeedOptions {
   anchorDate?: string
@@ -152,36 +165,238 @@ const DEMO_TAGS = [
 ] as const
 
 const SUBSCRIPTIONS = [
-  { key: "icloud", name: "iCloud+", merchant: "Apple", amount: 21, currency: "CNY", cycle: "monthly", day: 15, source: "cmb" },
-  { key: "chatgpt", name: "ChatGPT Plus", merchant: "OpenAI", amount: 20, currency: "USD", cycle: "monthly", day: 20, source: "cmb" },
-  { key: "spotify", name: "Spotify", merchant: "Spotify", amount: 72, currency: "CNY", cycle: "monthly", day: 5, source: "alipay" },
-  { key: "notion", name: "Notion", merchant: "Notion Labs", amount: 96, currency: "USD", cycle: "yearly", day: 8, source: "cmb" },
-  { key: "tencent_video", name: "腾讯视频", merchant: "腾讯", amount: 25, currency: "CNY", cycle: "monthly", day: 12, source: "wechat" },
-  { key: "github", name: "GitHub", merchant: "GitHub", amount: 4, currency: "USD", cycle: "monthly", day: 2, source: "cmb" },
+  {
+    key: "icloud",
+    name: "iCloud+",
+    merchant: "Apple",
+    amount: 21,
+    currency: "CNY",
+    cycle: "monthly",
+    day: 15,
+    source: "cmb",
+  },
+  {
+    key: "chatgpt",
+    name: "ChatGPT Plus",
+    merchant: "OpenAI",
+    amount: 20,
+    currency: "USD",
+    cycle: "monthly",
+    day: 20,
+    source: "cmb",
+  },
+  {
+    key: "spotify",
+    name: "Spotify",
+    merchant: "Spotify",
+    amount: 72,
+    currency: "CNY",
+    cycle: "monthly",
+    day: 5,
+    source: "alipay",
+  },
+  {
+    key: "notion",
+    name: "Notion",
+    merchant: "Notion Labs",
+    amount: 96,
+    currency: "USD",
+    cycle: "yearly",
+    day: 8,
+    source: "cmb",
+  },
+  {
+    key: "tencent_video",
+    name: "腾讯视频",
+    merchant: "腾讯",
+    amount: 25,
+    currency: "CNY",
+    cycle: "monthly",
+    day: 12,
+    source: "wechat",
+  },
+  {
+    key: "github",
+    name: "GitHub",
+    merchant: "GitHub",
+    amount: 4,
+    currency: "USD",
+    cycle: "monthly",
+    day: 2,
+    source: "cmb",
+  },
 ] as const
 
 const LOANS = [
-  { key: "mortgage", name: "上海住宅房贷", lender: "招商银行", principal: 1_780_000, current: 1_742_000, rate: 385, payment: 9850, day: 20, termMonths: 300 },
-  { key: "car", name: "车辆贷款", lender: "工商银行", principal: 180_000, current: 122_000, rate: 420, payment: 2350, day: 8, termMonths: 72 },
-  { key: "consumer", name: "消费分期", lender: "招商银行", principal: 36_000, current: 18_000, rate: 720, payment: 1800, day: 18, termMonths: 24 },
+  {
+    key: "mortgage",
+    name: "上海住宅房贷",
+    lender: "招商银行",
+    principal: 1_780_000,
+    current: 1_742_000,
+    rate: 385,
+    payment: 9850,
+    day: 20,
+    termMonths: 300,
+  },
+  {
+    key: "car",
+    name: "车辆贷款",
+    lender: "工商银行",
+    principal: 180_000,
+    current: 122_000,
+    rate: 420,
+    payment: 2350,
+    day: 8,
+    termMonths: 72,
+  },
+  {
+    key: "consumer",
+    name: "消费分期",
+    lender: "招商银行",
+    principal: 36_000,
+    current: 18_000,
+    rate: 720,
+    payment: 1800,
+    day: 18,
+    termMonths: 24,
+  },
 ] as const
 
 const ASSETS = [
-  { key: "cash", name: "现金备用", type: "cash", institution: null, currency: "CNY", method: "manual_balance", base: 2600, step: 45 },
-  { key: "cmb_bank", name: "招商银行储蓄卡", type: "bank", institution: "招商银行", currency: "CNY", method: "manual_balance", base: 62_000, step: 1800 },
-  { key: "icbc_bank", name: "工商银行工资卡", type: "bank", institution: "工商银行", currency: "CNY", method: "manual_balance", base: 38_000, step: 1250 },
-  { key: "alipay", name: "支付宝余额宝", type: "wallet", institution: "支付宝", currency: "CNY", method: "manual_balance", base: 15_000, step: 550 },
-  { key: "wechat", name: "微信零钱", type: "wallet", institution: "微信", currency: "CNY", method: "manual_balance", base: 4200, step: 160 },
-  { key: "brokerage", name: "华泰证券账户", type: "brokerage", institution: "华泰证券", currency: "CNY", method: "manual_market_value", base: 82_000, step: 2800 },
-  { key: "fund", name: "沪深300指数基金", type: "fund", institution: "易方达基金", currency: "CNY", method: "manual_market_value", base: 64_000, step: 1650 },
-  { key: "hk_stock", name: "港股投资组合", type: "stock", institution: "富途证券", currency: "HKD", method: "manual_market_value", base: 72_000, step: 1200 },
-  { key: "crypto", name: "数字资产冷钱包", type: "crypto", institution: null, currency: "USD", method: "manual_market_value", base: 9200, step: 420 },
-  { key: "home", name: "上海住宅", type: "real_estate", institution: null, currency: "CNY", method: "estimated_value", base: 3_280_000, step: 5000 },
-  { key: "car_value", name: "家用车辆", type: "vehicle", institution: null, currency: "CNY", method: "estimated_value", base: 156_000, step: -1200 },
-  { key: "emergency", name: "备用金账户", type: "bank", institution: "招商银行", currency: "CNY", method: "manual_balance", base: 50_000, step: 1000 },
-  { key: "mortgage_liability", name: "房贷负债", type: "liability", institution: "招商银行", currency: "CNY", method: "manual_balance", base: 1_762_000, step: -6200 },
-  { key: "car_liability", name: "车贷负债", type: "liability", institution: "工商银行", currency: "CNY", method: "manual_balance", base: 132_000, step: -1750 },
-  { key: "card_liability", name: "信用卡待还", type: "liability", institution: "招商银行", currency: "CNY", method: "manual_balance", base: 12_500, step: 350 },
+  {
+    key: "cash",
+    name: "现金备用",
+    type: "cash",
+    institution: null,
+    currency: "CNY",
+    method: "manual_balance",
+    base: 2600,
+    step: 45,
+  },
+  {
+    key: "cmb_bank",
+    name: "招商银行储蓄卡",
+    type: "bank",
+    institution: "招商银行",
+    currency: "CNY",
+    method: "manual_balance",
+    base: 62_000,
+    step: 1800,
+  },
+  {
+    key: "icbc_bank",
+    name: "工商银行工资卡",
+    type: "bank",
+    institution: "工商银行",
+    currency: "CNY",
+    method: "manual_balance",
+    base: 38_000,
+    step: 1250,
+  },
+  {
+    key: "alipay",
+    name: "支付宝余额宝",
+    type: "wallet",
+    institution: "支付宝",
+    currency: "CNY",
+    method: "manual_balance",
+    base: 15_000,
+    step: 550,
+  },
+  {
+    key: "wechat",
+    name: "微信零钱",
+    type: "wallet",
+    institution: "微信",
+    currency: "CNY",
+    method: "manual_balance",
+    base: 4200,
+    step: 160,
+  },
+  {
+    key: "brokerage",
+    name: "华泰证券账户",
+    type: "brokerage",
+    institution: "华泰证券",
+    currency: "CNY",
+    method: "manual_market_value",
+    base: 82_000,
+    step: 2800,
+  },
+  {
+    key: "fund",
+    name: "沪深300指数基金",
+    type: "fund",
+    institution: "易方达基金",
+    currency: "CNY",
+    method: "manual_market_value",
+    base: 64_000,
+    step: 1650,
+  },
+  {
+    key: "hk_stock",
+    name: "港股投资组合",
+    type: "stock",
+    institution: "富途证券",
+    currency: "HKD",
+    method: "manual_market_value",
+    base: 72_000,
+    step: 1200,
+  },
+  {
+    key: "crypto",
+    name: "数字资产冷钱包",
+    type: "crypto",
+    institution: null,
+    currency: "USD",
+    method: "manual_market_value",
+    base: 9200,
+    step: 420,
+  },
+  {
+    key: "home",
+    name: "上海住宅",
+    type: "real_estate",
+    institution: null,
+    currency: "CNY",
+    method: "estimated_value",
+    base: 3_280_000,
+    step: 5000,
+  },
+  {
+    key: "car_value",
+    name: "家用车辆",
+    type: "vehicle",
+    institution: null,
+    currency: "CNY",
+    method: "estimated_value",
+    base: 156_000,
+    step: -1200,
+  },
+  {
+    key: "emergency",
+    name: "备用金账户",
+    type: "bank",
+    institution: "招商银行",
+    currency: "CNY",
+    method: "manual_balance",
+    base: 50_000,
+    step: 1000,
+  },
+  // Structured debts (房贷/车贷/消费分期) live as loans and contribute their
+  // outstanding principal to net worth; only non-loan informal debt is tracked
+  // as a liability asset here to avoid double-counting the same debt.
+  {
+    key: "card_liability",
+    name: "信用卡待还",
+    type: "liability",
+    institution: "招商银行",
+    currency: "CNY",
+    method: "manual_balance",
+    base: 12_500,
+    step: 350,
+  },
 ] as const
 
 function expectOk<T>(result: { success: true; data: T } | { success: false; error: string }): T {
@@ -268,7 +483,12 @@ function seedBounds(options: DemoSeedOptions = {}) {
   }
 }
 
-function nextOccurrenceDate(startMonth: Date, day: number, anchorDate: string, cycle: "monthly" | "yearly"): string {
+function nextOccurrenceDate(
+  startMonth: Date,
+  day: number,
+  anchorDate: string,
+  cycle: "monthly" | "yearly",
+): string {
   let cursor = dayInMonth(startMonth, day)
   while (cursor <= anchorDate) {
     const date = parseDate(cursor)
@@ -277,7 +497,12 @@ function nextOccurrenceDate(startMonth: Date, day: number, anchorDate: string, c
   return cursor
 }
 
-function occurrenceDates(startMonth: Date, day: number, throughDate: string, cycle: "monthly" | "yearly"): string[] {
+function occurrenceDates(
+  startMonth: Date,
+  day: number,
+  throughDate: string,
+  cycle: "monthly" | "yearly",
+): string[] {
   const dates: string[] = []
   let cursor = dayInMonth(startMonth, day)
   let safety = 0
@@ -317,10 +542,23 @@ function buildDemoStatements(ctx: SeedContext): DemoBuildResult {
 
   push("currency_settings", (db) => {
     db.insert(currencySettings)
-      .values({ id: "default", displayCurrency: CNY, fxProvider: "manual", fxRequestPolicy: "manual_only", updatedAt: now, meta: null })
+      .values({
+        id: "default",
+        displayCurrency: CNY,
+        fxProvider: "manual",
+        fxRequestPolicy: "manual_only",
+        updatedAt: now,
+        meta: null,
+      })
       .onConflictDoUpdate({
         target: currencySettings.id,
-        set: { displayCurrency: CNY, fxProvider: "manual", fxRequestPolicy: "manual_only", updatedAt: now, meta: null },
+        set: {
+          displayCurrency: CNY,
+          fxProvider: "manual",
+          fxRequestPolicy: "manual_only",
+          updatedAt: now,
+          meta: null,
+        },
       })
       .run()
   })
@@ -446,7 +684,10 @@ function buildDemoStatements(ctx: SeedContext): DemoBuildResult {
     })
     for (const key of input.tagKeys ?? []) {
       push("cashflow_event_tags", (db) => {
-        db.insert(cashflowEventTags).values({ cashflowEventId: eventId, tagId: tagId(key) }).onConflictDoNothing().run()
+        db.insert(cashflowEventTags)
+          .values({ cashflowEventId: eventId, tagId: tagId(key) })
+          .onConflictDoNothing()
+          .run()
       })
     }
     push("object_links", (db) => {
@@ -508,14 +749,86 @@ function buildDemoStatements(ctx: SeedContext): DemoBuildResult {
       })
     }
     const everyday = [
-      { sourceKey: "alipay", day: 3, key: "coffee", title: "咖啡", counterparty: "Manner Coffee", amount: 34, categoryName: "餐饮", tagKeys: ["food"] },
-      { sourceKey: "alipay", day: 4, key: "lunch", title: "工作日午餐", counterparty: "城市快餐", amount: 58, categoryName: "餐饮", tagKeys: ["food"] },
-      { sourceKey: "wechat", day: 5, key: "commute", title: "通勤打车", counterparty: "滴滴出行", amount: 46, categoryName: "交通", tagKeys: ["commute"] },
-      { sourceKey: "alipay", day: 9, key: "grocery", title: "超市采购", counterparty: "盒马鲜生", amount: 386 + index * 8, categoryName: "购物", tagKeys: ["food"] },
-      { sourceKey: "wechat", day: 11, key: "movie", title: "电影票", counterparty: "淘票票", amount: 126, categoryName: "娱乐", tagKeys: [] },
-      { sourceKey: "cmb", day: 13, key: "utility", title: "水电燃气", counterparty: "公共事业缴费", amount: 420 + index * 15, categoryName: "居住", tagKeys: [] },
-      { sourceKey: "cmb", day: 14, key: "telecom", title: "手机宽带", counterparty: "中国移动", amount: 188, categoryName: "通讯", tagKeys: [] },
-      { sourceKey: "alipay", day: 16, key: "shopping", title: "日用品购物", counterparty: "天猫超市", amount: 520 + index * 18, categoryName: "购物", tagKeys: [] },
+      {
+        sourceKey: "alipay",
+        day: 3,
+        key: "coffee",
+        title: "咖啡",
+        counterparty: "Manner Coffee",
+        amount: 34,
+        categoryName: "餐饮",
+        tagKeys: ["food"],
+      },
+      {
+        sourceKey: "alipay",
+        day: 4,
+        key: "lunch",
+        title: "工作日午餐",
+        counterparty: "城市快餐",
+        amount: 58,
+        categoryName: "餐饮",
+        tagKeys: ["food"],
+      },
+      {
+        sourceKey: "wechat",
+        day: 5,
+        key: "commute",
+        title: "通勤打车",
+        counterparty: "滴滴出行",
+        amount: 46,
+        categoryName: "交通",
+        tagKeys: ["commute"],
+      },
+      {
+        sourceKey: "alipay",
+        day: 9,
+        key: "grocery",
+        title: "超市采购",
+        counterparty: "盒马鲜生",
+        amount: 386 + index * 8,
+        categoryName: "购物",
+        tagKeys: ["food"],
+      },
+      {
+        sourceKey: "wechat",
+        day: 11,
+        key: "movie",
+        title: "电影票",
+        counterparty: "淘票票",
+        amount: 126,
+        categoryName: "娱乐",
+        tagKeys: [],
+      },
+      {
+        sourceKey: "cmb",
+        day: 13,
+        key: "utility",
+        title: "水电燃气",
+        counterparty: "公共事业缴费",
+        amount: 420 + index * 15,
+        categoryName: "居住",
+        tagKeys: [],
+      },
+      {
+        sourceKey: "cmb",
+        day: 14,
+        key: "telecom",
+        title: "手机宽带",
+        counterparty: "中国移动",
+        amount: 188,
+        categoryName: "通讯",
+        tagKeys: [],
+      },
+      {
+        sourceKey: "alipay",
+        day: 16,
+        key: "shopping",
+        title: "日用品购物",
+        counterparty: "天猫超市",
+        amount: 520 + index * 18,
+        categoryName: "购物",
+        tagKeys: [],
+      },
     ] as const
     for (const event of everyday) {
       addCashflow({
@@ -701,7 +1014,7 @@ function buildDemoStatements(ctx: SeedContext): DemoBuildResult {
           startDate,
           termMonths: loan.termMonths,
           status: "active",
-          note: "demo loan plan; liability comes from asset snapshots",
+          note: "demo loan plan; outstanding principal counts toward net-worth liability",
           createdAt: now,
           updatedAt: now,
         })
@@ -710,7 +1023,7 @@ function buildDemoStatements(ctx: SeedContext): DemoBuildResult {
     let remaining: number = loan.current
     for (const dueDate of occurrenceDates(startMonth, loan.day, ctx.forecastThrough, "monthly")) {
       const occurrenceId = demoId("loanocc", loan.key, compact(dueDate))
-      const interest = remaining * (loan.rate / 10000) / 12
+      const interest = (remaining * (loan.rate / 10000)) / 12
       const principal = Math.max(loan.payment - interest, 0)
       remaining = Math.max(remaining - principal, 0)
       const past = isOnOrBefore(dueDate, ctx.anchorDate)
@@ -779,7 +1092,10 @@ function buildDemoStatements(ctx: SeedContext): DemoBuildResult {
           defaultCurrency: asset.currency,
           valuationMethod: asset.method,
           displayOrder: assetIndex + 1,
-          note: asset.type === "vehicle" ? "demo manual valuation; no automatic depreciation" : "demo seed asset item",
+          note:
+            asset.type === "vehicle"
+              ? "demo manual valuation; no automatic depreciation"
+              : "demo seed asset item",
           createdAt: now,
           updatedAt: now,
         })
@@ -787,12 +1103,15 @@ function buildDemoStatements(ctx: SeedContext): DemoBuildResult {
     })
     ctx.months.forEach((month, monthIndex) => {
       const monthEnd = toDate(endOfMonth(month))
-      const snapshotDate = monthKey(month) === ctx.anchorDate.slice(0, 7) ? ctx.anchorDate : monthEnd
+      const snapshotDate =
+        monthKey(month) === ctx.anchorDate.slice(0, 7) ? ctx.anchorDate : monthEnd
       const snapshotAt = toIsoAt(snapshotDate, 21)
       const drift = asset.step * monthIndex
       const wave = Math.sin((assetIndex + 1) * (monthIndex + 1)) * Math.abs(asset.step) * 0.18
       const value = Math.max(asset.base + drift + wave, asset.type === "liability" ? 100 : 0)
-      const quantity = ["fund", "stock", "crypto"].includes(asset.type) ? (100 + monthIndex * 3 + assetIndex).toFixed(4) : null
+      const quantity = ["fund", "stock", "crypto"].includes(asset.type)
+        ? (100 + monthIndex * 3 + assetIndex).toFixed(4)
+        : null
       push("asset_snapshots", (db) => {
         db.insert(assetSnapshots)
           .values({
@@ -803,8 +1122,12 @@ function buildDemoStatements(ctx: SeedContext): DemoBuildResult {
             valueCurrency: asset.currency,
             quantityAmount: quantity,
             quantityUnit: quantity ? (asset.type === "crypto" ? "BTC" : "shares") : null,
-            costBasisAmount: ["fund", "stock", "crypto"].includes(asset.type) ? amount(value * 0.92) : null,
-            costBasisCurrency: ["fund", "stock", "crypto"].includes(asset.type) ? asset.currency : null,
+            costBasisAmount: ["fund", "stock", "crypto"].includes(asset.type)
+              ? amount(value * 0.92)
+              : null,
+            costBasisCurrency: ["fund", "stock", "crypto"].includes(asset.type)
+              ? asset.currency
+              : null,
             sourceKind: "manual",
             note: "demo monthly manual snapshot",
             createdAt: now,
@@ -819,7 +1142,15 @@ function buildDemoStatements(ctx: SeedContext): DemoBuildResult {
     const month = monthKey(monthDate)
     const fundMove = cashflowIds.get(`fund_buy_${month}`)
     if (fundMove) {
-      const snapshotId = demoId("snap", "fund", compact(month === ctx.anchorDate.slice(0, 7) ? ctx.anchorDate : toDate(endOfMonth(parseDate(`${month}-01`)))))
+      const snapshotId = demoId(
+        "snap",
+        "fund",
+        compact(
+          month === ctx.anchorDate.slice(0, 7)
+            ? ctx.anchorDate
+            : toDate(endOfMonth(parseDate(`${month}-01`))),
+        ),
+      )
       push("object_links", (db) => {
         db.insert(objectLinks)
           .values({
@@ -840,7 +1171,15 @@ function buildDemoStatements(ctx: SeedContext): DemoBuildResult {
   }
 
   push("budget_sets", (db) => {
-    db.insert(budgetSets).values({ id: demoId("budget_set"), name: "Demo 月度预算", status: "active", createdAt: now, updatedAt: now }).run()
+    db.insert(budgetSets)
+      .values({
+        id: demoId("budget_set"),
+        name: "Demo 月度预算",
+        status: "active",
+        createdAt: now,
+        updatedAt: now,
+      })
+      .run()
   })
   for (const monthDate of ctx.months) {
     const month = monthKey(monthDate)
@@ -859,7 +1198,13 @@ function buildDemoStatements(ctx: SeedContext): DemoBuildResult {
         .run()
     })
     const budgetItemPlans = [
-      { key: "all", name: "日常消费总预算", planned: 12_000, category: null, scope: ["flow_kind", "expense"] as const },
+      {
+        key: "all",
+        name: "日常消费总预算",
+        planned: 12_000,
+        category: null,
+        scope: ["flow_kind", "expense"] as const,
+      },
       { key: "food", name: "餐饮预算", planned: 2600, category: "餐饮", scope: null },
       { key: "shopping", name: "购物预算", planned: 3000, category: "购物", scope: null },
       { key: "transport", name: "交通预算", planned: 900, category: "交通", scope: null },
@@ -887,7 +1232,12 @@ function buildDemoStatements(ctx: SeedContext): DemoBuildResult {
       if (item.scope) {
         push("budget_item_scopes", (db) => {
           db.insert(budgetItemScopes)
-            .values({ id: demoId("budget_scope", item.key, month), budgetItemId: itemId, scopeKind: item.scope![0], scopeValue: item.scope![1] })
+            .values({
+              id: demoId("budget_scope", item.key, month),
+              budgetItemId: itemId,
+              scopeKind: item.scope![0],
+              scopeValue: item.scope![1],
+            })
             .run()
         })
       }
@@ -921,37 +1271,74 @@ function buildDemoStatements(ctx: SeedContext): DemoBuildResult {
 async function ensureDemoTags(db: Database): Promise<Record<string, string>> {
   const now = new Date().toISOString()
   for (const tag of DEMO_TAGS) {
-    db.insert(tags).values({ id: demoId("tag", tag.key), name: tag.name, color: tag.color, createdAt: now, updatedAt: now }).onConflictDoNothing().run()
+    db.insert(tags)
+      .values({
+        id: demoId("tag", tag.key),
+        name: tag.name,
+        color: tag.color,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .onConflictDoNothing()
+      .run()
   }
-  const rows = db.select({ id: tags.id, name: tags.name }).from(tags).where(inArray(tags.name, DEMO_TAGS.map((tag) => tag.name))).all()
-  return Object.fromEntries(DEMO_TAGS.map((tag) => {
-    const row = rows.find((candidate) => candidate.name === tag.name)
-    if (!row?.id) throw new Error(`Demo tag not found: ${tag.name}`)
-    return [tag.key, String(row.id)]
-  }))
+  const rows = db
+    .select({ id: tags.id, name: tags.name })
+    .from(tags)
+    .where(
+      inArray(
+        tags.name,
+        DEMO_TAGS.map((tag) => tag.name),
+      ),
+    )
+    .all()
+  return Object.fromEntries(
+    DEMO_TAGS.map((tag) => {
+      const row = rows.find((candidate) => candidate.name === tag.name)
+      if (!row?.id) throw new Error(`Demo tag not found: ${tag.name}`)
+      return [tag.key, String(row.id)]
+    }),
+  )
 }
 
 async function loadCategoryIds(db: Database): Promise<Record<string, string | null>> {
   const rows = db.select({ id: categories.id, name: categories.name }).from(categories).all()
-  return Object.fromEntries(rows.map((row) => [String(row.name), row.id == null ? null : String(row.id)]))
+  return Object.fromEntries(
+    rows.map((row) => [String(row.name), row.id == null ? null : String(row.id)]),
+  )
 }
 
 async function deleteDemoData(db: Database): Promise<Record<string, number>> {
   const deleted: Record<string, number> = {}
   const demoLike = (column: Parameters<typeof like>[0]) => like(column, `${DEMO_PREFIX}%`)
   const deletes: Array<[TargetTable, SQL]> = [
-    ["object_links", or(demoLike(objectLinks.id), demoLike(objectLinks.fromId), demoLike(objectLinks.toId))!],
-    ["budget_item_scopes", or(demoLike(budgetItemScopes.id), demoLike(budgetItemScopes.budgetItemId))!],
+    [
+      "object_links",
+      or(demoLike(objectLinks.id), demoLike(objectLinks.fromId), demoLike(objectLinks.toId))!,
+    ],
+    [
+      "budget_item_scopes",
+      or(demoLike(budgetItemScopes.id), demoLike(budgetItemScopes.budgetItemId))!,
+    ],
     ["budget_items", or(demoLike(budgetItems.id), demoLike(budgetItems.budgetPeriodId))!],
     ["budget_periods", or(demoLike(budgetPeriods.id), demoLike(budgetPeriods.budgetSetId))!],
     ["budget_sets", demoLike(budgetSets.id)],
-    ["loan_payment_occurrences", or(demoLike(loanPaymentOccurrences.id), demoLike(loanPaymentOccurrences.loanId))!],
+    [
+      "loan_payment_occurrences",
+      or(demoLike(loanPaymentOccurrences.id), demoLike(loanPaymentOccurrences.loanId))!,
+    ],
     ["loans", demoLike(loans.id)],
-    ["subscription_occurrences", or(demoLike(subscriptionOccurrences.id), demoLike(subscriptionOccurrences.subscriptionId))!],
+    [
+      "subscription_occurrences",
+      or(demoLike(subscriptionOccurrences.id), demoLike(subscriptionOccurrences.subscriptionId))!,
+    ],
     ["subscriptions", demoLike(subscriptions.id)],
     ["asset_snapshots", or(demoLike(assetSnapshots.id), demoLike(assetSnapshots.assetItemId))!],
     ["asset_items", demoLike(assetItems.id)],
-    ["cashflow_event_tags", or(demoLike(cashflowEventTags.cashflowEventId), demoLike(cashflowEventTags.tagId))!],
+    [
+      "cashflow_event_tags",
+      or(demoLike(cashflowEventTags.cashflowEventId), demoLike(cashflowEventTags.tagId))!,
+    ],
     ["cashflow_events", demoLike(cashflowEvents.id)],
     ["statement_lines", or(demoLike(statementLines.id), demoLike(statementLines.importId))!],
     ["statement_imports", demoLike(statementImports.id)],
@@ -968,13 +1355,19 @@ async function deleteDemoData(db: Database): Promise<Record<string, number>> {
 async function tableCounts(db: Database): Promise<Record<string, number>> {
   const counts: Record<string, number> = {}
   for (const table of TARGET_TABLES) {
-    const row = db.select({ count: sql<number>`count(*)` }).from(TABLE_MAP[table]).get()
+    const row = db
+      .select({ count: sql<number>`count(*)` })
+      .from(TABLE_MAP[table])
+      .get()
     counts[table] = Number(row?.count ?? 0)
   }
   return counts
 }
 
-export async function seedDemoData(db: Database, options: DemoSeedOptions = {}): Promise<DemoSeedReport> {
+export async function seedDemoData(
+  db: Database,
+  options: DemoSeedOptions = {},
+): Promise<DemoSeedReport> {
   const bounds = seedBounds(options)
   const dryContext: SeedContext = {
     anchorDate: bounds.anchorDate,
@@ -1029,27 +1422,66 @@ async function nonNegativeIssues(db: Database): Promise<string[]> {
   const checks: Array<[SQLiteTable, string, SQL]> = [
     [statementLines, "statement_lines.amount", sql`cast(${statementLines.amount} as real) < 0`],
     [cashflowEvents, "cashflow_events.amount", sql`cast(${cashflowEvents.amount} as real) < 0`],
-    [assetSnapshots, "asset_snapshots.value_amount", sql`cast(${assetSnapshots.valueAmount} as real) < 0`],
-    [assetSnapshots, "asset_snapshots.cost_basis_amount", sql`${assetSnapshots.costBasisAmount} is not null and cast(${assetSnapshots.costBasisAmount} as real) < 0`],
+    [
+      assetSnapshots,
+      "asset_snapshots.value_amount",
+      sql`cast(${assetSnapshots.valueAmount} as real) < 0`,
+    ],
+    [
+      assetSnapshots,
+      "asset_snapshots.cost_basis_amount",
+      sql`${assetSnapshots.costBasisAmount} is not null and cast(${assetSnapshots.costBasisAmount} as real) < 0`,
+    ],
     [subscriptions, "subscriptions.amount", sql`cast(${subscriptions.amount} as real) < 0`],
-    [subscriptionOccurrences, "subscription_occurrences.amount", sql`cast(${subscriptionOccurrences.amount} as real) < 0`],
+    [
+      subscriptionOccurrences,
+      "subscription_occurrences.amount",
+      sql`cast(${subscriptionOccurrences.amount} as real) < 0`,
+    ],
     [loans, "loans.payment_amount", sql`cast(${loans.paymentAmount} as real) < 0`],
-    [loans, "loans.principal_amount", sql`${loans.principalAmount} is not null and cast(${loans.principalAmount} as real) < 0`],
-    [loanPaymentOccurrences, "loan_payment_occurrences.payment_amount", sql`cast(${loanPaymentOccurrences.paymentAmount} as real) < 0`],
-    [loanPaymentOccurrences, "loan_payment_occurrences.principal_amount", sql`${loanPaymentOccurrences.principalAmount} is not null and cast(${loanPaymentOccurrences.principalAmount} as real) < 0`],
-    [loanPaymentOccurrences, "loan_payment_occurrences.interest_amount", sql`${loanPaymentOccurrences.interestAmount} is not null and cast(${loanPaymentOccurrences.interestAmount} as real) < 0`],
-    [budgetItems, "budget_items.planned_amount", sql`cast(${budgetItems.plannedAmount} as real) < 0`],
+    [
+      loans,
+      "loans.principal_amount",
+      sql`${loans.principalAmount} is not null and cast(${loans.principalAmount} as real) < 0`,
+    ],
+    [
+      loanPaymentOccurrences,
+      "loan_payment_occurrences.payment_amount",
+      sql`cast(${loanPaymentOccurrences.paymentAmount} as real) < 0`,
+    ],
+    [
+      loanPaymentOccurrences,
+      "loan_payment_occurrences.principal_amount",
+      sql`${loanPaymentOccurrences.principalAmount} is not null and cast(${loanPaymentOccurrences.principalAmount} as real) < 0`,
+    ],
+    [
+      loanPaymentOccurrences,
+      "loan_payment_occurrences.interest_amount",
+      sql`${loanPaymentOccurrences.interestAmount} is not null and cast(${loanPaymentOccurrences.interestAmount} as real) < 0`,
+    ],
+    [
+      budgetItems,
+      "budget_items.planned_amount",
+      sql`cast(${budgetItems.plannedAmount} as real) < 0`,
+    ],
     [exchangeRates, "exchange_rates.rate", sql`cast(${exchangeRates.rate} as real) <= 0`],
   ]
   const issues: string[] = []
   for (const [table, label, predicate] of checks) {
-    const row = db.select({ count: sql<number>`count(*)` }).from(table).where(predicate).get()
+    const row = db
+      .select({ count: sql<number>`count(*)` })
+      .from(table)
+      .where(predicate)
+      .get()
     if (Number(row?.count ?? 0) > 0) issues.push(`${label} contains invalid negative values`)
   }
   return issues
 }
 
-export async function validateDemoData(db: Database, options: DemoSeedOptions = {}): Promise<DemoSeedValidationReport> {
+export async function validateDemoData(
+  db: Database,
+  options: DemoSeedOptions = {},
+): Promise<DemoSeedValidationReport> {
   const bounds = seedBounds(options)
   const api = createFlowmApi(db)
   const counts = await tableCounts(db)
@@ -1060,43 +1492,75 @@ export async function validateDemoData(db: Database, options: DemoSeedOptions = 
     if (counts[table] <= 0) issues.push(`${table} has no rows`)
   }
 
-  issues.push(...await nonNegativeIssues(db))
+  issues.push(...(await nonNegativeIssues(db)))
 
   const liabilityBad = db
     .select({ count: sql<number>`count(*)` })
     .from(assetSnapshots)
     .innerJoin(assetItems, eq(assetItems.id, assetSnapshots.assetItemId))
-    .where(and(eq(assetItems.assetType, "liability"), sql`cast(${assetSnapshots.valueAmount} as real) <= 0`))
+    .where(
+      and(
+        eq(assetItems.assetType, "liability"),
+        sql`cast(${assetSnapshots.valueAmount} as real) <= 0`,
+      ),
+    )
     .get()
   if (Number(liabilityBad?.count ?? 0) > 0) issues.push("liability snapshots must stay positive")
 
-  const flowKinds = db.selectDistinct({ flowKind: cashflowEvents.flowKind }).from(cashflowEvents).orderBy(cashflowEvents.flowKind).all()
+  const flowKinds = db
+    .selectDistinct({ flowKind: cashflowEvents.flowKind })
+    .from(cashflowEvents)
+    .orderBy(cashflowEvents.flowKind)
+    .all()
   const flowKindSet = new Set(flowKinds.map((row) => String(row.flowKind)))
-  for (const kind of ["income", "expense", "transfer", "asset_movement", "debt_payment", "refund", "adjustment"]) {
+  for (const kind of [
+    "income",
+    "expense",
+    "transfer",
+    "asset_movement",
+    "debt_payment",
+    "refund",
+    "adjustment",
+  ]) {
     if (!flowKindSet.has(kind)) issues.push(`missing cashflow kind: ${kind}`)
   }
 
   const specialIncluded = db
     .select({ total: sql<number>`coalesce(sum(cast(${cashflowEvents.amount} as real)), 0)` })
     .from(cashflowEvents)
-    .where(and(eq(cashflowEvents.status, "active"), eq(cashflowEvents.includeInAnalytics, true), inArray(cashflowEvents.flowKind, SPECIAL_FLOW_KINDS)))
+    .where(
+      and(
+        eq(cashflowEvents.status, "active"),
+        eq(cashflowEvents.includeInAnalytics, true),
+        inArray(cashflowEvents.flowKind, SPECIAL_FLOW_KINDS),
+      ),
+    )
     .get()
-  if (Number(specialIncluded?.total ?? 0) !== 0) issues.push("special flow kinds are included in ordinary analytics")
+  if (Number(specialIncluded?.total ?? 0) !== 0)
+    issues.push("special flow kinds are included in ordinary analytics")
 
-  const hiddenSpecial = db.select({ count: sql<number>`count(*)` }).from(cashflowEvents).where(inArray(cashflowEvents.flowKind, SPECIAL_FLOW_KINDS)).get()
+  const hiddenSpecial = db
+    .select({ count: sql<number>`count(*)` })
+    .from(cashflowEvents)
+    .where(inArray(cashflowEvents.flowKind, SPECIAL_FLOW_KINDS))
+    .get()
   metrics.specialFlowCount = Number(hiddenSpecial?.count ?? 0)
   if (metrics.specialFlowCount <= 0) issues.push("special flow kinds are not queryable")
 
-  const everyday = expectOk(await api.getCashflowSummary({
-    metric: "everyday_spend",
-    dateFrom: bounds.dateFrom,
-    dateTo: bounds.anchorDate,
-  }))
-  const income = expectOk(await api.getCashflowSummary({
-    metric: "income",
-    dateFrom: bounds.dateFrom,
-    dateTo: bounds.anchorDate,
-  }))
+  const everyday = expectOk(
+    await api.getCashflowSummary({
+      metric: "everyday_spend",
+      dateFrom: bounds.dateFrom,
+      dateTo: bounds.anchorDate,
+    }),
+  )
+  const income = expectOk(
+    await api.getCashflowSummary({
+      metric: "income",
+      dateFrom: bounds.dateFrom,
+      dateTo: bounds.anchorDate,
+    }),
+  )
   metrics.everydaySpend = everyday.amount
   metrics.income = income.amount
 
@@ -1109,28 +1573,42 @@ export async function validateDemoData(db: Database, options: DemoSeedOptions = 
   if (Number(netWorth.liabilityValue.number) <= 0) issues.push("liability value is empty")
   if (netWorth.missingFx.length > 0) issues.push("net worth has missing FX rates")
 
-  const fund = db.select({ id: assetItems.id }).from(assetItems).where(eq(assetItems.id, demoId("asset", "fund"))).get()
+  const fund = db
+    .select({ id: assetItems.id })
+    .from(assetItems)
+    .where(eq(assetItems.id, demoId("asset", "fund")))
+    .get()
   if (fund?.id) {
     const change = expectOk(await api.getAssetChange({ assetItemId: fund.id as FlowmId }))
     metrics.assetChangeAvailable = change != null
     if (!change) issues.push("asset growth cannot be calculated from snapshots")
   }
 
-  const future = expectOk(await api.getFutureFixedPressure({
-    dateFrom: toDate(addDays(parseDate(bounds.anchorDate), 1)),
-    dateTo: bounds.forecastThrough,
-  }))
+  const future = expectOk(
+    await api.getFutureFixedPressure({
+      dateFrom: toDate(addDays(parseDate(bounds.anchorDate), 1)),
+      dateTo: bounds.forecastThrough,
+    }),
+  )
   metrics.futurePressure = future.total
   if (Number(future.total) <= 0) issues.push("future pressure is empty")
 
   const currentPeriod = db
     .select({ id: budgetPeriods.id })
     .from(budgetPeriods)
-    .where(and(lte(budgetPeriods.periodStart, bounds.anchorDate), gte(budgetPeriods.periodEnd, bounds.anchorDate), like(budgetPeriods.id, `${DEMO_PREFIX}%`)))
+    .where(
+      and(
+        lte(budgetPeriods.periodStart, bounds.anchorDate),
+        gte(budgetPeriods.periodEnd, bounds.anchorDate),
+        like(budgetPeriods.id, `${DEMO_PREFIX}%`),
+      ),
+    )
     .limit(1)
     .get()
   if (currentPeriod?.id) {
-    const progress = expectOk(await api.getBudgetReferenceProgress({ budgetPeriodId: currentPeriod.id as FlowmId }))
+    const progress = expectOk(
+      await api.getBudgetReferenceProgress({ budgetPeriodId: currentPeriod.id as FlowmId }),
+    )
     const used = progress.reduce((sum, row) => sum + Number(row.referenceUsed), 0)
     metrics.currentBudgetUsed = used.toFixed(2)
     if (used <= 0) issues.push("budget progress has no past cashflow usage")
@@ -1138,7 +1616,11 @@ export async function validateDemoData(db: Database, options: DemoSeedOptions = 
     issues.push("current demo budget period not found")
   }
 
-  const objectLinkCount = db.select({ count: sql<number>`count(*)` }).from(objectLinks).where(like(objectLinks.id, `${DEMO_PREFIX}%`)).get()
+  const objectLinkCount = db
+    .select({ count: sql<number>`count(*)` })
+    .from(objectLinks)
+    .where(like(objectLinks.id, `${DEMO_PREFIX}%`))
+    .get()
   metrics.objectLinks = Number(objectLinkCount?.count ?? 0)
   if (metrics.objectLinks <= 0) issues.push("object links are empty")
 

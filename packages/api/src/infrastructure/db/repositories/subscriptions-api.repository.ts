@@ -5,7 +5,7 @@
  * @gotcha  Preserve Flowm layer boundaries and avoid raw SQL except targeted Drizzle sql fragments.
  */
 
-import { and, asc, eq, gte, lte, type SQL } from "drizzle-orm"
+import { and, asc, eq, gte, inArray, lte, type SQL } from "drizzle-orm"
 import {
   subscriptionOccurrences,
   subscriptions,
@@ -128,6 +128,17 @@ export abstract class SubscriptionsApiRepository extends AssetsApiRepository {
         .set({ status: "canceled", updatedAt: nowIso() })
         .where(eq(subscriptions.id, toSqlId(input.id)))
         .run()
+      // Drop unrealized future charges so a canceled subscription stops surfacing
+      // in upcoming/pressure views. Confirmed occurrences stay as real history.
+      this.db
+        .delete(subscriptionOccurrences)
+        .where(
+          and(
+            eq(subscriptionOccurrences.subscriptionId, toSqlId(input.id)),
+            eq(subscriptionOccurrences.status, "forecast"),
+          ),
+        )
+        .run()
       return ok(undefined)
     } catch (error) {
       return fail(error)
@@ -190,6 +201,18 @@ export abstract class SubscriptionsApiRepository extends AssetsApiRepository {
       const conds: SQL[] = []
       if (input.subscriptionId)
         conds.push(eq(subscriptionOccurrences.subscriptionId, toSqlId(input.subscriptionId)))
+      // When listing across subscriptions, exclude occurrences whose parent is no
+      // longer active so canceled subscriptions never leak ghost charges.
+      else
+        conds.push(
+          inArray(
+            subscriptionOccurrences.subscriptionId,
+            this.db
+              .select({ id: subscriptions.id })
+              .from(subscriptions)
+              .where(eq(subscriptions.status, "active")),
+          ),
+        )
       if (input.dateFrom) conds.push(gte(subscriptionOccurrences.dueDate, input.dateFrom))
       if (input.dateTo) conds.push(lte(subscriptionOccurrences.dueDate, input.dateTo))
       const rows = this.db

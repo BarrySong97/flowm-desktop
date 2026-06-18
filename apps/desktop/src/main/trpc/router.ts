@@ -141,6 +141,13 @@ export const appRouter = router({
           api.getCashflowBreakdown(inputOrEmpty<"getCashflowBreakdown">(input)),
         ),
       ),
+    monthlyTrend: publicProcedure
+      .input(apiInput<"getMonthlyCashflowTrend">())
+      .query(({ ctx, input }) =>
+        callApi(ctx, (api) =>
+          api.getMonthlyCashflowTrend(inputOrEmpty<"getMonthlyCashflowTrend">(input)),
+        ),
+      ),
     create: publicProcedure
       .input(apiInput<"createCashflowEvent">())
       .mutation(({ ctx, input }) =>

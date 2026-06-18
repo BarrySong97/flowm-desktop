@@ -7,8 +7,8 @@
   "type": "module",
   "main": "./out/main/index.js",
   "scripts": {
-    "dev": "electron-vite dev",
-    "dev:debug": "OPEN_DEVTOOLS=1 electron-vite dev",
+    "dev": "NODE_ENV_ELECTRON_VITE=development FLOWM_USER_DATA_DIR=../../.flowm/dev-user-data ELECTRON_EXEC_PATH=\"$(node ../../scripts/prepare-electron-dev-app.mjs)\" electron-vite dev",
+    "dev:debug": "NODE_ENV_ELECTRON_VITE=development FLOWM_USER_DATA_DIR=../../.flowm/dev-user-data OPEN_DEVTOOLS=1 ELECTRON_EXEC_PATH=\"$(node ../../scripts/prepare-electron-dev-app.mjs)\" electron-vite dev",
     "build": "electron-vite build",
     "start": "electron-vite preview",
     "check-types": "tsc --noEmit -p tsconfig.node.json --composite false && tsc --noEmit -p tsconfig.web.json --composite false",

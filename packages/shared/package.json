@@ -24,6 +24,11 @@
       "types": "./src/contracts/index.ts",
       "import": "./src/contracts/index.ts",
       "default": "./src/contracts/index.ts"
+    },
+    "./ipc": {
+      "types": "./src/ipc/index.ts",
+      "import": "./src/ipc/index.ts",
+      "default": "./src/ipc/index.ts"
     }
   },
   "scripts": {

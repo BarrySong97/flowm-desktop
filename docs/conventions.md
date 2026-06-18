@@ -21,6 +21,20 @@
 - `packages/shared` must stay platform-light and reusable. Do not put Electron, DOM, or database concerns there.
 - `packages/ui` owns reusable primitives and styles, not product-specific finance workflows.
 
+## Renderer UI Rules
+
+- Prefer existing HeroUI controls and local renderer primitives before building
+  custom controls. Tabs, selects, inputs, buttons, modals, drawers, labels,
+  calendars, and form fields should not be hand-rolled when HeroUI already
+  covers the behavior.
+- Prefer Tailwind `className` utilities for renderer layout, spacing,
+  typography, borders, radius, shadows, and token colors.
+- Use inline `style` only for values that are genuinely dynamic at runtime,
+  chart-library object props, or CSS values that Tailwind cannot express
+  cleanly. Do not use inline styles as the default way to design new UI.
+- When touching an old component with nearby inline styles, avoid expanding that
+  pattern. New UI in the same file should still follow HeroUI and Tailwind first.
+
 ## Database Rules
 
 - Use Drizzle query builder against the exported `@flowm/db` schema.

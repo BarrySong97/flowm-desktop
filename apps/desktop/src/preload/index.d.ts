@@ -6,6 +6,9 @@
  */
 
 import type { ElectronAPI } from "@electron-toolkit/preload"
+import type { LedgerChangeEvent } from "@flowm/shared/ipc"
+
+type RendererLedgerChangeEvent = LedgerChangeEvent & { receivedAt: string }
 
 declare global {
   interface Window {
@@ -19,11 +22,8 @@ declare global {
       }
       getDatabasePath: () => Promise<string | null>
       databaseExists: () => Promise<boolean>
-      trpcRequest: (request: {
-        type: string
-        path: string
-        input: unknown
-      }) => Promise<unknown>
+      trpcRequest: (request: { type: string; path: string; input: unknown }) => Promise<unknown>
+      onLedgerChanged: (callback: (event: RendererLedgerChangeEvent) => void) => () => void
     }
   }
 }

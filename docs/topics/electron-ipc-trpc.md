@@ -24,6 +24,16 @@ React renderer
 - Keep `apps/desktop/src/preload/index.ts` and `index.d.ts` in sync.
 - Main process code may use Node and Electron APIs; renderer feature code should stay browser-compatible.
 
+## External CLI Refresh
+
+The desktop main process owns a local ledger-change socket used by `flowm-cli`
+after successful `--commit` writes. This socket carries refresh hints only:
+`flowm-cli` writes through `@flowm/api`, then notifies the running app with the
+changed database path. The main process checks that path against the active
+ledger and forwards valid events over preload as `window.flowm.onLedgerChanged`.
+Renderer code responds by invalidating React Query state; it does not read the
+socket or database directly.
+
 ## Ledger Switching
 
 Ledger switching is not a normal query parameter change. The Electron main process closes one SQLite connection and opens another, then rebuilds the `@flowm/api` facade against the new database.

@@ -1,12 +1,12 @@
 /**
  * @purpose Render and manage the settings categories page workflow.
  * @role    Renderer feature surface for app configuration and reference data.
- * @deps    React, tRPC settings/reference queries, and local UI components.
- * @gotcha  Settings changes can affect user data paths and categories; keep destructive actions explicit.
+ * @deps    React, tRPC settings/reference queries, HeroUI controls, and local UI components.
+ * @gotcha  Category names can repeat across kinds; use category ids for stats and edits.
  */
 
 import { useEffect, useMemo, useState } from "react"
-import { Link } from "@tanstack/react-router"
+import { useNavigate } from "@tanstack/react-router"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Button, Input, Modal } from "@heroui/react"
 import { Controller, useForm } from "react-hook-form"
@@ -14,26 +14,43 @@ import type { CashflowEventSummary, CategorySummary } from "@flowm/api"
 import { trpc } from "@/lib/trpc"
 import { usePagePerf } from "@/lib/debug/perf"
 import { formatNumber } from "@/lib/format"
+import { Dock } from "../components/layout/Dock"
+import { ScrollArea } from "../components/ui/ScrollArea"
 import { useConfirm } from "../components/ui/ConfirmModal"
 import { ColorPickerField } from "../components/ui/ColorPickerField"
+import { ColorDot } from "../components/ui/ColorDot"
 import { FormField } from "../components/ui/FormField"
 
 const fmt = formatNumber
-
-const KIND_COLOR: Record<string, string> = {
-  expense: "var(--c-food)",
-  income: "var(--c-income)",
-  transfer: "var(--c-xfer)",
-  debt: "var(--red)",
-  other: "var(--c-other)",
-}
 
 const CATEGORY_KINDS = [
   { value: "expense", label: "支出" },
   { value: "income", label: "收入" },
   { value: "transfer", label: "转账" },
   { value: "debt", label: "债务" },
+  { value: "asset_movement", label: "资产流转" },
+  { value: "adjustment", label: "调整" },
 ] as const
+
+const KIND_META: Record<string, { label: string; tone: string }> = {
+  expense: { label: "支出", tone: "var(--red)" },
+  income: { label: "收入", tone: "var(--accent)" },
+  transfer: { label: "转账", tone: "var(--ink-3)" },
+  debt: { label: "债务", tone: "var(--red)" },
+  asset_movement: { label: "资产流转", tone: "var(--ink-3)" },
+  adjustment: { label: "调整", tone: "var(--ink-3)" },
+  neutral: { label: "中性", tone: "var(--ink-3)" },
+}
+
+const KIND_FALLBACK_COLOR: Record<string, string> = {
+  expense: "var(--red)",
+  income: "var(--accent)",
+  transfer: "var(--ink-3)",
+  debt: "var(--red)",
+  asset_movement: "var(--ink-3)",
+  adjustment: "var(--ink-3)",
+  neutral: "var(--ink-3)",
+}
 
 interface CategoryForm {
   name: string
@@ -52,45 +69,70 @@ interface CategoryStats {
   monthAmount: number
 }
 
-function categoryStatKeys(event: CashflowEventSummary): string[] {
-  const keys: string[] = []
-  if (event.categoryId != null) keys.push(`id:${event.categoryId}`)
-  if (event.categoryName != null && event.categoryName.trim().length > 0)
-    keys.push(`name:${event.categoryName}`)
-  return keys
+function kindOf(category: CategorySummary) {
+  return category.categoryKind || category.kind || "expense"
 }
 
-function isIncomeCategory(category: CategorySummary) {
-  return category.categoryKind === "income" || category.kind === "income"
+function colorFor(category: CategorySummary) {
+  const kind = kindOf(category)
+  return category.color ?? KIND_FALLBACK_COLOR[kind] ?? "var(--ink-4)"
 }
 
 function buildStats(events: CashflowEventSummary[], monthPrefix: string) {
   const stats = new Map<string, CategoryStats>()
   for (const event of events) {
+    if (event.categoryId == null) continue
+    const key = String(event.categoryId)
     const amount = Math.abs(Number(event.amount) || 0)
-    for (const key of categoryStatKeys(event)) {
-      const current = stats.get(key) ?? { count: 0, monthAmount: 0 }
-      current.count += 1
-      if (event.date.startsWith(monthPrefix)) current.monthAmount += amount
-      stats.set(key, current)
-    }
+    const current = stats.get(key) ?? { count: 0, monthAmount: 0 }
+    current.count += 1
+    if (event.date.startsWith(monthPrefix)) current.monthAmount += amount
+    stats.set(key, current)
   }
   return stats
 }
 
 function statFor(category: CategorySummary, stats: Map<string, CategoryStats>) {
+  return stats.get(String(category.id)) ?? { count: 0, monthAmount: 0 }
+}
+
+function GroupLabel({ children }: { children: string }) {
   return (
-    stats.get(`id:${category.id}`) ??
-    stats.get(`name:${category.name}`) ?? { count: 0, monthAmount: 0 }
+    <div
+      style={{
+        fontSize: 10.5,
+        fontWeight: 600,
+        letterSpacing: ".1em",
+        textTransform: "uppercase",
+        color: "var(--ink-4)",
+        marginBottom: 4,
+      }}
+    >
+      {children}
+    </div>
   )
 }
 
-function colorFor(category: CategorySummary) {
+function KindBadge({ kind, archived }: { kind: string; archived?: boolean }) {
+  const meta = KIND_META[kind] ?? { label: kind, tone: "var(--ink-3)" }
   return (
-    category.color ??
-    KIND_COLOR[category.categoryKind] ??
-    KIND_COLOR[category.kind] ??
-    KIND_COLOR.other
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        height: 22,
+        padding: "0 8px",
+        borderRadius: 5,
+        border: "1px solid var(--hair-2)",
+        background: archived ? "var(--surface-2)" : "white",
+        color: archived ? "var(--ink-4)" : meta.tone,
+        fontSize: 11,
+        fontWeight: 500,
+        whiteSpace: "nowrap",
+      }}
+    >
+      {archived ? "已归档" : meta.label}
+    </span>
   )
 }
 
@@ -124,7 +166,7 @@ function CategoryModal({
       category
         ? {
             name: category.name,
-            categoryKind: category.categoryKind || category.kind || "expense",
+            categoryKind: kindOf(category),
             color: category.color ?? "#8a9590",
           }
         : EMPTY_CATEGORY_FORM,
@@ -144,7 +186,7 @@ function CategoryModal({
           <Modal.Header>
             <Modal.Heading>{category ? "编辑分类" : "新建分类"}</Modal.Heading>
             <p style={{ fontSize: 12, color: "var(--ink-4)", marginTop: 2 }}>
-              分类用于流水和预算统计，不会改变已有流水金额。
+              分类只影响流水归类和统计，不改变现金流金额。
             </p>
           </Modal.Header>
           <Modal.Body>
@@ -168,29 +210,29 @@ function CategoryModal({
               </FormField>
               <FormField label="类型" required>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                  {CATEGORY_KINDS.map((kind) => (
-                    <button
-                      key={kind.value}
-                      type="button"
-                      onClick={() => setValue("categoryKind", kind.value)}
-                      style={{
-                        border:
-                          form.categoryKind === kind.value
-                            ? "1px solid var(--accent)"
-                            : "1px solid var(--hair-2)",
-                        borderRadius: 6,
-                        background:
-                          form.categoryKind === kind.value ? "var(--accent-soft)" : "white",
-                        color: form.categoryKind === kind.value ? "var(--accent)" : "var(--ink-2)",
-                        cursor: "pointer",
-                        fontSize: 12,
-                        fontWeight: 500,
-                        padding: "5px 10px",
-                      }}
-                    >
-                      {kind.label}
-                    </button>
-                  ))}
+                  {CATEGORY_KINDS.map((kind) => {
+                    const active = form.categoryKind === kind.value
+                    return (
+                      <button
+                        key={kind.value}
+                        type="button"
+                        onClick={() => setValue("categoryKind", kind.value)}
+                        style={{
+                          height: 30,
+                          border: active ? "1px solid var(--accent)" : "1px solid var(--hair-2)",
+                          borderRadius: 6,
+                          background: active ? "var(--accent-soft)" : "white",
+                          color: active ? "var(--accent)" : "var(--ink-2)",
+                          cursor: "pointer",
+                          fontSize: 12,
+                          fontWeight: 500,
+                          padding: "0 10px",
+                        }}
+                      >
+                        {kind.label}
+                      </button>
+                    )
+                  })}
                 </div>
               </FormField>
               <FormField label="颜色">
@@ -209,10 +251,11 @@ function CategoryModal({
               variant="primary"
               isDisabled={saving || isSubmitting}
               onPress={() => void handleSubmit(onSave)()}
+              style={{ borderRadius: 5 }}
             >
-              {saving ? "保存中…" : "保存"}
+              {saving ? "保存中..." : "保存"}
             </Button>
-            <Button variant="outline" onPress={onClose}>
+            <Button variant="outline" onPress={onClose} style={{ borderRadius: 5 }}>
               取消
             </Button>
           </Modal.Footer>
@@ -233,42 +276,58 @@ function CategoryRow({
   onEdit: (category: CategorySummary) => void
   onArchive: (category: CategorySummary) => void
 }) {
+  const kind = kindOf(category)
   return (
     <div
       style={{
-        display: "flex",
+        display: "grid",
+        gridTemplateColumns: "minmax(160px, 1fr) 88px 116px 86px 110px",
         alignItems: "center",
-        gap: 16,
-        padding: "13px 0",
+        gap: 12,
+        minHeight: 50,
+        padding: "10px 0",
         borderTop: "1px solid var(--hair-3)",
-        opacity: category.archived ? 0.45 : 1,
+        opacity: category.archived ? 0.46 : 1,
       }}
     >
+      <div style={{ minWidth: 0, display: "flex", alignItems: "center", gap: 9 }}>
+        <ColorDot color={colorFor(category)} size={9} />
+        <div style={{ minWidth: 0 }}>
+          <div
+            style={{
+              fontSize: 13.5,
+              fontWeight: 500,
+              color: "var(--ink)",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {category.name}
+          </div>
+        </div>
+      </div>
+      <KindBadge kind={kind} archived={category.archived} />
+      <span style={{ fontSize: 11.5, color: "var(--ink-3)", whiteSpace: "nowrap" }}>
+        {stats.count > 0 ? `${stats.count} 笔` : "暂无流水"}
+      </span>
       <span
-        className="cdot"
-        style={{ background: colorFor(category), width: 11, height: 11, flex: "0 0 11px" }}
-      />
-      <div style={{ minWidth: 120, flex: "0 0 120px" }}>
-        <span style={{ fontSize: 14, fontWeight: 500 }}>{category.name}</span>
-      </div>
-      <div className="dim" style={{ fontSize: 11.5, flex: 1 }}>
-        {stats.count > 0 ? (
-          <>
-            {stats.count} 笔 · 本月 ¥{fmt(stats.monthAmount)}
-          </>
-        ) : (
-          "暂无记录"
-        )}
-      </div>
-      <div className="dim" style={{ fontSize: 11.5, flexShrink: 0 }}>
-        {category.archived ? "已归档" : category.categoryKind}
-      </div>
-      {!category.archived && (
-        <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+        style={{
+          fontFamily: "IBM Plex Mono, monospace",
+          fontSize: 12,
+          color: stats.monthAmount > 0 ? "var(--ink)" : "var(--ink-4)",
+          textAlign: "right",
+          whiteSpace: "nowrap",
+        }}
+      >
+        ¥{fmt(stats.monthAmount)}
+      </span>
+      {!category.archived ? (
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 6 }}>
           <Button
             size="sm"
             variant="outline"
-            style={{ borderRadius: 5 }}
+            style={{ borderRadius: 5, height: 28, fontSize: 11.5, padding: "0 9px" }}
             onPress={() => onEdit(category)}
           >
             编辑
@@ -276,12 +335,20 @@ function CategoryRow({
           <Button
             size="sm"
             variant="ghost"
-            style={{ borderRadius: 5, color: "var(--red)" }}
+            style={{
+              borderRadius: 5,
+              height: 28,
+              fontSize: 11.5,
+              padding: "0 9px",
+              color: "var(--red)",
+            }}
             onPress={() => onArchive(category)}
           >
             归档
           </Button>
         </div>
+      ) : (
+        <span style={{ fontSize: 11.5, color: "var(--ink-4)", textAlign: "right" }}>不可选</span>
       )}
     </div>
   )
@@ -302,17 +369,34 @@ function CategorySection({
   onEdit: (category: CategorySummary) => void
   onArchive: (category: CategorySummary) => void
 }) {
+  const activeCount = categories.filter((category) => !category.archived).length
+
   return (
-    <div style={{ marginBottom: 32 }}>
-      <div style={{ display: "flex", alignItems: "baseline", marginBottom: 4 }}>
-        <span
-          style={{ fontSize: 12, fontWeight: 600, color: "var(--ink-3)", letterSpacing: ".06em" }}
-        >
-          {title}
+    <section style={{ marginTop: 30 }}>
+      <GroupLabel>{title}</GroupLabel>
+      <div style={{ display: "flex", alignItems: "baseline", marginBottom: 6 }}>
+        <span style={{ fontSize: 13.5, color: "var(--ink)", fontWeight: 500 }}>
+          {activeCount} 个可用
         </span>
-        <span className="dim" style={{ fontSize: 11, marginLeft: 8 }}>
-          {categories.length} 个 · {note}
-        </span>
+        <span style={{ fontSize: 11.5, color: "var(--ink-4)", marginLeft: 8 }}>{note}</span>
+      </div>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "minmax(160px, 1fr) 88px 116px 86px 110px",
+          gap: 12,
+          padding: "4px 0 7px",
+          borderTop: "1px solid var(--hair-2)",
+          color: "var(--ink-4)",
+          fontSize: 10.5,
+          fontWeight: 500,
+        }}
+      >
+        <span>分类</span>
+        <span>类型</span>
+        <span>引用</span>
+        <span style={{ textAlign: "right" }}>本月</span>
+        <span style={{ textAlign: "right" }}>操作</span>
       </div>
       {categories.map((category) => (
         <CategoryRow
@@ -325,18 +409,23 @@ function CategorySection({
       ))}
       {categories.length === 0 && (
         <div
-          className="dim"
-          style={{ padding: "18px 0", fontSize: 12, borderTop: "1px solid var(--hair-3)" }}
+          style={{
+            padding: "18px 0",
+            fontSize: 12,
+            color: "var(--ink-4)",
+            borderTop: "1px solid var(--hair-3)",
+          }}
         >
           暂无分类
         </div>
       )}
-    </div>
+    </section>
   )
 }
 
 export function CategoriesPage() {
   const confirm = useConfirm()
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const categoriesQuery = useQuery(
     trpc.reference.categories.queryOptions({ includeArchived: true }),
@@ -360,10 +449,23 @@ export function CategoriesPage() {
     [cashflowQuery.data, monthPrefix],
   )
   const expenseCategories = useMemo(
-    () => categories.filter((category) => !isIncomeCategory(category)),
+    () => categories.filter((category) => kindOf(category) === "expense"),
     [categories],
   )
-  const incomeCategories = useMemo(() => categories.filter(isIncomeCategory), [categories])
+  const incomeCategories = useMemo(
+    () => categories.filter((category) => kindOf(category) === "income"),
+    [categories],
+  )
+  const otherCategories = useMemo(
+    () =>
+      categories.filter((category) => {
+        const kind = kindOf(category)
+        return kind !== "expense" && kind !== "income"
+      }),
+    [categories],
+  )
+  const activeCount = categories.filter((category) => !category.archived).length
+  const archivedCount = categories.length - activeCount
 
   async function refreshCategories() {
     await queryClient.invalidateQueries(trpc.reference.categories.queryFilter())
@@ -410,67 +512,99 @@ export function CategoriesPage() {
 
   return (
     <div
-      className="relative flex flex-col h-full overflow-hidden bg-white"
-      style={{ height: "100%", overflow: "hidden" }}
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        height: "100%",
+        overflow: "hidden",
+        background: "white",
+      }}
     >
-      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", paddingBottom: 40 }}>
-        <div className="st-wrap" style={{ padding: "24px 0 40px" }}>
-          <Link to="/settings" style={{ textDecoration: "none" }}>
-            <div
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 6,
-                fontSize: 13,
-                color: "var(--ink-2)",
-                marginBottom: 22,
-                cursor: "pointer",
-              }}
-            >
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 16 16"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.6"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M10 3L5 8l5 5" />
-              </svg>
-              返回设置
-            </div>
-          </Link>
-
-          <div
+      <div
+        style={{
+          flexShrink: 0,
+          padding: "28px 32px 20px",
+          borderBottom: "1px solid var(--hair-2)",
+        }}
+      >
+        <div style={{ width: 720, maxWidth: "100%", margin: "0 auto" }}>
+          <button
+            type="button"
+            onClick={() => void navigate({ to: "/settings" })}
             style={{
-              display: "flex",
+              display: "inline-flex",
               alignItems: "center",
-              justifyContent: "space-between",
-              gap: 16,
-              marginBottom: 4,
+              gap: 6,
+              border: "none",
+              background: "none",
+              padding: 0,
+              marginBottom: 14,
+              cursor: "pointer",
+              color: "var(--ink-3)",
+              fontSize: 12.5,
+              fontWeight: 500,
             }}
           >
-            <div className="dm-num" style={{ fontSize: 26 }}>
-              分类管理
+            ‹ 返回设置
+          </button>
+          <div style={{ display: "flex", alignItems: "flex-end", gap: 18 }}>
+            <div style={{ minWidth: 0 }}>
+              <div
+                style={{
+                  fontFamily: "var(--mono)",
+                  fontSize: 26,
+                  fontWeight: 600,
+                  letterSpacing: "-0.02em",
+                  color: "var(--ink)",
+                  marginBottom: 4,
+                }}
+              >
+                分类管理
+              </div>
+              <div style={{ fontSize: 12.5, color: "var(--ink-4)" }}>
+                分类按收入、支出和其他现金流分组；同名分类可以存在于不同类型。
+              </div>
             </div>
-            <Button
-              size="sm"
-              variant="primary"
-              style={{ borderRadius: 5 }}
-              onPress={() => openCategoryForm(null)}
-            >
-              新建分类
-            </Button>
+            <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 16 }}>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+                <span style={{ fontSize: 12, color: "var(--ink-4)" }}>可用</span>
+                <span
+                  style={{
+                    fontFamily: "IBM Plex Mono, monospace",
+                    fontSize: 18,
+                    fontWeight: 600,
+                  }}
+                >
+                  {activeCount}
+                </span>
+                <span style={{ fontSize: 12, color: "var(--ink-4)" }}>归档 {archivedCount}</span>
+              </div>
+              <Button
+                size="sm"
+                variant="primary"
+                style={{ borderRadius: 5 }}
+                onPress={() => openCategoryForm(null)}
+              >
+                + 新建分类
+              </Button>
+            </div>
           </div>
-          <div className="dim" style={{ fontSize: 12, marginBottom: 28 }}>
-            全 App 共用一套分类 · 当前页面展示并管理数据库中的真实分类
-          </div>
+        </div>
+      </div>
 
+      <ScrollArea className="h-full" style={{ flex: 1, minHeight: 0 }}>
+        <div
+          style={{
+            width: 720,
+            maxWidth: "100%",
+            boxSizing: "border-box",
+            margin: "0 auto",
+            padding: "0 32px 112px",
+          }}
+        >
           <CategorySection
             title="支出分类"
-            note="引用真实流水统计"
+            note="用于消费结构、预算引用和流水筛选"
             categories={expenseCategories}
             stats={stats}
             onEdit={openCategoryForm}
@@ -478,15 +612,25 @@ export function CategoriesPage() {
           />
 
           <CategorySection
-            title="收入 / 资金流转"
-            note="不计入支出预算"
+            title="收入分类"
+            note="用于收入结构分析，不进入支出预算"
             categories={incomeCategories}
             stats={stats}
             onEdit={openCategoryForm}
             onArchive={confirmArchiveCategory}
           />
+
+          <CategorySection
+            title="其他现金流"
+            note="转账、债务、资产流转和调整类分类"
+            categories={otherCategories}
+            stats={stats}
+            onEdit={openCategoryForm}
+            onArchive={confirmArchiveCategory}
+          />
         </div>
-      </div>
+      </ScrollArea>
+      <Dock />
       <CategoryModal
         open={showCategoryForm}
         category={editingCategory}

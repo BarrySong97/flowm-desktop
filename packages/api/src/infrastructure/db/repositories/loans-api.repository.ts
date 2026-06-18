@@ -10,6 +10,7 @@ import {
   loanPaymentOccurrences,
   loans,
   subscriptionOccurrences,
+  subscriptions,
   type LoanInsert,
   type LoanRow,
 } from "@flowm/db"
@@ -141,6 +142,17 @@ export abstract class LoansApiRepository extends SubscriptionsApiRepository {
         .set({ status: "closed", updatedAt: nowIso() })
         .where(eq(loans.id, toSqlId(input.id)))
         .run()
+      // Drop unrealized future payments so a closed loan stops surfacing in
+      // upcoming/pressure views. Paid occurrences stay as real history.
+      this.db
+        .delete(loanPaymentOccurrences)
+        .where(
+          and(
+            eq(loanPaymentOccurrences.loanId, toSqlId(input.id)),
+            eq(loanPaymentOccurrences.status, "forecast"),
+          ),
+        )
+        .run()
       return ok(undefined)
     } catch (error) {
       return fail(error)
@@ -213,6 +225,15 @@ export abstract class LoansApiRepository extends SubscriptionsApiRepository {
     try {
       const conds: SQL[] = []
       if (input.loanId) conds.push(eq(loanPaymentOccurrences.loanId, toSqlId(input.loanId)))
+      // When listing across loans, exclude occurrences whose parent is no longer
+      // active so closed loans never leak ghost payments.
+      else
+        conds.push(
+          inArray(
+            loanPaymentOccurrences.loanId,
+            this.db.select({ id: loans.id }).from(loans).where(eq(loans.status, "active")),
+          ),
+        )
       if (input.dateFrom) conds.push(gte(loanPaymentOccurrences.dueDate, input.dateFrom))
       if (input.dateTo) conds.push(lte(loanPaymentOccurrences.dueDate, input.dateTo))
       const rows = this.db
@@ -241,6 +262,13 @@ export abstract class LoansApiRepository extends SubscriptionsApiRepository {
             gte(subscriptionOccurrences.dueDate, dateFrom),
             lte(subscriptionOccurrences.dueDate, dateTo),
             inArray(subscriptionOccurrences.status, ["forecast", "confirmed"]),
+            inArray(
+              subscriptionOccurrences.subscriptionId,
+              this.db
+                .select({ id: subscriptions.id })
+                .from(subscriptions)
+                .where(eq(subscriptions.status, "active")),
+            ),
           ),
         )
         .get()
@@ -252,6 +280,10 @@ export abstract class LoansApiRepository extends SubscriptionsApiRepository {
             gte(loanPaymentOccurrences.dueDate, dateFrom),
             lte(loanPaymentOccurrences.dueDate, dateTo),
             inArray(loanPaymentOccurrences.status, ["forecast", "paid"]),
+            inArray(
+              loanPaymentOccurrences.loanId,
+              this.db.select({ id: loans.id }).from(loans).where(eq(loans.status, "active")),
+            ),
           ),
         )
         .get()

@@ -17,3 +17,5 @@ Record durable architecture and product-model decisions here so agents do not re
 | 0001   | Keep Finance Layers Asymmetric                   | Accepted | 2026-06-14 |
 | 0002   | Separate Demo Ledger And Personal Starter Ledger | Accepted | 2026-06-15 |
 | 0003   | Desktop App Icon Assets                          | Accepted | 2026-06-16 |
+| 0004   | Agent Ledger Patches                             | Accepted | 2026-06-16 |
+| 0005   | Local CLI Commit Refresh Socket                  | Accepted | 2026-06-18 |

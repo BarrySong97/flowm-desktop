@@ -12,9 +12,10 @@ import Database from "better-sqlite3"
 import { drizzle } from "drizzle-orm/better-sqlite3"
 import { migrate } from "drizzle-orm/better-sqlite3/migrator"
 
-import { createFlowmApi, type FlowmApi } from "@flowm/api"
+import { createFlowmApi, createFrankfurterFxProvider, type FlowmApi } from "@flowm/api"
 import { seedDefaultCategories, seedPersonalStarterData } from "@flowm/api/default-seed"
 import { schema, type Database as DrizzleDatabase } from "@flowm/db"
+import { isDevRuntime } from "./bootstrap/runtime-env"
 
 const PERSONAL_FILE = "flowm.sqlite3"
 const DEMO_FILE = "flowm-demo.sqlite3"
@@ -72,17 +73,15 @@ export class LedgerStore {
   }
 
   private migrationsFolder(): string {
-    if (app.isPackaged) {
-      return join(process.resourcesPath, "migrations")
-    }
-    return join(app.getAppPath(), "../../packages/db/migrations")
+    return isDevRuntime()
+      ? join(app.getAppPath(), "../../packages/db/migrations")
+      : join(process.resourcesPath, "migrations")
   }
 
   private demoResourcePath(): string {
-    if (app.isPackaged) {
-      return join(process.resourcesPath, DEMO_FILE)
-    }
-    return join(app.getAppPath(), "resources", DEMO_FILE)
+    return isDevRuntime()
+      ? join(app.getAppPath(), "resources", DEMO_FILE)
+      : join(process.resourcesPath, DEMO_FILE)
   }
 
   // ---- lifecycle ---------------------------------------------------------
@@ -160,7 +159,7 @@ export class LedgerStore {
     this.client = client
     this.drizzleDb = drizzle(client, { schema })
     migrate(this.drizzleDb, { migrationsFolder: this.migrationsFolder() })
-    this.api = createFlowmApi(this.drizzleDb)
+    this.api = createFlowmApi(this.drizzleDb, { fxProvider: createFrankfurterFxProvider() })
     this.activeFilePath = absPath
   }
 

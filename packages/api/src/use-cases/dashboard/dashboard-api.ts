@@ -17,16 +17,26 @@ import type {
   FlowmApi,
   ListDashboardCardsInput,
   ListDashboardLayoutsInput,
+  NetWorthInput,
+  NetWorthSnapshot,
   SaveDashboardLayoutsInput,
   UpdateDashboardCardInput,
   UpdateDashboardViewInput,
   UpsertAssetSnapshotInput,
 } from "../../index"
-import { LinksApi } from "../links/links-api"
+import { AgentLedgerApi } from "../agent-ledger/agent-ledger-api"
 import { upsertAssetSnapshotFacade } from "../assets/assets-api"
-import { DEFAULT_CURRENCY, fail, monthBounds, newId, nowIso, ok } from "../../shared/api-helpers"
+import {
+  DEFAULT_CURRENCY,
+  fail,
+  monthBounds,
+  newId,
+  normalizeCurrency,
+  nowIso,
+  ok,
+} from "../../shared/api-helpers"
 
-export class FlowmSqliteApi extends LinksApi implements FlowmApi {
+export class FlowmSqliteApi extends AgentLedgerApi implements FlowmApi {
   private dashboardViews: DashboardView[] = [
     { id: "overview", slug: "overview", name: "Overview", position: 0, isDefault: true },
   ]
@@ -36,6 +46,56 @@ export class FlowmSqliteApi extends LinksApi implements FlowmApi {
     input: UpsertAssetSnapshotInput,
   ): Promise<Result<AssetSnapshotSummary>> {
     return upsertAssetSnapshotFacade(this.assetRepository(), input)
+  }
+
+  /**
+   * Net worth folds two debt sources into one liability figure: manually tracked
+   * liability snapshots (handled by the assets layer) plus the outstanding
+   * principal of active loans (a stock, not the payment schedule). Loans stay a
+   * separate domain, so this cross-domain aggregation lives in the facade rather
+   * than the assets repository.
+   */
+  override async getNetWorthSnapshot(input: NetWorthInput = {}): Promise<Result<NetWorthSnapshot>> {
+    const base = await super.getNetWorthSnapshot(input)
+    if (!base.success) return base
+    const loansResult = await this.listLoans({ status: "active" })
+    if (!loansResult.success) return base
+
+    const settings = await this.getCurrencySettings()
+    const displayCurrency = normalizeCurrency(
+      input.displayCurrency ??
+        (settings.success ? settings.data.displayCurrency : DEFAULT_CURRENCY),
+    )
+    const today = nowIso().slice(0, 10)
+    const missingFx = [...base.data.missingFx]
+    let loanLiability = 0
+    for (const loan of loansResult.data) {
+      // Outstanding principal is the balance-sheet liability — not the original
+      // principal and not the remaining payments (which include future interest).
+      const outstanding = Number(loan.currentPrincipalEstimate ?? loan.principalAmount ?? 0)
+      if (outstanding <= 0) continue
+      const currency = normalizeCurrency(loan.currency)
+      const converted =
+        currency === displayCurrency
+          ? outstanding
+          : await this.convertAmount(outstanding, currency, displayCurrency, today)
+      if (converted == null) {
+        missingFx.push({ assetItemId: loan.id, currency, date: today })
+        continue
+      }
+      loanLiability += converted
+    }
+
+    if (loanLiability === 0 && missingFx.length === base.data.missingFx.length) return base
+
+    const assetValue = Number(base.data.assetValue.number)
+    const liabilityValue = Number(base.data.liabilityValue.number) + loanLiability
+    return ok({
+      netWorth: { number: (assetValue - liabilityValue).toFixed(2), currency: displayCurrency },
+      assetValue: base.data.assetValue,
+      liabilityValue: { number: liabilityValue.toFixed(2), currency: displayCurrency },
+      missingFx,
+    })
   }
 
   async getDashboardSnapshot(): Promise<Result<DashboardSnapshot>> {

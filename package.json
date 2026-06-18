@@ -21,8 +21,10 @@
     "rebuild:electron": "pnpm -F desktop exec electron-builder install-app-deps",
     "test": "pnpm run test:electron",
     "test:electron": "pnpm run rebuild:electron && ELECTRON_RUN_AS_NODE=1 apps/desktop/node_modules/.bin/electron ./node_modules/vitest/vitest.mjs run",
+    "flowm-cli": "pnpm -F @flowm/cli flowm-cli --",
     "seed:demo": "pnpm -F desktop seed:demo",
     "package": "pnpm -F desktop package",
+    "install:local": "node scripts/install-local-app.mjs",
     "dist": "pnpm -F desktop dist"
   },
   "devDependencies": {

@@ -3,6 +3,7 @@
   "sourceRoots": [
     "apps/desktop/src",
     "apps/desktop/scripts",
+    "packages/cli/src",
     "packages/api/src",
     "packages/api/tests",
     "packages/db",
@@ -49,7 +50,10 @@
     "trpc": "desktop",
     "src": "db",
     "schema": "db",
+    "infrastructure": "api",
+    "use-cases": "api",
     "sqlite": "api",
+    "cli": "cli",
     "types": "shared",
     "utils": "shared",
     "components": "ui",

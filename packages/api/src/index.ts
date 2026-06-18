@@ -104,8 +104,12 @@ export interface FlowmApi {
     id: FlowmId
     includeInAnalytics: boolean
   }): Promise<Result<CashflowEventSummary>>
+  applyAgentLedgerPatch(input: AgentLedgerPatchInput): Promise<Result<AgentLedgerPatchResult>>
   getCashflowSummary(input?: CashflowSummaryInput): Promise<Result<CashflowSummary>>
   getCashflowBreakdown(input?: CashflowBreakdownInput): Promise<Result<CashflowBreakdownRow[]>>
+  getMonthlyCashflowTrend(
+    input?: MonthlyCashflowTrendInput,
+  ): Promise<Result<MonthlyCashflowTrendRow[]>>
 
   listAssetItems(input?: ListAssetItemsInput): Promise<Result<AssetItemSummary[]>>
   createAssetItem(input: CreateAssetItemInput): Promise<Result<AssetItemSummary>>
@@ -495,6 +499,9 @@ export interface CashflowEventSummary {
   categoryName?: string | null
   sourceKind: string
   sourceName?: string | null
+  sourceExternalId?: string | null
+  sourceFileHash?: string | null
+  importedAt?: string | null
   source?: string | null
   includeInAnalytics: boolean
   status: ActiveStatus
@@ -511,6 +518,7 @@ export interface ListCashflowEventsInput {
   categoryId?: FlowmId
   tagId?: FlowmId
   sourceName?: string
+  sourceExternalId?: string
   source?: string
   status?: ActiveStatus
   includeInAnalytics?: boolean
@@ -533,6 +541,9 @@ export interface CreateCashflowEventInput {
   categoryId?: FlowmId | null
   sourceKind?: "manual" | "import" | "system"
   sourceName?: string | null
+  sourceExternalId?: string | null
+  sourceFileHash?: string | null
+  importedAt?: string | null
   paymentMethod?: string | null
   accountHint?: string | null
   includeInAnalytics?: boolean
@@ -554,6 +565,83 @@ export interface UpdateCashflowEventInput {
   categoryId?: FlowmId | null
   includeInAnalytics?: boolean
   status?: ActiveStatus
+}
+
+export type AgentLedgerOperation =
+  | AgentEnsureCategoryOperation
+  | AgentCreateCashflowOperation
+  | AgentClassifyCashflowOperation
+
+export interface AgentLedgerPatchInput {
+  dryRun?: boolean
+  operations: AgentLedgerOperation[]
+}
+
+export interface AgentEnsureCategoryOperation {
+  op: "category.ensure"
+  name: string
+  categoryKind?: string
+  color?: string | null
+  icon?: string | null
+  displayOrder?: number
+}
+
+export interface AgentCreateCashflowOperation {
+  op: "cashflow.create"
+  sourceKind?: "manual" | "import" | "system"
+  sourceName?: string | null
+  sourceExternalId?: string | null
+  sourceFileHash?: string | null
+  importedAt?: string | null
+  eventDate: string
+  occurredAt?: string | null
+  title?: string | null
+  counterparty?: string | null
+  description?: string | null
+  userNote?: string | null
+  amount: string
+  currency?: string
+  direction: Direction
+  flowKind: CashflowKind
+  categoryId?: FlowmId | null
+  categoryName?: string | null
+  categoryKind?: string
+  paymentMethod?: string | null
+  accountHint?: string | null
+  includeInAnalytics?: boolean
+  classificationSource?: "manual" | "rule" | "system" | "imported"
+  tagIds?: FlowmId[]
+}
+
+export interface AgentClassifyCashflowOperation {
+  op: "cashflow.classify"
+  id?: FlowmId
+  sourceName?: string | null
+  sourceExternalId?: string | null
+  categoryId?: FlowmId | null
+  categoryName?: string | null
+  categoryKind?: string
+  classificationSource?: "manual" | "rule" | "system" | "imported"
+}
+
+export interface AgentLedgerPatchResult {
+  dryRun: boolean
+  created: number
+  updated: number
+  skipped: number
+  conflicts: number
+  warnings: string[]
+  operations: AgentLedgerOperationResult[]
+}
+
+export interface AgentLedgerOperationResult {
+  index: number
+  op: AgentLedgerOperation["op"]
+  action: "create" | "update" | "skip" | "conflict" | "reject"
+  targetType?: "category" | "cashflow"
+  targetId?: FlowmId
+  message: string
+  warnings?: string[]
 }
 
 export interface CashflowSummaryInput {
@@ -584,6 +672,21 @@ export interface CashflowBreakdownRow {
   key: string
   label: string
   amount: string
+  currency: string
+}
+
+export interface MonthlyCashflowTrendInput {
+  dateFrom?: string
+  dateTo?: string
+  months?: number
+  includeIgnored?: boolean
+}
+
+export interface MonthlyCashflowTrendRow {
+  month: string
+  income: string
+  expense: string
+  net: string
   currency: string
 }
 
@@ -903,3 +1006,8 @@ export interface SaveDashboardLayoutsInput {
 export function createFlowmApi(db: Database, options: FlowmApiOptions = {}): FlowmApi {
   return new FlowmSqliteApi(db, options)
 }
+
+export {
+  createFrankfurterFxProvider,
+  type FrankfurterProviderOptions,
+} from "./infrastructure/fx/frankfurter-provider"

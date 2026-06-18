@@ -87,7 +87,7 @@ export function createAssetsRepository(db: Database) {
     },
 
     listSnapshots(input: ListAssetSnapshotsInput = {}): AssetSnapshotWithItem[] {
-      const conds: SQL[] = []
+      const conds: SQL[] = [isNull(assetItems.archivedAt)]
       if (input.assetItemId) conds.push(eq(assetSnapshots.assetItemId, toSqlId(input.assetItemId)))
       if (input.accountName) conds.push(eq(assetItems.name, input.accountName))
       return db
@@ -112,7 +112,7 @@ export function createAssetsRepository(db: Database) {
         order by s2.snapshot_at desc, s2.created_at desc, s2.id desc
         limit 1
       )`
-      const conds: SQL[] = [sql`${assetSnapshots.id} = ${latestId}`]
+      const conds: SQL[] = [sql`${assetSnapshots.id} = ${latestId}`, isNull(assetItems.archivedAt)]
       if (input.assetItemId) conds.push(eq(assetSnapshots.assetItemId, toSqlId(input.assetItemId)))
       if (input.accountName) conds.push(eq(assetItems.name, input.accountName))
       return db
@@ -182,7 +182,8 @@ export function createAssetsRepository(db: Database) {
           valueAmount: ranked.valueAmount,
         })
         .from(ranked)
-        .where(lte(ranked.rn, limitPerAsset))
+        .innerJoin(assetItems, eq(assetItems.id, ranked.assetItemId))
+        .where(and(lte(ranked.rn, limitPerAsset), isNull(assetItems.archivedAt)))
         .orderBy(asc(ranked.assetItemId), asc(ranked.snapshotAt))
         .all()
     },

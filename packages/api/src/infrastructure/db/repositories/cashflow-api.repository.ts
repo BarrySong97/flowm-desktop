@@ -5,8 +5,15 @@
  * @gotcha  Preserve Flowm layer boundaries and avoid raw SQL except targeted Drizzle sql fragments.
  */
 
-import { desc, eq, getTableColumns, sql, type SQL } from "drizzle-orm"
-import { cashflowEventTags, cashflowEvents, categories, type CashflowEventInsert } from "@flowm/db"
+import { and, asc, desc, eq, getTableColumns, gte, lte, sql, type SQL } from "drizzle-orm"
+import {
+  cashflowEventTags,
+  cashflowEvents,
+  categories,
+  type CashflowEventInsert,
+  type CashflowEventRow,
+  type CategoryRow,
+} from "@flowm/db"
 import type { Result } from "@flowm/shared"
 import type {
   CashflowBreakdownInput,
@@ -17,11 +24,14 @@ import type {
   CreateCashflowEventInput,
   FlowmId,
   ListCashflowEventsInput,
+  MonthlyCashflowTrendInput,
+  MonthlyCashflowTrendRow,
   UpdateCashflowEventInput,
 } from "../../../index"
 import { ImportsApiRepository } from "./imports-api.repository"
 import {
   DEFAULT_CURRENCY,
+  categoryKindForFlowKind,
   fail,
   newId,
   normalizeCurrency,
@@ -30,6 +40,16 @@ import {
   sumReal,
   toSqlId,
 } from "../../../shared/api-helpers"
+
+function addMonthsKey(monthKey: string, months: number): string {
+  const [year, month] = monthKey.split("-").map(Number)
+  const date = new Date(Date.UTC(year, month - 1 + months, 1))
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`
+}
+
+function monthStartKey(monthKey: string): string {
+  return `${monthKey}-01`
+}
 
 export abstract class CashflowApiRepository extends ImportsApiRepository {
   async listCashflowEvents(
@@ -61,6 +81,7 @@ export abstract class CashflowApiRepository extends ImportsApiRepository {
     input: CreateCashflowEventInput,
   ): Promise<Result<CashflowEventSummary>> {
     try {
+      this.assertCategoryMatchesFlowKind(input.flowKind, input.categoryId)
       const id = newId("cf")
       const timestamp = nowIso()
       this.db
@@ -80,6 +101,9 @@ export abstract class CashflowApiRepository extends ImportsApiRepository {
           categoryId: input.categoryId == null ? null : toSqlId(input.categoryId),
           sourceKind: input.sourceKind ?? "manual",
           sourceName: input.sourceName ?? null,
+          sourceExternalId: input.sourceExternalId ?? null,
+          sourceFileHash: input.sourceFileHash ?? null,
+          importedAt: input.importedAt ?? null,
           paymentMethod: input.paymentMethod ?? null,
           accountHint: input.accountHint ?? null,
           includeInAnalytics: input.includeInAnalytics ?? true,
@@ -102,6 +126,14 @@ export abstract class CashflowApiRepository extends ImportsApiRepository {
     input: UpdateCashflowEventInput,
   ): Promise<Result<CashflowEventSummary>> {
     try {
+      const current = this.findCashflowEventForUpdate(input.id)
+      if (!current) throw new Error(`Cashflow event ${input.id} not found`)
+      if (input.flowKind !== undefined || input.categoryId !== undefined) {
+        this.assertCategoryMatchesFlowKind(
+          input.flowKind ?? current.flowKind,
+          input.categoryId !== undefined ? input.categoryId : current.categoryId,
+        )
+      }
       const set: Partial<CashflowEventInsert> = { updatedAt: nowIso() }
       if (input.eventDate !== undefined) set.eventDate = input.eventDate
       if (input.title !== undefined) set.title = input.title
@@ -255,6 +287,94 @@ export abstract class CashflowApiRepository extends ImportsApiRepository {
       )
     } catch (error) {
       return fail(error)
+    }
+  }
+
+  async getMonthlyCashflowTrend(
+    input: MonthlyCashflowTrendInput = {},
+  ): Promise<Result<MonthlyCashflowTrendRow[]>> {
+    try {
+      const months = Math.max(1, Math.min(36, Math.floor(input.months ?? 12)))
+      const dateTo = input.dateTo ?? new Date().toISOString().slice(0, 10)
+      const dateFrom =
+        input.dateFrom ?? monthStartKey(addMonthsKey(dateTo.slice(0, 7), -(months - 1)))
+      const monthExpr = sql<string>`substr(${cashflowEvents.eventDate}, 1, 7)`
+      const incomeExpr = sql<number>`coalesce(sum(case when ${cashflowEvents.flowKind} = 'income' and ${cashflowEvents.direction} = 'in' then cast(${cashflowEvents.amount} as real) else 0 end), 0)`
+      const expenseExpr = sql<number>`coalesce(sum(case when ${cashflowEvents.flowKind} = 'expense' and ${cashflowEvents.direction} = 'out' then cast(${cashflowEvents.amount} as real) else 0 end), 0)`
+      const conds: SQL[] = [
+        eq(cashflowEvents.status, "active"),
+        gte(cashflowEvents.eventDate, dateFrom),
+        lte(cashflowEvents.eventDate, dateTo),
+      ]
+      if (!input.includeIgnored) conds.push(eq(cashflowEvents.includeInAnalytics, true))
+
+      const rows = this.db
+        .select({
+          month: monthExpr,
+          income: incomeExpr,
+          expense: expenseExpr,
+        })
+        .from(cashflowEvents)
+        .where(and(...conds))
+        .groupBy(monthExpr)
+        .orderBy(asc(monthExpr))
+        .all()
+
+      const byMonth = new Map(
+        rows.map((row) => [
+          String(row.month),
+          { income: Number(row.income ?? 0), expense: Number(row.expense ?? 0) },
+        ]),
+      )
+      const startMonth = dateFrom.slice(0, 7)
+      return ok(
+        Array.from({ length: months }, (_, index) => {
+          const month = addMonthsKey(startMonth, index)
+          const values = byMonth.get(month) ?? { income: 0, expense: 0 }
+          const net = values.income - values.expense
+          return {
+            month,
+            income: values.income.toFixed(2),
+            expense: values.expense.toFixed(2),
+            net: net.toFixed(2),
+            currency: DEFAULT_CURRENCY,
+          }
+        }),
+      )
+    } catch (error) {
+      return fail(error)
+    }
+  }
+
+  private findCashflowEventForUpdate(id: FlowmId): CashflowEventRow | undefined {
+    return this.db
+      .select()
+      .from(cashflowEvents)
+      .where(eq(cashflowEvents.id, toSqlId(id)))
+      .get()
+  }
+
+  private findCategoryById(id: FlowmId): CategoryRow | undefined {
+    return this.db
+      .select()
+      .from(categories)
+      .where(eq(categories.id, toSqlId(id)))
+      .get()
+  }
+
+  private assertCategoryMatchesFlowKind(
+    flowKind: CashflowEventRow["flowKind"] | string,
+    categoryId: FlowmId | null | undefined,
+  ): void {
+    if (categoryId == null) return
+    const category = this.findCategoryById(categoryId)
+    if (!category) throw new Error(`Category not found: ${categoryId}`)
+
+    const expectedKind = categoryKindForFlowKind(flowKind)
+    if (category.categoryKind !== expectedKind) {
+      throw new Error(
+        `Category "${category.name}" is ${category.categoryKind}, cannot be used for ${flowKind} cashflow`,
+      )
     }
   }
 }

@@ -16,6 +16,7 @@ out
 release
 apps/desktop/out
 apps/desktop/release
+apps/desktop/.electron-dev
 *.local
 
 # Turborepo
@@ -27,6 +28,7 @@ apps/*/.tanstack/tmp
 
 # Local design/session previews
 .superpowers/
+.flowm/
 
 # Generated dbs (dev)
 *.db

@@ -1,5 +1,5 @@
 /**
- * @purpose Provide shared API helper primitives for IDs, dates, currency, SQL aggregates, and Result wrapping.
+ * @purpose Provide shared API helper primitives for IDs, dates, currency, cashflow kind mapping, SQL aggregates, and Result wrapping.
  * @role    Low-level utility layer reused by SQLite facade modules.
  * @deps    drizzle-orm SQL helpers, @flowm/shared Result, and shared contracts.
  * @gotcha  Keep helpers side-effect free except for ID/time generation at API boundaries.
@@ -59,6 +59,15 @@ export function normalizeCashflowKind(kind: string): CashflowKind {
     default:
       return kind as CashflowKind
   }
+}
+
+export function categoryKindForFlowKind(flowKind: CashflowKind | string): string {
+  if (flowKind === "income") return "income"
+  if (flowKind === "transfer") return "transfer"
+  if (flowKind === "asset_movement") return "asset_movement"
+  if (flowKind === "debt_payment") return "debt"
+  if (flowKind === "adjustment") return "adjustment"
+  return "expense"
 }
 
 export function toSqlId(id: FlowmId): string {

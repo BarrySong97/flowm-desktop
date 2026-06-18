@@ -21,6 +21,16 @@ pnpm dev
 
 This runs the Electron desktop app through `turbo -F desktop dev`.
 
+The development app uses `.flowm/dev-user-data` as its user data directory when
+started from the workspace, so local verification can use a copied ledger
+without touching the installed app's production data.
+
+On macOS, the desktop package dev script first prepares
+`apps/desktop/.electron-dev/FlowM.app` from Electron's npm-bundled
+`Electron.app` and launches it through `ELECTRON_EXEC_PATH`. This keeps the
+Dock, app menu, and process name aligned with the production app while still
+using electron-vite's development server.
+
 ## Build
 
 ```bash
@@ -32,6 +42,15 @@ Package the desktop app:
 ```bash
 pnpm package
 ```
+
+Package and install the macOS app into `/Applications/FlowM.app`:
+
+```bash
+pnpm install:local
+```
+
+Use `pnpm install:local -- --restart` when you want the script to quit the
+running FlowM app before installation and reopen it afterward.
 
 Create distribution artifacts:
 
@@ -79,6 +98,20 @@ pnpm seed:demo
 ```
 
 This delegates to the desktop package demo seed script.
+
+## Flowm CLI
+
+```bash
+pnpm flowm-cli ledger-info
+pnpm flowm-cli apply-patch patch.json --dry-run
+```
+
+This runs the `@flowm/cli` workspace package through Electron's Node runtime so
+ledger inspection and guarded agent patch application use the correct
+`better-sqlite3` ABI.
+
+Use `pnpm --silent flowm-cli ...` when another program needs to parse stdout as
+JSON.
 
 ## Harness Checks
 

@@ -53,7 +53,9 @@ export const statementImports = sqliteTable(
     fileName: text("file_name"),
     fileHash: text("file_hash"),
     importedAt: text("imported_at").notNull(),
-    status: text("status", { enum: ["imported", "reviewed", "archived"] }).notNull().default("imported"),
+    status: text("status", { enum: ["imported", "reviewed", "archived"] })
+      .notNull()
+      .default("imported"),
     rawSummary: text("raw_summary", { mode: "json" }).$type<Record<string, unknown>>(),
     createdAt: text("created_at").notNull(),
   },
@@ -67,7 +69,9 @@ export const statementLines = sqliteTable(
   "statement_lines",
   {
     id: text("id").primaryKey(),
-    importId: text("import_id").notNull().references(() => statementImports.id, { onDelete: "cascade" }),
+    importId: text("import_id")
+      .notNull()
+      .references(() => statementImports.id, { onDelete: "cascade" }),
     externalId: text("external_id"),
     lineHash: text("line_hash").notNull(),
     occurredAt: text("occurred_at"),
@@ -80,7 +84,9 @@ export const statementLines = sqliteTable(
     paymentMethod: text("payment_method"),
     accountHint: text("account_hint"),
     rawPayload: text("raw_payload", { mode: "json" }).$type<Record<string, unknown>>(),
-    status: text("status", { enum: ["pending", "converted", "ignored"] }).notNull().default("pending"),
+    status: text("status", { enum: ["pending", "converted", "ignored"] })
+      .notNull()
+      .default("pending"),
     createdAt: text("created_at").notNull(),
   },
   (t) => ({
@@ -95,7 +101,9 @@ export const cashflowEvents = sqliteTable(
   "cashflow_events",
   {
     id: text("id").primaryKey(),
-    statementLineId: text("statement_line_id").references(() => statementLines.id, { onDelete: "set null" }),
+    statementLineId: text("statement_line_id").references(() => statementLines.id, {
+      onDelete: "set null",
+    }),
     eventDate: text("event_date").notNull(),
     occurredAt: text("occurred_at"),
     title: text("title"),
@@ -106,18 +114,37 @@ export const cashflowEvents = sqliteTable(
     currency: text("currency").notNull().default("CNY"),
     direction: text("direction", { enum: ["in", "out", "neutral"] }).notNull(),
     flowKind: text("flow_kind", {
-      enum: ["income", "expense", "transfer", "asset_movement", "debt_payment", "refund", "adjustment"],
+      enum: [
+        "income",
+        "expense",
+        "transfer",
+        "asset_movement",
+        "debt_payment",
+        "refund",
+        "adjustment",
+      ],
     }).notNull(),
     categoryId: text("category_id").references(() => categories.id, { onDelete: "set null" }),
-    sourceKind: text("source_kind", { enum: ["manual", "import", "system"] }).notNull().default("manual"),
+    sourceKind: text("source_kind", { enum: ["manual", "import", "system"] })
+      .notNull()
+      .default("manual"),
     sourceName: text("source_name"),
+    sourceExternalId: text("source_external_id"),
+    sourceFileHash: text("source_file_hash"),
+    importedAt: text("imported_at"),
     paymentMethod: text("payment_method"),
     accountHint: text("account_hint"),
-    includeInAnalytics: integer("include_in_analytics", { mode: "boolean" }).notNull().default(true),
-    status: text("status", { enum: ["active", "ignored", "deleted"] }).notNull().default("active"),
+    includeInAnalytics: integer("include_in_analytics", { mode: "boolean" })
+      .notNull()
+      .default(true),
+    status: text("status", { enum: ["active", "ignored", "deleted"] })
+      .notNull()
+      .default("active"),
     classificationSource: text("classification_source", {
       enum: ["manual", "rule", "system", "imported"],
-    }).notNull().default("manual"),
+    })
+      .notNull()
+      .default("manual"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
   },
@@ -127,14 +154,22 @@ export const cashflowEvents = sqliteTable(
     directionIdx: index("idx_cashflow_events_direction").on(t.direction),
     categoryIdx: index("idx_cashflow_events_category").on(t.categoryId),
     statusIdx: index("idx_cashflow_events_status").on(t.status),
+    sourceExternalUnique: uniqueIndex("cashflow_events_source_external_unique").on(
+      t.sourceName,
+      t.sourceExternalId,
+    ),
   }),
 )
 
 export const cashflowEventTags = sqliteTable(
   "cashflow_event_tags",
   {
-    cashflowEventId: text("cashflow_event_id").notNull().references(() => cashflowEvents.id, { onDelete: "cascade" }),
-    tagId: text("tag_id").notNull().references(() => tags.id, { onDelete: "cascade" }),
+    cashflowEventId: text("cashflow_event_id")
+      .notNull()
+      .references(() => cashflowEvents.id, { onDelete: "cascade" }),
+    tagId: text("tag_id")
+      .notNull()
+      .references(() => tags.id, { onDelete: "cascade" }),
   },
   (t) => ({
     pk: primaryKey({ columns: [t.cashflowEventId, t.tagId] }),
@@ -147,13 +182,28 @@ export const assetItems = sqliteTable(
     id: text("id").primaryKey(),
     name: text("name").notNull(),
     assetType: text("asset_type", {
-      enum: ["cash", "bank", "wallet", "brokerage", "fund", "stock", "crypto", "real_estate", "vehicle", "fixed_asset", "liability", "other"],
+      enum: [
+        "cash",
+        "bank",
+        "wallet",
+        "brokerage",
+        "fund",
+        "stock",
+        "crypto",
+        "real_estate",
+        "vehicle",
+        "fixed_asset",
+        "liability",
+        "other",
+      ],
     }).notNull(),
     institution: text("institution"),
     defaultCurrency: text("default_currency").notNull().default("CNY"),
     valuationMethod: text("valuation_method", {
       enum: ["manual_balance", "manual_market_value", "statement_value", "estimated_value"],
-    }).notNull().default("manual_balance"),
+    })
+      .notNull()
+      .default("manual_balance"),
     archivedAt: text("archived_at"),
     displayOrder: integer("display_order").notNull().default(0),
     note: text("note"),
@@ -170,7 +220,9 @@ export const assetSnapshots = sqliteTable(
   "asset_snapshots",
   {
     id: text("id").primaryKey(),
-    assetItemId: text("asset_item_id").notNull().references(() => assetItems.id, { onDelete: "cascade" }),
+    assetItemId: text("asset_item_id")
+      .notNull()
+      .references(() => assetItems.id, { onDelete: "cascade" }),
     snapshotAt: text("snapshot_at").notNull(),
     valueAmount: text("value_amount").notNull(),
     valueCurrency: text("value_currency").notNull().default("CNY"),
@@ -178,7 +230,9 @@ export const assetSnapshots = sqliteTable(
     quantityUnit: text("quantity_unit"),
     costBasisAmount: text("cost_basis_amount"),
     costBasisCurrency: text("cost_basis_currency"),
-    sourceKind: text("source_kind", { enum: ["manual", "import", "system"] }).notNull().default("manual"),
+    sourceKind: text("source_kind", { enum: ["manual", "import", "system"] })
+      .notNull()
+      .default("manual"),
     note: text("note"),
     createdAt: text("created_at").notNull(),
   },
@@ -196,12 +250,16 @@ export const subscriptions = sqliteTable(
     merchant: text("merchant"),
     amount: text("amount").notNull(),
     currency: text("currency").notNull().default("CNY"),
-    billingCycle: text("billing_cycle", { enum: ["weekly", "monthly", "yearly", "custom"] }).notNull(),
+    billingCycle: text("billing_cycle", {
+      enum: ["weekly", "monthly", "yearly", "custom"],
+    }).notNull(),
     intervalCount: integer("interval_count").notNull().default(1),
     nextChargeDate: text("next_charge_date").notNull(),
     autoRenew: integer("auto_renew", { mode: "boolean" }).notNull().default(true),
     categoryId: text("category_id").references(() => categories.id, { onDelete: "set null" }),
-    status: text("status", { enum: ["active", "paused", "canceled"] }).notNull().default("active"),
+    status: text("status", { enum: ["active", "paused", "canceled"] })
+      .notNull()
+      .default("active"),
     note: text("note"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
@@ -216,11 +274,15 @@ export const subscriptionOccurrences = sqliteTable(
   "subscription_occurrences",
   {
     id: text("id").primaryKey(),
-    subscriptionId: text("subscription_id").notNull().references(() => subscriptions.id, { onDelete: "cascade" }),
+    subscriptionId: text("subscription_id")
+      .notNull()
+      .references(() => subscriptions.id, { onDelete: "cascade" }),
     dueDate: text("due_date").notNull(),
     amount: text("amount").notNull(),
     currency: text("currency").notNull().default("CNY"),
-    status: text("status", { enum: ["forecast", "skipped", "confirmed"] }).notNull().default("forecast"),
+    status: text("status", { enum: ["forecast", "skipped", "confirmed"] })
+      .notNull()
+      .default("forecast"),
     createdAt: text("created_at").notNull(),
   },
   (t) => ({
@@ -244,7 +306,9 @@ export const loans = sqliteTable(
     paymentDay: integer("payment_day"),
     startDate: text("start_date").notNull(),
     termMonths: integer("term_months"),
-    status: text("status", { enum: ["active", "paused", "closed"] }).notNull().default("active"),
+    status: text("status", { enum: ["active", "paused", "closed"] })
+      .notNull()
+      .default("active"),
     note: text("note"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
@@ -258,14 +322,18 @@ export const loanPaymentOccurrences = sqliteTable(
   "loan_payment_occurrences",
   {
     id: text("id").primaryKey(),
-    loanId: text("loan_id").notNull().references(() => loans.id, { onDelete: "cascade" }),
+    loanId: text("loan_id")
+      .notNull()
+      .references(() => loans.id, { onDelete: "cascade" }),
     dueDate: text("due_date").notNull(),
     paymentAmount: text("payment_amount").notNull(),
     principalAmount: text("principal_amount"),
     interestAmount: text("interest_amount"),
     feeAmount: text("fee_amount"),
     remainingPrincipalEstimate: text("remaining_principal_estimate"),
-    status: text("status", { enum: ["forecast", "paid", "skipped"] }).notNull().default("forecast"),
+    status: text("status", { enum: ["forecast", "paid", "skipped"] })
+      .notNull()
+      .default("forecast"),
     createdAt: text("created_at").notNull(),
   },
   (t) => ({
@@ -277,7 +345,9 @@ export const loanPaymentOccurrences = sqliteTable(
 export const budgetSets = sqliteTable("budget_sets", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
-  status: text("status", { enum: ["active", "archived"] }).notNull().default("active"),
+  status: text("status", { enum: ["active", "archived"] })
+    .notNull()
+    .default("active"),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 })
@@ -286,12 +356,16 @@ export const budgetPeriods = sqliteTable(
   "budget_periods",
   {
     id: text("id").primaryKey(),
-    budgetSetId: text("budget_set_id").notNull().references(() => budgetSets.id, { onDelete: "cascade" }),
+    budgetSetId: text("budget_set_id")
+      .notNull()
+      .references(() => budgetSets.id, { onDelete: "cascade" }),
     periodKind: text("period_kind", { enum: ["monthly", "weekly", "yearly", "custom"] }).notNull(),
     periodStart: text("period_start").notNull(),
     periodEnd: text("period_end").notNull(),
     currency: text("currency").notNull().default("CNY"),
-    status: text("status", { enum: ["active", "closed", "archived"] }).notNull().default("active"),
+    status: text("status", { enum: ["active", "closed", "archived"] })
+      .notNull()
+      .default("active"),
   },
   (t) => ({
     setIdx: index("idx_budget_periods_set").on(t.budgetSetId),
@@ -303,16 +377,24 @@ export const budgetItems = sqliteTable(
   "budget_items",
   {
     id: text("id").primaryKey(),
-    budgetPeriodId: text("budget_period_id").notNull().references(() => budgetPeriods.id, { onDelete: "cascade" }),
+    budgetPeriodId: text("budget_period_id")
+      .notNull()
+      .references(() => budgetPeriods.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
-    itemKind: text("item_kind", { enum: ["spending_limit", "saving_goal", "custom"] }).notNull().default("spending_limit"),
+    itemKind: text("item_kind", { enum: ["spending_limit", "saving_goal", "custom"] })
+      .notNull()
+      .default("spending_limit"),
     plannedAmount: text("planned_amount").notNull(),
     currency: text("currency").notNull().default("CNY"),
     categoryId: text("category_id").references(() => categories.id, { onDelete: "set null" }),
     rolloverPolicy: text("rollover_policy", {
       enum: ["none", "rollover_unspent", "rollover_overspent"],
-    }).notNull().default("none"),
-    status: text("status", { enum: ["active", "paused", "archived"] }).notNull().default("active"),
+    })
+      .notNull()
+      .default("none"),
+    status: text("status", { enum: ["active", "paused", "archived"] })
+      .notNull()
+      .default("active"),
     note: text("note"),
     color: text("color"),
   },
@@ -325,7 +407,9 @@ export const budgetItemScopes = sqliteTable(
   "budget_item_scopes",
   {
     id: text("id").primaryKey(),
-    budgetItemId: text("budget_item_id").notNull().references(() => budgetItems.id, { onDelete: "cascade" }),
+    budgetItemId: text("budget_item_id")
+      .notNull()
+      .references(() => budgetItems.id, { onDelete: "cascade" }),
     scopeKind: text("scope_kind", {
       enum: ["category", "category_tree", "tag", "source", "flow_kind", "custom"],
     }).notNull(),
@@ -349,7 +433,9 @@ export const objectLinks = sqliteTable(
       enum: ["evidence_of", "likely_matches", "confirmed_matches", "related_to"],
     }).notNull(),
     confidence: integer("confidence"),
-    createdBy: text("created_by", { enum: ["user", "system"] }).notNull().default("user"),
+    createdBy: text("created_by", { enum: ["user", "system"] })
+      .notNull()
+      .default("user"),
     note: text("note"),
     createdAt: text("created_at").notNull(),
   },

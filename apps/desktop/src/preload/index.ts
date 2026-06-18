@@ -7,6 +7,9 @@
 
 import { contextBridge, ipcRenderer } from "electron"
 import { electronAPI } from "@electron-toolkit/preload"
+import type { LedgerChangeEvent } from "@flowm/shared/ipc"
+
+type RendererLedgerChangeEvent = LedgerChangeEvent & { receivedAt: string }
 
 const flowm = {
   platform: {
@@ -19,6 +22,15 @@ const flowm = {
   databaseExists: () => ipcRenderer.invoke("flowm:database-exists") as Promise<boolean>,
   trpcRequest: (request: { type: string; path: string; input: unknown }) =>
     ipcRenderer.invoke("trpc:request", request) as Promise<unknown>,
+  onLedgerChanged: (callback: (event: RendererLedgerChangeEvent) => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, payload: RendererLedgerChangeEvent) => {
+      callback(payload)
+    }
+    ipcRenderer.on("flowm:ledger-changed", listener)
+    return () => {
+      ipcRenderer.removeListener("flowm:ledger-changed", listener)
+    }
+  },
 }
 
 if (process.contextIsolated) {

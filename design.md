@@ -18,6 +18,13 @@ Flowm is a work-focused personal finance desktop app. The UI should feel calm, d
 ## Components
 
 - Reuse components from `packages/ui` and local renderer UI before creating new primitives.
+- Prefer HeroUI components for common controls such as tabs, selects, inputs,
+  buttons, modals, drawers, labels, calendars, and form controls. Do not hand-roll
+  these controls unless the local design system lacks the behavior.
+- In renderer UI, prefer Tailwind utility classes for layout, spacing,
+  typography, borders, radius, shadows, and token colors. Use inline `style` only
+  for dynamic runtime values, chart-library prop objects, or CSS values that
+  Tailwind cannot express cleanly.
 - Use icons for common actions such as add, edit, delete, save, download, search, and navigation.
 - Forms should expose loading, empty, error, dirty, and success states where the workflow needs them.
 - Destructive actions need confirmation when they can remove user-entered financial data.

@@ -229,6 +229,8 @@ export abstract class FlowmApiBase {
     if (input.categoryId) conds.push(eq(cashflowEvents.categoryId, toSqlId(input.categoryId)))
     const sourceName = input.sourceName ?? input.source
     if (sourceName) conds.push(eq(cashflowEvents.sourceName, sourceName))
+    if (input.sourceExternalId)
+      conds.push(eq(cashflowEvents.sourceExternalId, input.sourceExternalId))
     if (input.status) conds.push(eq(cashflowEvents.status, input.status))
     else conds.push(ne(cashflowEvents.status, "deleted"))
     if (input.includeInAnalytics !== undefined)
@@ -432,6 +434,9 @@ export abstract class FlowmApiBase {
       categoryName: row.categoryName,
       sourceKind: row.sourceKind,
       sourceName: row.sourceName,
+      sourceExternalId: row.sourceExternalId,
+      sourceFileHash: row.sourceFileHash,
+      importedAt: row.importedAt,
       source: row.sourceName,
       includeInAnalytics: row.includeInAnalytics,
       status: row.status as ActiveStatus,

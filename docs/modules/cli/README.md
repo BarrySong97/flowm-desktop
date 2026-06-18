@@ -1,0 +1,89 @@
+# CLI Package
+
+## Responsibility
+
+`packages/cli` owns the workspace command line interface that agents and
+developers use to inspect Flowm ledgers and submit guarded business patches.
+
+## Key Files
+
+- `packages/cli/src/index.ts` - Commander.js command surface for ledger
+  inspection and patch application.
+- `packages/cli/src/launcher.cjs` - cross-platform launcher that runs the CLI
+  through Electron's Node runtime so `better-sqlite3` stays on the Electron ABI.
+- `packages/cli/package.json` - package scripts, workspace dependencies, and
+  CLI package metadata.
+
+## Data Flow
+
+Agent or developer -> `pnpm flowm-cli` -> `@flowm/cli` -> `@flowm/api` ->
+`@flowm/db` -> SQLite.
+
+The CLI opens the selected SQLite file, runs migrations, creates the Flowm API
+facade, and delegates all business behavior to the API layer.
+
+## Interfaces
+
+- `pnpm flowm-cli ledger-info [--db path]`
+- `pnpm flowm-cli list-categories [--db path]`
+- `pnpm flowm-cli list-assets [--db path] [--type type] [--active-only]`
+- `pnpm flowm-cli get-asset <id> [--db path]`
+- `pnpm flowm-cli create-asset --name name --type type [--commit] [--db path]`
+- `pnpm flowm-cli update-asset <id> [fields...] [--commit] [--db path]`
+- `pnpm flowm-cli archive-asset <id> [--commit] [--db path]`
+- `pnpm flowm-cli list-asset-snapshots [--asset-id id] [--latest-only] [--db path]`
+- `pnpm flowm-cli get-asset-snapshot <id> [--db path]`
+- `pnpm flowm-cli add-asset-snapshot --asset-id id --value amount [--commit] [--db path]`
+- `pnpm flowm-cli update-asset-snapshot <id> [fields...] [--commit] [--db path]`
+- `pnpm flowm-cli delete-asset-snapshot <id> [--commit] [--db path]`
+- `pnpm flowm-cli net-worth [--currency code] [--db path]`
+- `pnpm flowm-cli asset-change <asset-id> [--comparison previous|30d|90d|1y] [--db path]`
+- `pnpm flowm-cli list-cashflow [--db path] [--source name] [--source-external-id id] [--limit n]`
+- `pnpm flowm-cli apply-patch <patch.json|-> [--db path] [--dry-run|--commit]`
+
+The `apply-patch` command defaults to `--dry-run`. It writes only when callers
+pass `--commit`.
+
+Asset write commands also default to dry-run and write only when callers pass
+`--commit`. Asset item deletion is intentionally exposed as archive, while
+asset snapshot deletion removes a single present-state snapshot record.
+
+After a successful `--commit`, the CLI sends a best-effort local
+`ledger.changed` event to the desktop app's IPC socket. If the app is closed, or
+the socket is unavailable, the CLI still succeeds and preserves machine-readable
+JSON stdout. Set `FLOWM_CLI_DEBUG_IPC=1` to see skipped notification diagnostics
+on stderr.
+
+Agents that need machine-parseable stdout should call `pnpm --silent flowm-cli
+...` so pnpm does not add lifecycle output around the CLI's JSON payload.
+
+Supported patch operations currently include `category.ensure`,
+`cashflow.create`, and `cashflow.classify`. Use `cashflow.classify` to update an
+existing transaction's category by cashflow `id` or by `sourceName` plus
+`sourceExternalId`. Category operations are guarded by the API: a patch cannot
+assign an income cashflow to an expense category, or an expense cashflow to an
+income category.
+
+## Ledger Resolution
+
+The CLI resolves a ledger path in this order:
+
+1. `--db`
+2. `FLOWM_DB_PATH`
+3. `FLOWM_USER_DATA_DIR`
+4. The platform's default Flowm app data directory
+5. The active ledger in `flowm-ledgers.json`
+6. `flowm.sqlite3` under the resolved app data directory
+
+## Watchouts
+
+- Do not expose arbitrary SQL or table-level CRUD from this package.
+- Keep write workflows behind `@flowm/api.applyAgentLedgerPatch` or another
+  guarded business API.
+- Asset commands must call the guarded `@flowm/api` asset facade. Do not add raw
+  SQLite asset mutation commands.
+- Keep imported statement parsing outside durable product code. Agents normalize
+  source files into patch operations before calling this CLI.
+- Preserve the Electron ABI for `better-sqlite3`; do not replace the launcher
+  with a plain Node runtime command.
+- CLI output should remain JSON by default so agents can parse it reliably.

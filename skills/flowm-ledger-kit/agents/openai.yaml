@@ -1,0 +1,4 @@
+interface:
+  display_name: "Flowm Ledger Kit"
+  short_description: "Safely write Flowm ledger data from arbitrary materials"
+  default_prompt: "Use $flowm-ledger-kit to analyze source material and update a Flowm ledger safely."

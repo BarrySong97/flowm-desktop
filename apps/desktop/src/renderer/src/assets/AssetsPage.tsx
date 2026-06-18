@@ -114,7 +114,6 @@ export function AssetsPage() {
   const updateAssetItem = useMutation(trpc.assets.updateItem.mutationOptions())
   const archiveAssetItem = useMutation(trpc.assets.archiveItem.mutationOptions())
   const addAssetSnapshot = useMutation(trpc.assets.addSnapshot.mutationOptions())
-  const updateAssetSnapshot = useMutation(trpc.assets.updateSnapshot.mutationOptions())
   usePagePerf("assets", [
     { name: "assets.snapshots.latest", query: assetSnapshotsQuery },
     { name: "assets.sparklines", query: assetSparklinesQuery },
@@ -208,14 +207,16 @@ export function AssetsPage() {
 
   function openEdit(a: AssetSnapshotSummary, mode: "balance" | "account") {
     setForm({
-      id: a.id,
+      // Balance updates append a fresh reading: default to today with an empty
+      // amount. Account edits keep the existing meta loaded for editing.
+      id: mode === "account" ? a.id : undefined,
       assetItemId: a.assetItemId,
       accountName: a.accountName,
       assetType: a.assetType,
-      valueNumber: String(Math.abs(Number(a.valueNumber))),
+      valueNumber: mode === "balance" ? "" : String(Math.abs(Number(a.valueNumber))),
       valueCurrency: a.valueCurrency,
-      snapshotAt: a.snapshotAt.slice(0, 10),
-      note: a.note ?? "",
+      snapshotAt: mode === "balance" ? todayKey() : a.snapshotAt.slice(0, 10),
+      note: mode === "balance" ? "" : (a.note ?? ""),
     })
     setFormMode(mode)
     setShowForm(true)
@@ -244,12 +245,17 @@ export function AssetsPage() {
     setSaving(true)
     try {
       const val = Number(values.valueNumber)
-      if (values.id) {
-        await updateAssetSnapshot.mutateAsync({
-          id: values.id,
+      if (formMode === "balance") {
+        // Updating a balance appends a new dated snapshot to the existing
+        // account so the history/trend keeps growing — it does not overwrite
+        // the latest reading.
+        if (!values.assetItemId) return
+        await addAssetSnapshot.mutateAsync({
+          assetItemId: values.assetItemId,
           snapshotAt: `${values.snapshotAt}T00:00:00.000Z`,
           valueAmount: Math.abs(val).toFixed(2),
           valueCurrency: values.valueCurrency || "CNY",
+          sourceKind: "manual",
           note: values.note.trim() || null,
         })
       } else {

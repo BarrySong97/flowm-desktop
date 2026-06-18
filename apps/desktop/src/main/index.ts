@@ -6,16 +6,20 @@
  */
 
 import { app, BrowserWindow, ipcMain, nativeImage, shell } from "electron"
-import { electronApp, is, optimizer } from "@electron-toolkit/utils"
+import { electronApp, optimizer } from "@electron-toolkit/utils"
 import { existsSync } from "node:fs"
-import { join } from "node:path"
+import { join, resolve } from "node:path"
 import { pathToFileURL } from "node:url"
 import { performance } from "node:perf_hooks"
 
 import { appRouter } from "./trpc/router"
 import { LedgerStore } from "./ledgers"
+import { APP_DISPLAY_NAME, APP_USER_MODEL_ID } from "./bootstrap/app-info"
+import { isDevRuntime } from "./bootstrap/runtime-env"
+import { startLocalLedgerChangeServer } from "./local-ledger-change-server"
 
 const ledgerStore = new LedgerStore()
+let ledgerChangeServer: Awaited<ReturnType<typeof startLocalLedgerChangeServer>> = null
 
 type TRPCRequest = {
   type: "query" | "mutation" | "subscription"
@@ -33,8 +37,14 @@ type TRPCProfile = {
 let trpcRequestSeq = 0
 
 function configureUserDataPath(): void {
-  app.setName("FlowM")
-  app.setPath("userData", join(app.getPath("appData"), "com.flowm.desktop"))
+  app.setName(APP_DISPLAY_NAME)
+  app.setAboutPanelOptions({ applicationName: APP_DISPLAY_NAME })
+  const devUserDataDir = process.env.FLOWM_USER_DATA_DIR
+  if (isDevRuntime() && devUserDataDir) {
+    app.setPath("userData", resolve(devUserDataDir))
+    return
+  }
+  app.setPath("userData", join(app.getPath("appData"), APP_USER_MODEL_ID))
 }
 
 function getDevIconPath(): string {
@@ -47,7 +57,7 @@ function getDevIcon() {
 }
 
 function configureDevDockIcon(): void {
-  if (!is.dev || process.platform !== "darwin" || !app.dock) {
+  if (!isDevRuntime() || process.platform !== "darwin" || !app.dock) {
     return
   }
 
@@ -130,7 +140,7 @@ function registerTrpcHandler(): void {
 }
 
 function createWindow(): BrowserWindow {
-  const devIcon = is.dev ? getDevIcon() : undefined
+  const devIcon = isDevRuntime() ? getDevIcon() : undefined
   const macWindowOptions =
     process.platform === "darwin"
       ? ({
@@ -150,7 +160,7 @@ function createWindow(): BrowserWindow {
     show: false,
     autoHideMenuBar: true,
     icon: devIcon,
-    title: "FlowM",
+    title: APP_DISPLAY_NAME,
     titleBarStyle: process.platform === "darwin" ? "hiddenInset" : "default",
     ...macWindowOptions,
     webPreferences: {
@@ -163,7 +173,7 @@ function createWindow(): BrowserWindow {
   mainWindow.on("ready-to-show", () => {
     mainWindow.show()
     configureDevDockIcon()
-    if (is.dev) {
+    if (isDevRuntime()) {
       mainWindow.webContents.openDevTools({ mode: "detach" })
     }
   })
@@ -173,7 +183,7 @@ function createWindow(): BrowserWindow {
     return { action: "deny" }
   })
 
-  if (is.dev && process.env.ELECTRON_RENDERER_URL) {
+  if (isDevRuntime() && process.env.ELECTRON_RENDERER_URL) {
     mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL)
   } else {
     const indexUrl = pathToFileURL(join(__dirname, "../renderer/index.html")).toString()
@@ -186,7 +196,7 @@ function createWindow(): BrowserWindow {
 configureUserDataPath()
 
 app.whenReady().then(async () => {
-  electronApp.setAppUserModelId("com.flowm.desktop")
+  electronApp.setAppUserModelId(APP_USER_MODEL_ID)
   configureDevDockIcon()
 
   app.on("browser-window-created", (_, window) => {
@@ -199,8 +209,17 @@ app.whenReady().then(async () => {
   } catch (err) {
     console.error("[flowm] Ledger init failed:", err)
   }
+  ledgerChangeServer = await startLocalLedgerChangeServer({
+    userDataDir: app.getPath("userData"),
+    getActiveDbPath: () => ledgerStore.getActiveFilePath(),
+  })
   registerTrpcHandler()
   createWindow()
+})
+
+app.on("before-quit", () => {
+  ledgerChangeServer?.close()
+  ledgerChangeServer = null
 })
 
 app.on("window-all-closed", () => {

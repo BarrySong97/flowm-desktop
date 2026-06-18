@@ -8,6 +8,7 @@
 import { useEffect, useState } from "react"
 import { Button, Input, Modal, Tabs } from "@heroui/react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useNavigate } from "@tanstack/react-router"
 import { Controller, useForm } from "react-hook-form"
 import type { TagSummary } from "@flowm/api"
 import { Dock } from "../components/layout/Dock"
@@ -308,6 +309,7 @@ function TagModal({
 
 export function SettingsPage() {
   const confirm = useConfirm()
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const resetAll = useMutation(trpc.system.resetAll.mutationOptions())
   const createTag = useMutation(trpc.reference.createTag.mutationOptions())
@@ -448,7 +450,12 @@ export function SettingsPage() {
           {/* 分类与标签 */}
           <div style={{ marginTop: 30 }}>
             <GroupLabel>分类与标签</GroupLabel>
-            <LinkRow note={`${categories.length} 个`}>分类管理</LinkRow>
+            <LinkRow
+              note={`${categories.length} 个`}
+              onClick={() => void navigate({ to: "/settings-categories" })}
+            >
+              分类管理
+            </LinkRow>
             <div style={{ padding: "14px 0 4px", borderTop: "1px solid var(--hair-3)" }}>
               <div style={{ display: "flex", alignItems: "baseline", marginBottom: 4 }}>
                 <span style={{ fontSize: 13.5, color: "var(--ink)", fontWeight: 500 }}>标签</span>

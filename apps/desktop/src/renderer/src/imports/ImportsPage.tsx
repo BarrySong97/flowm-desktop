@@ -707,7 +707,7 @@ export function ImportsPage() {
         {/* Stats */}
         <div style={{ display: "flex", alignItems: "flex-end", gap: 48, marginBottom: 20 }}>
           <div>
-            <Dim style={{ fontSize: 11, marginBottom: 4 }}>筛选消费</Dim>
+            <Dim style={{ fontSize: 11, marginBottom: 4 }}>消费</Dim>
             <div
               style={{
                 fontFamily: "IBM Plex Mono, monospace",
@@ -721,7 +721,7 @@ export function ImportsPage() {
             </div>
           </div>
           <div>
-            <Dim style={{ fontSize: 11, marginBottom: 4 }}>筛选收入</Dim>
+            <Dim style={{ fontSize: 11, marginBottom: 4 }}>收入</Dim>
             <div
               style={{
                 fontFamily: "IBM Plex Mono, monospace",
@@ -1061,7 +1061,7 @@ export function ImportsPage() {
                     }}
                   >
                     <div>
-                      <Dim style={{ fontSize: 9.5 }}>筛选{analysisLabel}</Dim>
+                      <Dim style={{ fontSize: 9.5 }}>{analysisLabel}</Dim>
                       <div
                         style={{
                           fontFamily: "IBM Plex Mono, monospace",

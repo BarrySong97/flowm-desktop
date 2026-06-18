@@ -14,7 +14,9 @@
 ## Schema Areas
 
 - Ledger metadata and settings tables describe the database itself.
-- Imported statement records and `cashflow_events` describe past cashflow.
+- `cashflow_events` describes past cashflow, including rows materialized from
+  agent-assisted imports. Import source metadata should live on imported
+  cashflow records so the app can deduplicate by source.
 - `asset_snapshots` describes present assets and liabilities.
 - Budgets, categories, subscriptions, and loans support planning and review workflows.
 - Subscription and loan occurrence tables are forecast artifacts, not actual cashflow.
@@ -33,4 +35,8 @@ Electron main opens the SQLite file, runs migrations, and passes the typed datab
 - Schema changes must preserve the asymmetric layer boundaries: cashflow, asset snapshots, and future obligations are not one reconciled ledger.
 - Migration files are generated artifacts but still user-data critical. Review them before shipping.
 - Do not bypass the typed database handle from product code.
+- Agent-assisted import commands in `@flowm/cli` should use migrations, Drizzle
+  schema objects, and the API facade instead of ad hoc direct SQL writes.
+- Imported cashflow is deduplicated by source metadata on `cashflow_events`; do
+  not recreate a separate evidence layer for routine agent-imported transactions.
 - Handwritten database TypeScript files carry AI headers. Generated SQL/JSON migration artifacts are not part of file-header enforcement.

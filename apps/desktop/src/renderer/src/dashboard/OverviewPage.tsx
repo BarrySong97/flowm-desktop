@@ -5,9 +5,10 @@
  * @gotcha  Show layers together without implying they reconcile into one ledger.
  */
 
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
+import { Dropdown } from "@heroui/react"
 import { useQuery } from "@tanstack/react-query"
-import { useNavigate } from "@tanstack/react-router"
+import { Link } from "@tanstack/react-router"
 import { Dock } from "../components/layout/Dock"
 import type {
   CashflowEventSummary,
@@ -34,15 +35,124 @@ import { ScrollArea } from "../components/ui/ScrollArea"
 
 const fmt = formatNumber
 const signed = formatSignedCurrency
+type CashflowRangeKey = "this_month" | "last_month" | "last_30" | "last_90" | "year" | "all"
+const DEFAULT_CASHFLOW_RANGE_KEY: CashflowRangeKey = "this_month"
+const CASHFLOW_RANGE_STORAGE_KEY = "flowm:overview:cashflow-range"
 
-function useMonthStats(events: CashflowEventSummary[]) {
+const CASHFLOW_RANGE_OPTIONS: Array<{ key: CashflowRangeKey; label: string }> = [
+  { key: "this_month", label: "本月" },
+  { key: "last_month", label: "上月" },
+  { key: "last_30", label: "最近 30 天" },
+  { key: "last_90", label: "最近 90 天" },
+  { key: "year", label: "今年" },
+  { key: "all", label: "全部" },
+]
+
+function isCashflowRangeKey(value: string | null): value is CashflowRangeKey {
+  return CASHFLOW_RANGE_OPTIONS.some((option) => option.key === value)
+}
+
+function readCashflowRangeKey(): CashflowRangeKey {
+  try {
+    const stored = window.localStorage.getItem(CASHFLOW_RANGE_STORAGE_KEY)
+    return isCashflowRangeKey(stored) ? stored : DEFAULT_CASHFLOW_RANGE_KEY
+  } catch {
+    return DEFAULT_CASHFLOW_RANGE_KEY
+  }
+}
+
+function writeCashflowRangeKey(value: CashflowRangeKey): void {
+  try {
+    window.localStorage.setItem(CASHFLOW_RANGE_STORAGE_KEY, value)
+  } catch {
+    // Persisting this preference is best-effort; the page still works without it.
+  }
+}
+
+function addMonths(date: Date, months: number): Date {
+  const next = new Date(date)
+  next.setMonth(next.getMonth() + months)
+  return next
+}
+
+function monthEnd(date: Date): string {
+  return dateKey(new Date(date.getFullYear(), date.getMonth() + 1, 0))
+}
+
+function cashflowRange(key: CashflowRangeKey, now = new Date()) {
+  const today = dateKey(now)
+  if (key === "this_month") {
+    return {
+      dateFrom: monthStart(now),
+      dateTo: today,
+      heading: "本月结余",
+      switchLabel: `${now.getMonth() + 1}月`,
+      caption: "本月",
+      axisStart: "月初",
+      axisEnd: "今天",
+    }
+  }
+  if (key === "last_month") {
+    const previous = addMonths(now, -1)
+    return {
+      dateFrom: monthStart(previous),
+      dateTo: monthEnd(previous),
+      heading: "上月结余",
+      switchLabel: `${previous.getMonth() + 1}月`,
+      caption: "上月",
+      axisStart: "月初",
+      axisEnd: "月末",
+    }
+  }
+  if (key === "last_30") {
+    return {
+      dateFrom: dateKey(addDays(now, -29)),
+      dateTo: today,
+      heading: "结余",
+      switchLabel: "最近30天",
+      caption: "过去 30 天",
+      axisStart: "30 天前",
+      axisEnd: "今天",
+    }
+  }
+  if (key === "last_90") {
+    return {
+      dateFrom: dateKey(addDays(now, -89)),
+      dateTo: today,
+      heading: "结余",
+      switchLabel: "最近90天",
+      caption: "过去 90 天",
+      axisStart: "90 天前",
+      axisEnd: "今天",
+    }
+  }
+  if (key === "year") {
+    return {
+      dateFrom: `${now.getFullYear()}-01-01`,
+      dateTo: today,
+      heading: "结余",
+      switchLabel: "今年",
+      caption: `${now.getFullYear()} 年`,
+      axisStart: "年初",
+      axisEnd: "今天",
+    }
+  }
+  return {
+    dateFrom: undefined,
+    dateTo: today,
+    heading: "结余",
+    switchLabel: "全部",
+    caption: "全部",
+    axisStart: "最早",
+    axisEnd: "今天",
+  }
+}
+
+function useCashflowStats(events: CashflowEventSummary[]) {
   return useMemo(() => {
-    const now = new Date()
-    const ym = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
     let income = 0,
       expense = 0
     for (const e of events) {
-      if (!e.date.startsWith(ym)) continue
       const amt = Math.abs(Number(e.amount) || 0)
       if (e.status !== "active" || !e.includeInAnalytics) continue
       if (e.flowKind === "income" && e.direction === "in") income += amt
@@ -52,17 +162,25 @@ function useMonthStats(events: CashflowEventSummary[]) {
   }, [events])
 }
 
-function useDailyBars(events: CashflowEventSummary[]): number[] {
+function useDailyBars(
+  events: CashflowEventSummary[],
+  range: ReturnType<typeof cashflowRange>,
+): number[] {
   return useMemo(() => {
     const bars = new Array<number>(30).fill(0)
-    const now = new Date()
+    const from = range.dateFrom ? new Date(range.dateFrom).getTime() : null
+    const to = new Date(range.dateTo).getTime()
+    const span = Math.max(1, Math.ceil(((from ?? to) === to ? 29 : to - (from ?? to)) / 86400000))
     for (const e of events) {
       if (e.flowKind !== "expense" || e.status !== "active" || !e.includeInAnalytics) continue
-      const daysAgo = Math.floor((now.getTime() - new Date(e.date).getTime()) / 86400000)
-      if (daysAgo >= 0 && daysAgo < 30) bars[29 - daysAgo] += Math.abs(Number(e.amount) || 0)
+      const time = new Date(e.date).getTime()
+      if (time > to || (from != null && time < from)) continue
+      const offset = from == null ? 29 : Math.floor(((time - from) / (span * 86400000)) * 30)
+      const index = Math.max(0, Math.min(29, offset))
+      bars[index] += Math.abs(Number(e.amount) || 0)
     }
     return bars
-  }, [events])
+  }, [events, range])
 }
 
 function useNetWorthTrend(snapshots: AssetSnapshotSummary[]): number[] {
@@ -128,14 +246,14 @@ function useUpcoming(
 }
 
 export function OverviewPage() {
-  const navigate = useNavigate()
+  const [cashflowRangeKey, setCashflowRangeKey] = useState<CashflowRangeKey>(readCashflowRangeKey)
   const today = dateKey(new Date())
+  const range = cashflowRange(cashflowRangeKey)
   const futureThrough = dateKey(addDays(new Date(), 60))
-  const monthFrom = monthStart(new Date())
   const cashflowQuery = useQuery(
     trpc.cashflow.list.queryOptions({
-      dateFrom: monthFrom,
-      dateTo: today,
+      dateFrom: range.dateFrom,
+      dateTo: range.dateTo,
       status: "active",
       limit: 240,
     }),
@@ -191,12 +309,12 @@ export function OverviewPage() {
   const _netTrend = useNetWorthTrend(assetHistoryQuery.data ?? [])
   const netGain = _netTrend[11] - _netTrend[0]
 
-  const { income: _monthIn, expense: _monthOut, net: _monthNet } = useMonthStats(events)
+  const { income: _monthIn, expense: _monthOut, net: _monthNet } = useCashflowStats(events)
   const monthIn = _monthIn
   const monthOut = _monthOut
   const monthNet = _monthNet
 
-  const dailyBars = useDailyBars(events)
+  const dailyBars = useDailyBars(events, range)
 
   const budgets = (budgetProgressQuery.data ?? []).map((row) => ({
     cat: row.budgetName,
@@ -222,7 +340,7 @@ export function OverviewPage() {
   const scaleMax = Math.max(...budgets.map((b) => Math.max(b.spent, b.limit)), 1)
 
   const _recentTx = useMemo(
-    () => [...events].sort((a, b) => b.date.localeCompare(a.date)),
+    () => [...events].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 30),
     [events],
   )
   const recentTx = _recentTx
@@ -235,18 +353,15 @@ export function OverviewPage() {
     categoryName: t.categoryName ?? undefined,
   }))
 
-  const now = new Date()
-  const monLabel = `${now.getMonth() + 1} 月`
-
   return (
     <div className="relative flex flex-col h-full overflow-hidden bg-white">
       <ScrollArea className="flex-1 min-h-0">
-        <div style={{ padding: "30px 34px 40px", display: "flex", flexDirection: "column" }}>
+        <div className="flex flex-col px-[34px] pt-[30px] pb-10">
           {/* ── 净资产 + 趋势 ── */}
           <div className="flex items-stretch gap-9 pb-[18px]">
             <div>
               <Kicker className="mb-1.5">净资产</Kicker>
-              <BigNumber style={{ fontSize: 48 }}>
+              <BigNumber className="text-[48px]">
                 <span className="text-[21px] font-medium text-[var(--ink-3)] mr-1.5">¥</span>
                 {fmt(netWorth)}
               </BigNumber>
@@ -273,38 +388,72 @@ export function OverviewPage() {
           <div className="mt-[22px] pb-6">
             <div className="flex items-start mb-3">
               <div>
-                <Kicker className="mb-1.5">本月结余 · {monLabel}</Kicker>
+                <Kicker className="mb-1.5">
+                  <span className="inline-flex items-center gap-0.5">
+                    <span>{range.heading} · </span>
+                    <Dropdown>
+                      <Dropdown.Trigger
+                        aria-label="选择现金流时间范围"
+                        className="min-h-0 border-0 bg-transparent p-0 text-[inherit] font-[inherit] leading-[inherit] text-[var(--ink-2)] shadow-none hover:bg-transparent"
+                      >
+                        <span className="border-b border-dashed border-[var(--ink-4)]">
+                          {range.switchLabel}
+                        </span>
+                      </Dropdown.Trigger>
+                      <Dropdown.Popover placement="bottom start">
+                        <Dropdown.Menu
+                          aria-label="选择现金流时间范围"
+                          selectionMode="single"
+                          selectedKeys={[cashflowRangeKey]}
+                          onAction={(key) => {
+                            const next = String(key)
+                            if (!isCashflowRangeKey(next)) return
+                            setCashflowRangeKey(next)
+                            writeCashflowRangeKey(next)
+                          }}
+                        >
+                          {CASHFLOW_RANGE_OPTIONS.map((option) => (
+                            <Dropdown.Item key={option.key} id={option.key}>
+                              {option.label}
+                              <Dropdown.ItemIndicator />
+                            </Dropdown.Item>
+                          ))}
+                        </Dropdown.Menu>
+                      </Dropdown.Popover>
+                    </Dropdown>
+                  </span>
+                </Kicker>
                 <BigNumber
-                  style={{ fontSize: 26, color: monthNet >= 0 ? "var(--green)" : "var(--red)" }}
+                  className={`text-[26px] ${monthNet >= 0 ? "text-[var(--green)]" : "text-[var(--red)]"}`}
                 >
                   {signed(monthNet)}
                 </BigNumber>
               </div>
               <Dim className="text-[10.5px] ml-auto pt-[1px]">
-                过去 30 天 · 消费{" "}
+                {range.caption} · 消费{" "}
                 <span className="font-['IBM_Plex_Mono'] text-[var(--red)]">−¥{fmt(monthOut)}</span>
                 {" · "}收入{" "}
                 <span className="font-['IBM_Plex_Mono'] text-[var(--green)]">+¥{fmt(monthIn)}</span>
+                {" · "}
+                <Link
+                  to="/analysis"
+                  className="cursor-pointer text-[var(--accent)] hover:opacity-75 transition-opacity"
+                >
+                  查看结余信息 →
+                </Link>
               </Dim>
             </div>
             <DailyBars data={dailyBars} />
             <div className="flex justify-between mt-1.5">
-              <Dim className="text-[10px]">30 天前</Dim>
-              <span className="text-[10px] font-semibold" style={{ color: "var(--accent)" }}>
-                今天
+              <Dim className="text-[10px]">{range.axisStart}</Dim>
+              <span className="text-[10px] font-semibold text-[var(--accent)]">
+                {range.axisEnd}
               </span>
             </div>
           </div>
 
           {/* ── 两列：预算 + 即将扣费 ── */}
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "minmax(0,1.25fr) minmax(0,1fr)",
-              gap: 60,
-              marginTop: 22,
-            }}
-          >
+          <div className="grid grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)] gap-[60px] mt-[22px]">
             {/* 左：消费预算 */}
             <div className="overflow-hidden">
               <div className="flex items-baseline mb-[15px]">
@@ -387,12 +536,12 @@ export function OverviewPage() {
               {recentTx.length > 0 && (
                 <Dim className="text-[11px] ml-2">最近 {recentTx.length} 笔</Dim>
               )}
-              <button
-                onClick={() => navigate({ to: "/imports" })}
-                className="ml-auto text-[11px] text-[var(--accent)] hover:opacity-75 transition-opacity"
+              <Link
+                to="/imports"
+                className="ml-auto cursor-pointer text-[11px] text-[var(--accent)] hover:opacity-75 transition-opacity"
               >
                 查看全部流水 →
-              </button>
+              </Link>
             </div>
             {recentTx.length === 0 ? (
               <div className="mt-4 text-center py-8">

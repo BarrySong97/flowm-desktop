@@ -2,11 +2,11 @@
 
 `flowm.icns` is the packaged macOS app icon used by `electron-builder.yml`.
 `flowm.iconset/` keeps the source PNG sizes from the design export.
-The visible rounded-square tile is inset to roughly 84% of the 1024px canvas,
+The visible rounded-square tile is inset to roughly 78% of the 1024px canvas,
 matching the transparent padding seen in bundled macOS app icons so it does not
 look oversized in the Dock.
 The layer marker dots are intentionally omitted so the icon reads as three
-clean offset plates.
+clean shortened offset plates.
 
 Keep documentation files outside `flowm.iconset/`; macOS icon tools expect the
 iconset directory to contain only icon PNG assets.

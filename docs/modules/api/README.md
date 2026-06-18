@@ -12,6 +12,8 @@
 - `packages/api/src/use-cases/` - facade-compatible use-case wrappers for reference data, imports, cashflow, assets, subscriptions, loans, budgets, links, and dashboard workflows. These files must not import Drizzle, `@flowm/db`, or access `this.db` directly.
 - `packages/api/src/infrastructure/db/repositories/*-api.repository.ts` - Drizzle-backed persistence implementations that support the facade-compatible use-case wrappers.
 - `packages/api/src/sqlite/` - transitional compatibility re-exports for old internal import paths.
+- `packages/api/src/use-cases/agent-ledger/agent-ledger-api.ts` - guarded agent ledger patch facade.
+- `packages/api/src/infrastructure/db/repositories/agent-ledger-api.repository.ts` - rule-checked agent patch persistence.
 - `packages/api/src/domain/assets/asset-rules.ts` - pure asset normalization rules.
 - `packages/api/src/use-cases/assets/assets-api.ts` - present asset facade methods backed by asset use cases and repositories.
 - `packages/api/src/use-cases/assets/upsert-asset-snapshot.ts` - multi-step asset snapshot upsert workflow.
@@ -25,9 +27,13 @@
 
 - `assets/assets-api.ts` - asset snapshot CRUD, net worth inputs, and asset detail data.
 - `budgets/budgets-api.ts` - budget definitions and budget-related cashflow summaries.
-- `cashflow/cashflow-api.ts` - past cashflow event queries and mutations.
+- `cashflow/cashflow-api.ts` - past cashflow event queries, mutations, and monthly income/expense/net trend summaries.
 - `dashboard/dashboard-api.ts` - cross-layer dashboard composition without requiring reconciliation.
-- `imports/imports-api.ts` - imported statement records and transaction review surfaces.
+- `imports/imports-api.ts` - legacy imported statement records and transaction review
+  surfaces while direct agent-assisted cashflow import is introduced.
+- `agent-ledger/agent-ledger-api.ts` - business-level patch operations for AI
+  agents, including category ensure, cashflow creation, and cashflow
+  classification.
 - `links/links-api.ts` - relationships between imported records and explanatory domain objects.
 - `loans/loans-api.ts` - loan plans and projected payment occurrences.
 - `reference/reference-api.ts` - reference/category/tag data used by UI workflows, including category and tag create/update/archive operations.
@@ -40,6 +46,10 @@ The Electron main router calls this package with a typed `Database` handle from 
 ## Interfaces
 
 The package exports the facade consumed by `apps/desktop/src/main/trpc/router.ts`. Browser-safe asset contracts are owned by `@flowm/shared/contracts` and re-exported from `@flowm/api` for compatibility while renderer imports migrate to the shared contract layer.
+
+Cashflow analysis surfaces use `getMonthlyCashflowTrend` for monthly income,
+expense, and net cashflow rows. The trend summarizes past active analytics
+cashflow only; it does not infer asset balances or materialize future plans.
 
 ## Seed Data
 
@@ -55,6 +65,15 @@ The personal starter seed should be idempotent and conservative. It should only 
 - `pnpm check-architecture` enforces that `use-cases/` do not import Drizzle or `@flowm/db`, infrastructure does not import use cases, shared contracts stay browser-safe, and `sqlite/` remains compatibility glue.
 - Do not infer asset balances from imports.
 - Do not materialize subscription or loan forecasts as actual cashflow unless an explicit workflow is being built.
+- Keep platform-specific statement parsing outside durable product code when a
+  local agent command can normalize the source into imported cashflow records.
+- Agent write workflows should submit business-level patch operations, not raw
+  SQLite table mutations.
+- `pnpm flowm-cli apply-patch` is provided by `@flowm/cli` for agents; it calls
+  the guarded API patch method rather than exposing SQLite.
+- Cashflow writes validate category direction. Expense cashflow can only use
+  expense categories, income cashflow can only use income categories, and agent
+  classification infers the expected category kind from the target event.
 - Keep personal starter seed small and editable; larger explanatory datasets belong in the demo ledger.
 - Starter assets are examples with manual snapshots; starter subscriptions and loans are future plans. Do not convert them into cashflow or liability snapshots.
 - Keep demo seed and personal starter seed separate. Demo data can be broad and explanatory; personal starter data should feel like the user's own editable first ledger.
