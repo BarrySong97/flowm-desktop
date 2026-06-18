@@ -5,9 +5,18 @@
  * @gotcha  Imports describe past cashflow and must not update asset balances automatically.
  */
 
-import { useRef, useMemo, useState } from "react"
-import { Button } from "@heroui/react"
+import { useCallback, useEffect, useRef, useMemo, useState } from "react"
+import { Button, Input, ListBox, Select } from "@heroui/react"
+import { Controller, useForm, useWatch } from "react-hook-form"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { Link } from "@tanstack/react-router"
+import {
+  createParser,
+  parseAsString,
+  parseAsStringLiteral,
+  useQueryStates,
+  type Options as NuqsOptions,
+} from "nuqs"
 import {
   useReactTable,
   getCoreRowModel,
@@ -19,6 +28,7 @@ import type { CashflowEventSummary } from "@flowm/api"
 import { trpc } from "@/lib/trpc"
 import { usePagePerf } from "@/lib/debug/perf"
 import { CATEGORY_COLORS, SOURCE_BADGES } from "@/lib/domainDisplay"
+import { addDays, dateKey, monthStart } from "@/lib/dates"
 import { formatNumber } from "@/lib/format"
 import { ScrollArea } from "../components/ui/ScrollArea"
 import { Dock } from "../components/layout/Dock"
@@ -27,8 +37,133 @@ import { AddTxModal, emptyTxForm, type TxForm } from "./AddTxModal"
 import { ColorDot } from "../components/ui/ColorDot"
 import { Dim } from "../components/ui/Dim"
 import { DailyBars } from "../components/charts/DailyBars"
+import { FormField } from "../components/ui/FormField"
 
 const fmt = formatNumber
+const TIME_FILTER_KEYS = ["this_month", "last_month", "last_30", "last_90", "year", "all"] as const
+const KIND_FILTER_KEYS = ["all", "expense", "income"] as const
+type TimeFilterKey = (typeof TIME_FILTER_KEYS)[number]
+type KindFilterKey = (typeof KIND_FILTER_KEYS)[number]
+interface TxFilterForm {
+  timeFilter: TimeFilterKey
+  sourceFilter: string
+  categoryFilter: string
+  kindFilter: KindFilterKey
+  keyword: string
+}
+
+const DEFAULT_FILTERS: TxFilterForm = {
+  timeFilter: "this_month",
+  sourceFilter: "all",
+  categoryFilter: "all",
+  kindFilter: "all",
+  keyword: "",
+}
+
+const TIME_FILTERS: Array<{ key: TimeFilterKey; label: string }> = [
+  { key: "this_month", label: "本月" },
+  { key: "last_month", label: "上月" },
+  { key: "last_30", label: "最近 30 天" },
+  { key: "last_90", label: "最近 90 天" },
+  { key: "year", label: "今年" },
+  { key: "all", label: "全部" },
+]
+
+const KIND_FILTERS: Array<{ key: KindFilterKey; label: string }> = [
+  { key: "all", label: "全部类型" },
+  { key: "expense", label: "支出" },
+  { key: "income", label: "收入" },
+]
+
+const parseAsTrimmedString = createParser({
+  parse: (value: string) => value.trim(),
+  serialize: (value: string) => value.trim(),
+})
+
+const IMPORTS_FILTER_PARSERS = {
+  timeFilter: parseAsStringLiteral(TIME_FILTER_KEYS).withDefault(DEFAULT_FILTERS.timeFilter),
+  sourceFilter: parseAsString.withDefault(DEFAULT_FILTERS.sourceFilter),
+  categoryFilter: parseAsString.withDefault(DEFAULT_FILTERS.categoryFilter),
+  kindFilter: parseAsStringLiteral(KIND_FILTER_KEYS).withDefault(DEFAULT_FILTERS.kindFilter),
+  keyword: parseAsTrimmedString.withDefault(DEFAULT_FILTERS.keyword),
+}
+
+const IMPORTS_FILTER_URL_KEYS = {
+  timeFilter: "period",
+  sourceFilter: "source",
+  categoryFilter: "category",
+  kindFilter: "type",
+  keyword: "q",
+} as const
+
+const FILTER_LABEL_CLASS = "mb-1 block text-[10.5px] leading-[1.2] text-[var(--ink-3)]"
+
+function addMonths(date: Date, months: number): Date {
+  const next = new Date(date)
+  next.setMonth(next.getMonth() + months)
+  return next
+}
+
+function monthEnd(date: Date): string {
+  return dateKey(new Date(date.getFullYear(), date.getMonth() + 1, 0))
+}
+
+function timeFilterBounds(key: TimeFilterKey, now = new Date()): { from?: string; to?: string } {
+  if (key === "this_month") return { from: monthStart(now), to: dateKey(now) }
+  if (key === "last_month") {
+    const previous = addMonths(now, -1)
+    return { from: monthStart(previous), to: monthEnd(previous) }
+  }
+  if (key === "last_30") return { from: dateKey(addDays(now, -29)), to: dateKey(now) }
+  if (key === "last_90") return { from: dateKey(addDays(now, -89)), to: dateKey(now) }
+  if (key === "year") return { from: `${now.getFullYear()}-01-01`, to: dateKey(now) }
+  return {}
+}
+
+function FilterSelectField({
+  label,
+  value,
+  options,
+  onChange,
+  className,
+}: {
+  label: string
+  value: string
+  options: Array<{ key: string; label: string }>
+  onChange: (value: string) => void
+  className: string
+}) {
+  return (
+    <div className={className}>
+      <FormField label={label} labelClassName={FILTER_LABEL_CLASS}>
+        <Select
+          variant="secondary"
+          selectedKey={value}
+          onSelectionChange={(key) => {
+            if (key == null) return
+            const next = String(key)
+            if (next !== value) onChange(next)
+          }}
+        >
+          <Select.Trigger className="h-[30px] min-h-[30px] px-2 text-[11.5px]">
+            <Select.Value className="text-[11.5px]" />
+            <Select.Indicator className="size-3" />
+          </Select.Trigger>
+          <Select.Popover>
+            <ListBox>
+              {options.map((option) => (
+                <ListBox.Item key={option.key} id={option.key} textValue={option.label}>
+                  {option.label}
+                  <ListBox.ItemIndicator />
+                </ListBox.Item>
+              ))}
+            </ListBox>
+          </Select.Popover>
+        </Select>
+      </FormField>
+    </div>
+  )
+}
 
 function SourceBadge({ source }: { source: string }) {
   const s = SOURCE_BADGES[source]
@@ -258,6 +393,7 @@ function toTx(event: CashflowEventSummary, index: number): Tx {
     counterparty: event.counterparty ?? event.title ?? "未命名流水",
     flowKind: event.flowKind,
     amount: Math.abs(Number(event.amount) || 0),
+    categoryId: event.categoryId ?? null,
     categoryName: event.categoryName ?? event.flowKind,
     tag: event.tags[0]?.name,
     source: event.sourceName ?? event.source ?? "手动",
@@ -275,8 +411,48 @@ export function ImportsPage() {
   const [hoveredId, setHoveredId] = useState<number | null>(null)
   const [showAddTx, setShowAddTx] = useState(false)
   const [editingTx, setEditingTx] = useState<Tx | null>(null)
-  const refDate = new Date()
-  const thisMonthPrefix = `${refDate.getFullYear()}-${String(refDate.getMonth() + 1).padStart(2, "0")}`
+  const [urlFilters, setUrlFilters] = useQueryStates(IMPORTS_FILTER_PARSERS, {
+    history: "replace",
+    urlKeys: IMPORTS_FILTER_URL_KEYS,
+  })
+  const urlFiltersRef = useRef<TxFilterForm>(urlFilters)
+  const { control, getValues, reset, setValue } = useForm<TxFilterForm>({
+    defaultValues: urlFilters,
+  })
+  const timeFilter = useWatch({ control, name: "timeFilter" }) ?? DEFAULT_FILTERS.timeFilter
+  const sourceFilter = useWatch({ control, name: "sourceFilter" }) ?? DEFAULT_FILTERS.sourceFilter
+  const categoryFilter =
+    useWatch({ control, name: "categoryFilter" }) ?? DEFAULT_FILTERS.categoryFilter
+  const kindFilter = useWatch({ control, name: "kindFilter" }) ?? DEFAULT_FILTERS.kindFilter
+  const keyword = useWatch({ control, name: "keyword" }) ?? DEFAULT_FILTERS.keyword
+  const normalizedKeyword = keyword.trim()
+  const refDate = useMemo(() => new Date(), [])
+  const updateUrlFilters = useCallback(
+    (next: Partial<TxFilterForm>, options?: NuqsOptions) => {
+      const merged = { ...urlFiltersRef.current, ...getValues(), ...next }
+      urlFiltersRef.current = merged
+      void setUrlFilters(merged, options)
+    },
+    [getValues, setUrlFilters],
+  )
+
+  useEffect(() => {
+    urlFiltersRef.current = urlFilters
+    reset(urlFilters)
+  }, [
+    reset,
+    urlFilters.categoryFilter,
+    urlFilters.kindFilter,
+    urlFilters.keyword,
+    urlFilters.sourceFilter,
+    urlFilters.timeFilter,
+  ])
+
+  useEffect(() => {
+    void setUrlFilters(urlFilters)
+    // Normalize explicit default or invalid URL params once after nuqs parses them.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   const cashflowQuery = useQuery(
     trpc.cashflow.list.queryOptions({
       status: "active",
@@ -311,44 +487,138 @@ export function ImportsPage() {
   }
 
   const txs = useMemo(() => (cashflowQuery.data ?? []).map(toTx), [cashflowQuery.data])
-  const thisMonth = txs.filter((t) => t.date.startsWith(thisMonthPrefix))
-  const monthOut = thisMonth
+  const analysisKind: "expense" | "income" = kindFilter === "income" ? "income" : "expense"
+  const analysisLabel = analysisKind === "income" ? "收入" : "消费"
+  const analysisColor = analysisKind === "income" ? "var(--accent)" : "var(--red)"
+  const categoryById = useMemo(
+    () => new Map((categoriesQuery.data ?? []).map((category) => [String(category.id), category])),
+    [categoriesQuery.data],
+  )
+  const sourceOptions = useMemo(
+    () => [...new Set(txs.map((tx) => tx.source))].sort((a, b) => a.localeCompare(b)),
+    [txs],
+  )
+  const sourceFilterOptions = useMemo(
+    () => [
+      { key: "all", label: "全部来源" },
+      ...sourceOptions.map((source) => ({ key: source, label: source })),
+    ],
+    [sourceOptions],
+  )
+  const categoryOptions = useMemo(
+    () =>
+      (categoriesQuery.data ?? [])
+        .filter(
+          (category) =>
+            !category.archived &&
+            (category.categoryKind === analysisKind || category.kind === analysisKind),
+        )
+        .sort((a, b) => a.displayOrder - b.displayOrder || a.name.localeCompare(b.name)),
+    [analysisKind, categoriesQuery.data],
+  )
+  const categoryFilterOptions = useMemo(
+    () => [
+      { key: "all", label: "全部分类" },
+      ...categoryOptions.map((category) => ({ key: String(category.id), label: category.name })),
+    ],
+    [categoryOptions],
+  )
+  useEffect(() => {
+    if (categoriesQuery.data == null) return
+    if (categoryFilter === "all") return
+    if (categoryOptions.some((category) => String(category.id) === categoryFilter)) return
+    setValue("categoryFilter", "all")
+    updateUrlFilters({ categoryFilter: "all" })
+  }, [categoriesQuery.data, categoryFilter, categoryOptions, setValue, updateUrlFilters])
+  useEffect(() => {
+    if (cashflowQuery.data == null) return
+    if (sourceFilter === "all") return
+    if (sourceOptions.includes(sourceFilter)) return
+    setValue("sourceFilter", "all")
+    updateUrlFilters({ sourceFilter: "all" })
+  }, [cashflowQuery.data, setValue, sourceFilter, sourceOptions, updateUrlFilters])
+  const filteredTxs = useMemo(() => {
+    const bounds = timeFilterBounds(timeFilter, refDate)
+    const term = normalizedKeyword.toLowerCase()
+    return txs.filter((tx) => {
+      if (bounds.from && tx.date < bounds.from) return false
+      if (bounds.to && tx.date > bounds.to) return false
+      if (sourceFilter !== "all" && tx.source !== sourceFilter) return false
+      if (categoryFilter !== "all" && String(tx.categoryId ?? "") !== categoryFilter) return false
+      if (kindFilter !== "all" && tx.flowKind !== kindFilter) return false
+      if (term) {
+        const haystack = [
+          tx.counterparty,
+          tx.title,
+          tx.description,
+          tx.userNote,
+          tx.categoryName,
+          tx.source,
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase()
+        if (!haystack.includes(term)) return false
+      }
+      return true
+    })
+  }, [categoryFilter, kindFilter, normalizedKeyword, refDate, sourceFilter, timeFilter, txs])
+  const rangeOut = filteredTxs
     .filter((t) => t.flowKind === "expense")
     .reduce((s, t) => s + t.amount, 0)
-  const monthIn = thisMonth.filter((t) => t.flowKind === "income").reduce((s, t) => s + t.amount, 0)
-  const monthNet = monthIn - monthOut
+  const rangeIn = filteredTxs
+    .filter((t) => t.flowKind === "income")
+    .reduce((s, t) => s + t.amount, 0)
+  const rangeNet = rangeIn - rangeOut
 
   const dailyBars = useMemo(() => {
     const bars = new Array<number>(30).fill(0)
-    for (const t of txs) {
-      if (t.flowKind !== "expense") continue
+    for (const t of filteredTxs) {
+      if (t.flowKind !== analysisKind) continue
       const daysAgo = Math.round((refDate.getTime() - new Date(t.date).getTime()) / 86400000)
       if (daysAgo >= 0 && daysAgo < 30) bars[29 - daysAgo] += t.amount
     }
     return bars
-  }, [txs])
+  }, [analysisKind, filteredTxs, refDate])
 
-  const catSpend = useMemo(() => {
-    const map = new Map<string, number>()
-    for (const t of txs) {
-      if (t.flowKind !== "expense") continue
-      const daysAgo = Math.round((refDate.getTime() - new Date(t.date).getTime()) / 86400000)
-      if (daysAgo < 0 || daysAgo >= 30) continue
-      map.set(t.categoryName, (map.get(t.categoryName) ?? 0) + t.amount)
+  const flowBreakdown = useMemo(() => {
+    const map = new Map<string, { name: string; amt: number; color: string }>()
+    for (const t of filteredTxs) {
+      if (t.flowKind !== analysisKind) continue
+      const key = t.categoryId == null ? `uncategorized:${analysisKind}` : String(t.categoryId)
+      const category = t.categoryId == null ? null : categoryById.get(String(t.categoryId))
+      const current = map.get(key)
+      map.set(key, {
+        name: category?.name ?? t.categoryName,
+        amt: (current?.amt ?? 0) + t.amount,
+        color:
+          category?.color ??
+          CATEGORY_COLORS[t.categoryName] ??
+          (analysisKind === "income" ? "var(--accent)" : CATEGORY_COLORS["其他"]),
+      })
     }
-    return [...map.entries()]
-      .map(([name, amt]) => ({
-        name,
-        amt,
-        color: CATEGORY_COLORS[name] ?? CATEGORY_COLORS["其他"],
-      }))
-      .sort((a, b) => b.amt - a.amt)
-  }, [txs])
+    return [...map.values()].sort((a, b) => b.amt - a.amt)
+  }, [analysisKind, categoryById, filteredTxs])
 
-  const catTotal30 = catSpend.reduce((s, c) => s + c.amt, 0)
-  const sorted = useMemo(() => [...txs].sort((a, b) => b.date.localeCompare(a.date)), [txs])
+  const analysisTotal = flowBreakdown.reduce((s, c) => s + c.amt, 0)
+  const sorted = useMemo(
+    () => [...filteredTxs].sort((a, b) => b.date.localeCompare(a.date)),
+    [filteredTxs],
+  )
   const activeDays = dailyBars.filter((v) => v > 0).length
-  const expenseCount = sorted.filter((t) => t.flowKind === "expense").length
+  const analysisCount = sorted.filter((t) => t.flowKind === analysisKind).length
+  const hasFilters =
+    timeFilter !== DEFAULT_FILTERS.timeFilter ||
+    sourceFilter !== DEFAULT_FILTERS.sourceFilter ||
+    categoryFilter !== DEFAULT_FILTERS.categoryFilter ||
+    kindFilter !== DEFAULT_FILTERS.kindFilter ||
+    normalizedKeyword.length > 0
+
+  function resetFilters() {
+    urlFiltersRef.current = DEFAULT_FILTERS
+    reset(DEFAULT_FILTERS)
+    void setUrlFilters(null)
+  }
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const table = useReactTable({
@@ -437,7 +707,7 @@ export function ImportsPage() {
         {/* Stats */}
         <div style={{ display: "flex", alignItems: "flex-end", gap: 48, marginBottom: 20 }}>
           <div>
-            <Dim style={{ fontSize: 11, marginBottom: 4 }}>本月消费</Dim>
+            <Dim style={{ fontSize: 11, marginBottom: 4 }}>筛选消费</Dim>
             <div
               style={{
                 fontFamily: "IBM Plex Mono, monospace",
@@ -447,11 +717,11 @@ export function ImportsPage() {
                 letterSpacing: "-0.02em",
               }}
             >
-              −{fmt(monthOut)}
+              −{fmt(rangeOut)}
             </div>
           </div>
           <div>
-            <Dim style={{ fontSize: 11, marginBottom: 4 }}>本月收入</Dim>
+            <Dim style={{ fontSize: 11, marginBottom: 4 }}>筛选收入</Dim>
             <div
               style={{
                 fontFamily: "IBM Plex Mono, monospace",
@@ -461,7 +731,7 @@ export function ImportsPage() {
                 letterSpacing: "-0.02em",
               }}
             >
-              +{fmt(monthIn)}
+              +{fmt(rangeIn)}
             </div>
           </div>
           <div>
@@ -471,12 +741,12 @@ export function ImportsPage() {
                 fontFamily: "IBM Plex Mono, monospace",
                 fontSize: 36,
                 fontWeight: 700,
-                color: monthNet >= 0 ? "var(--ink)" : "var(--red)",
+                color: rangeNet >= 0 ? "var(--ink)" : "var(--red)",
                 letterSpacing: "-0.02em",
               }}
             >
-              {monthNet >= 0 ? "+" : "−"}
-              {fmt(Math.abs(monthNet))}
+              {rangeNet >= 0 ? "+" : "−"}
+              {fmt(Math.abs(rangeNet))}
             </div>
           </div>
           <div style={{ marginLeft: "auto", paddingBottom: 6 }}>
@@ -495,14 +765,22 @@ export function ImportsPage() {
         <div>
           <div style={{ display: "flex", alignItems: "baseline", marginBottom: 10 }}>
             <span style={{ fontSize: 12, fontWeight: 600, color: "var(--ink-2)" }}>
-              近 30 天每日消费
+              每日{analysisLabel}
             </span>
             <span style={{ marginLeft: "auto", fontSize: 10.5, color: "var(--ink-4)" }}>
-              {expenseCount} 笔 · 导入证据 {statementLinesQuery.data?.length ?? 0} 行 · 日均 ¥
-              {fmt(activeDays > 0 ? Math.round(catTotal30 / activeDays) : 0)}
+              {sorted.length} 笔 · {analysisLabel} {analysisCount} 笔 · 导入证据{" "}
+              {statementLinesQuery.data?.length ?? 0} 行 · 日均 ¥
+              {fmt(activeDays > 0 ? Math.round(analysisTotal / activeDays) : 0)}
+              {" · "}
+              <Link
+                to="/analysis"
+                className="cursor-pointer text-[var(--accent)] hover:opacity-75 transition-opacity"
+              >
+                查看结余信息 →
+              </Link>
             </span>
           </div>
-          <DailyBars data={dailyBars} todayIndex={29} height={56} />
+          <DailyBars data={dailyBars} color={analysisColor} todayIndex={29} height={56} />
           <div style={{ display: "flex", justifyContent: "space-between", marginTop: 5 }}>
             <Dim style={{ fontSize: 9.5 }}>30 天前</Dim>
             <Dim style={{ fontSize: 9.5, color: "var(--accent)", fontWeight: 600 }}>今天</Dim>
@@ -518,6 +796,120 @@ export function ImportsPage() {
           className="flowm-scroller"
           style={{ flex: "0 0 68%", minWidth: 0, height: "100%", overflowY: "auto" }}
         >
+          <div className="sticky top-0 z-[2] border-b border-[var(--hair-3)] bg-white px-8 pb-2.5">
+            <form
+              className="flex flex-wrap items-end gap-2"
+              onSubmit={(event) => event.preventDefault()}
+            >
+              <Controller
+                control={control}
+                name="timeFilter"
+                render={({ field }) => (
+                  <FilterSelectField
+                    label="时间"
+                    value={field.value}
+                    onChange={(value) => {
+                      const next = value as TimeFilterKey
+                      field.onChange(next)
+                      updateUrlFilters({ timeFilter: next })
+                    }}
+                    options={TIME_FILTERS}
+                    className="w-[116px]"
+                  />
+                )}
+              />
+              <Controller
+                control={control}
+                name="sourceFilter"
+                render={({ field }) => (
+                  <FilterSelectField
+                    label="来源"
+                    value={field.value}
+                    onChange={(value) => {
+                      field.onChange(value)
+                      updateUrlFilters({ sourceFilter: value })
+                    }}
+                    options={sourceFilterOptions}
+                    className="w-[122px]"
+                  />
+                )}
+              />
+              <Controller
+                control={control}
+                name="categoryFilter"
+                render={({ field }) => (
+                  <FilterSelectField
+                    label="分类"
+                    value={field.value}
+                    onChange={(value) => {
+                      field.onChange(value)
+                      updateUrlFilters({ categoryFilter: value })
+                    }}
+                    options={categoryFilterOptions}
+                    className="w-[122px]"
+                  />
+                )}
+              />
+              <Controller
+                control={control}
+                name="kindFilter"
+                render={({ field }) => (
+                  <FilterSelectField
+                    label="类型"
+                    value={field.value}
+                    onChange={(value) => {
+                      const next = value as KindFilterKey
+                      field.onChange(next)
+                      updateUrlFilters({ kindFilter: next })
+                    }}
+                    options={KIND_FILTERS}
+                    className="w-[108px]"
+                  />
+                )}
+              />
+              <div className="w-[190px]">
+                <FormField label="搜索" labelClassName={FILTER_LABEL_CLASS}>
+                  <Controller
+                    control={control}
+                    name="keyword"
+                    render={({ field }) => (
+                      <Input
+                        variant="secondary"
+                        className="h-[30px] px-2 text-[11.5px]"
+                        placeholder="商户 / 备注"
+                        aria-label="搜索商户或备注"
+                        value={field.value}
+                        onChange={(event) => {
+                          const next = event.target.value
+                          const trimmed = next.trim()
+                          field.onChange(next)
+                          updateUrlFilters({ keyword: trimmed })
+                        }}
+                      />
+                    )}
+                  />
+                </FormField>
+              </div>
+              {hasFilters && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onPress={resetFilters}
+                  className="ml-auto mb-px h-[30px] rounded-[5px] px-2.5 text-[11px]"
+                >
+                  重置
+                </Button>
+              )}
+              <span
+                className={`whitespace-nowrap pb-[5px] text-[10.5px] text-[var(--ink-4)] ${
+                  hasFilters ? "" : "ml-auto"
+                }`}
+              >
+                共 {sorted.length} 笔 · 支出 ¥{fmt(rangeOut)} · 收入 ¥{fmt(rangeIn)}
+              </span>
+            </form>
+          </div>
           <table
             style={{
               width: "calc(100% - 64px)",
@@ -532,7 +924,7 @@ export function ImportsPage() {
                 <col key={col.id} style={{ width: col.getSize() }} />
               ))}
             </colgroup>
-            <thead style={{ position: "sticky", top: 0, zIndex: 1, background: "white" }}>
+            <thead style={{ position: "sticky", top: 65, zIndex: 1, background: "white" }}>
               {table.getHeaderGroups().map((hg) => (
                 <tr key={hg.id} style={{ borderBottom: "1px solid var(--hair-2)" }}>
                   {hg.headers.map((h) => (
@@ -653,11 +1045,11 @@ export function ImportsPage() {
               <div
                 style={{ fontSize: 12, fontWeight: 600, color: "var(--ink-2)", marginBottom: 16 }}
               >
-                消费类别 · 近 30 天
+                {analysisLabel}类别 · 当前筛选
               </div>
               <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
                 <div style={{ position: "relative", width: 240, height: 240 }}>
-                  <DonutChart segments={catSpend} size={240} thick={42} />
+                  <DonutChart segments={flowBreakdown} size={240} thick={42} />
                   <div
                     style={{
                       position: "absolute",
@@ -669,7 +1061,7 @@ export function ImportsPage() {
                     }}
                   >
                     <div>
-                      <Dim style={{ fontSize: 9.5 }}>本月消费</Dim>
+                      <Dim style={{ fontSize: 9.5 }}>筛选{analysisLabel}</Dim>
                       <div
                         style={{
                           fontFamily: "IBM Plex Mono, monospace",
@@ -679,16 +1071,16 @@ export function ImportsPage() {
                         }}
                       >
                         ¥
-                        {catTotal30 >= 10000
-                          ? `${(catTotal30 / 10000).toFixed(1)}万`
-                          : fmt(catTotal30)}
+                        {analysisTotal >= 10000
+                          ? `${(analysisTotal / 10000).toFixed(1)}万`
+                          : fmt(analysisTotal)}
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                {catSpend.map((c) => (
+                {flowBreakdown.map((c) => (
                   <div key={c.name} style={{ display: "flex", alignItems: "center", gap: 6 }}>
                     <ColorDot color={c.color} size={7} />
                     <span style={{ fontSize: 12, color: "var(--ink-2)", flex: 1 }}>{c.name}</span>
@@ -705,7 +1097,7 @@ export function ImportsPage() {
                     <span
                       style={{ fontSize: 11, color: "var(--ink-4)", width: 26, textAlign: "right" }}
                     >
-                      {catTotal30 > 0 ? Math.round((c.amt / catTotal30) * 100) : 0}%
+                      {analysisTotal > 0 ? Math.round((c.amt / analysisTotal) * 100) : 0}%
                     </span>
                   </div>
                 ))}

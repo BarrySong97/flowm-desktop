@@ -8,6 +8,7 @@
 import { useEffect, useRef } from "react"
 import { Toaster } from "@flowm/ui"
 import { createRootRoute, Outlet, useRouterState } from "@tanstack/react-router"
+import { NuqsAdapter } from "nuqs/adapters/tanstack-router"
 import { TitleBar } from "../components/layout/TitleBar"
 import { DemoLedgerBanner } from "../components/layout/DemoLedgerBanner"
 import { GlobalConfirmModal } from "../components/ui/ConfirmModal"
@@ -34,11 +35,13 @@ function RootLayout() {
   }, [href])
 
   return (
-    <div style={{ height: "100vh", width: "100vw", overflow: "hidden", background: "var(--bg)", display: "flex", flexDirection: "column" }}>
+    <div className="flex h-screen w-screen flex-col overflow-hidden bg-[var(--bg)]">
       <TitleBar />
       <DemoLedgerBanner />
-      <div style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
-        <Outlet />
+      <div className="min-h-0 flex-1 overflow-hidden">
+        <NuqsAdapter>
+          <Outlet />
+        </NuqsAdapter>
       </div>
       <Toaster />
       <GlobalConfirmModal />

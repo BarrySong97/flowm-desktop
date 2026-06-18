@@ -5,23 +5,45 @@
  * @gotcha  HeroUI v3.1 in this app does not export Form/TextField/FieldError; keep this wrapper thin.
  */
 
-import type { ReactNode } from "react"
+import type { CSSProperties, ReactNode } from "react"
 import { Label } from "@heroui/react"
 
 interface FormFieldProps {
   label: string
+  className?: string
+  labelClassName?: string
+  labelStyle?: CSSProperties
   error?: string
   required?: boolean
   children: ReactNode
 }
 
-export function FormField({ label, error, required, children }: FormFieldProps) {
+export function FormField({
+  label,
+  className,
+  labelClassName,
+  labelStyle,
+  error,
+  required,
+  children,
+}: FormFieldProps) {
+  const defaultLabelStyle =
+    labelClassName == null
+      ? {
+          fontSize: 12,
+          color: "var(--ink-3)",
+          marginBottom: 6,
+          display: "block",
+        }
+      : undefined
+
   return (
-    <div>
+    <div className={className}>
       <Label
         isInvalid={Boolean(error)}
         isRequired={required}
-        style={{ fontSize: 12, color: "var(--ink-3)", marginBottom: 6, display: "block" }}
+        className={labelClassName}
+        style={{ ...defaultLabelStyle, ...labelStyle }}
       >
         {label}
       </Label>

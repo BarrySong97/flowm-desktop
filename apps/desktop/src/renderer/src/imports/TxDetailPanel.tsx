@@ -26,6 +26,7 @@ export interface Tx {
   counterparty: string
   flowKind: string
   amount: number
+  categoryId?: string | number | null
   categoryName: string
   tag?: string
   source: string

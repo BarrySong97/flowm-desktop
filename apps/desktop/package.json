@@ -45,6 +45,7 @@
     "drizzle-orm": "^0.37.0",
     "i18next": "^26.2.0",
     "jotai": "^2.20.1",
+    "nuqs": "^2.8.9",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-hook-form": "^7.79.0",
