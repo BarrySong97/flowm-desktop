@@ -68,6 +68,7 @@ export interface FlowmApi {
   refreshExchangeRates(
     input?: RefreshExchangeRatesInput,
   ): Promise<Result<RefreshExchangeRatesResult>>
+  getCurrentRates(): Promise<Result<CurrentRates>>
 
   listCategories(input?: ListCategoriesInput): Promise<Result<CategorySummary[]>>
   createCategory(input: CreateCategoryInput): Promise<Result<CategorySummary>>
@@ -285,6 +286,15 @@ export interface RefreshExchangeRatesResult {
   skipped: number
   failed: number
   unsupported: number
+}
+
+export interface CurrentRates {
+  /** Base/display currency that every rate converts into. */
+  base: string
+  /** Latest fetchedAt across the included rates, or null when none are cached yet. */
+  asOf: string | null
+  /** Currency code -> rate to multiply an amount in that currency into the base. */
+  rates: Record<string, string>
 }
 
 export interface CategorySummary {

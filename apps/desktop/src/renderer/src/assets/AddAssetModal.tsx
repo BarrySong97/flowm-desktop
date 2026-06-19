@@ -22,6 +22,7 @@ import { parseDate } from "@internationalized/date"
 import type { AssetSnapshotType, FlowmId } from "@flowm/shared/contracts"
 import { ASSET_TYPE_LABELS, ASSET_TYPES } from "@/lib/domainDisplay"
 import { FormField } from "../components/ui/FormField"
+import { CurrencySelect } from "../components/ui/CurrencySelect"
 
 export const TYPE_LABEL = ASSET_TYPE_LABELS
 
@@ -163,15 +164,16 @@ export function AddAssetModal({ open, form, mode = "add", saving, onSave, onClos
                           "请输入有效余额",
                       })}
                     />
-                    <Input
-                      variant="secondary"
-                      style={{ width: 72 }}
-                      aria-invalid={Boolean(errors.valueCurrency)}
-                      {...register("valueCurrency", {
-                        setValueAs: (value) => String(value ?? "").toUpperCase(),
-                        validate: (value) =>
-                          !showBalance || /^[A-Z]{3}$/.test(value) || "币种需为 3 位字母代码",
-                      })}
+                    <Controller
+                      control={control}
+                      name="valueCurrency"
+                      render={({ field }) => (
+                        <CurrencySelect
+                          value={field.value}
+                          onChange={field.onChange}
+                          className="w-[140px]"
+                        />
+                      )}
                     />
                   </div>
                 </FormField>

@@ -7,9 +7,12 @@
 
 import { and, asc, desc, eq, isNull, type SQL } from "drizzle-orm"
 import {
+  assetSnapshots,
   categories,
   currencySettings,
   exchangeRates,
+  loans,
+  subscriptions,
   type CategoryInsert,
   type CategoryRow,
 } from "@flowm/db"
@@ -18,10 +21,12 @@ import type {
   CategorySummary,
   CreateCategoryInput,
   CurrencySettingsSummary,
+  CurrentRates,
   ExchangeRateSummary,
   FlowmId,
   ListCategoriesInput,
   ListExchangeRatesInput,
+  RefreshExchangeRatesInput,
   RefreshExchangeRatesResult,
   UpdateCategoryInput,
   UpdateCurrencySettingsInput,
@@ -29,11 +34,13 @@ import type {
 import { FlowmApiBase } from "../sqlite-api-base"
 import {
   CURRENCY_SETTINGS_ID,
+  DEFAULT_CURRENCY,
   fail,
   newId,
   normalizeCurrency,
   nowIso,
   ok,
+  todayKey,
   toSqlId,
 } from "../../../shared/api-helpers"
 
@@ -102,8 +109,129 @@ export abstract class ReferenceApiRepository extends FlowmApiBase {
     }
   }
 
-  async refreshExchangeRates(): Promise<Result<RefreshExchangeRatesResult>> {
-    return ok({ requested: 0, fetched: 0, skipped: 0, failed: 0, unsupported: 0 })
+  async refreshExchangeRates(
+    input: RefreshExchangeRatesInput = {},
+  ): Promise<Result<RefreshExchangeRatesResult>> {
+    try {
+      const base = await this.resolveBaseCurrency()
+      const provider = this.options.fxProvider
+      const today = todayKey()
+      let requested = 0
+      let fetched = 0
+      let skipped = 0
+      let failed = 0
+      let unsupported = 0
+
+      for (const currency of this.activeCurrencies()) {
+        if (currency === base) continue
+        requested += 1
+        if (provider == null) {
+          unsupported += 1
+          continue
+        }
+        // Skip pairs already refreshed today unless a forced refresh was requested.
+        if (!input.force) {
+          const fresh = this.db
+            .select({ id: exchangeRates.id })
+            .from(exchangeRates)
+            .where(
+              and(
+                eq(exchangeRates.fromCurrency, currency),
+                eq(exchangeRates.toCurrency, base),
+                eq(exchangeRates.rateDate, today),
+              ),
+            )
+            .get()
+          if (fresh != null) {
+            skipped += 1
+            continue
+          }
+        }
+        const result = await provider.fetchRate({
+          fromCurrency: currency,
+          toCurrency: base,
+          date: today,
+        })
+        if (result == null) {
+          failed += 1
+          continue
+        }
+        this.db
+          .insert(exchangeRates)
+          .values({
+            id: newId("fx"),
+            fromCurrency: normalizeCurrency(result.fromCurrency),
+            toCurrency: normalizeCurrency(result.toCurrency),
+            rateDate: result.rateDate,
+            rate: result.rate,
+            provider: result.provider,
+            fetchedAt: nowIso(),
+            sourceDate: result.sourceDate ?? result.rateDate,
+            meta: result.meta ?? null,
+          })
+          .onConflictDoUpdate({
+            target: [
+              exchangeRates.fromCurrency,
+              exchangeRates.toCurrency,
+              exchangeRates.rateDate,
+              exchangeRates.provider,
+            ],
+            set: {
+              rate: result.rate,
+              fetchedAt: nowIso(),
+              sourceDate: result.sourceDate ?? result.rateDate,
+              meta: result.meta ?? null,
+            },
+          })
+          .run()
+        fetched += 1
+      }
+      return ok({ requested, fetched, skipped, failed, unsupported })
+    } catch (error) {
+      return fail(error)
+    }
+  }
+
+  async getCurrentRates(): Promise<Result<CurrentRates>> {
+    try {
+      const base = await this.resolveBaseCurrency()
+      const rates: Record<string, string> = { [base]: "1" }
+      let asOf: string | null = null
+      for (const currency of this.activeCurrencies()) {
+        if (currency === base) continue
+        const row = this.db
+          .select({ rate: exchangeRates.rate, fetchedAt: exchangeRates.fetchedAt })
+          .from(exchangeRates)
+          .where(and(eq(exchangeRates.fromCurrency, currency), eq(exchangeRates.toCurrency, base)))
+          .orderBy(desc(exchangeRates.rateDate), desc(exchangeRates.fetchedAt))
+          .limit(1)
+          .get()
+        if (row?.rate != null) {
+          rates[currency] = row.rate
+          if (asOf == null || row.fetchedAt > asOf) asOf = row.fetchedAt
+        }
+      }
+      return ok({ base, asOf, rates })
+    } catch (error) {
+      return fail(error)
+    }
+  }
+
+  private async resolveBaseCurrency(): Promise<string> {
+    const settings = await this.getCurrencySettings()
+    return settings.success ? normalizeCurrency(settings.data.displayCurrency) : DEFAULT_CURRENCY
+  }
+
+  // Distinct currencies stored on holdings and obligations — the only pairs worth fetching.
+  private activeCurrencies(): string[] {
+    const seen = new Set<string>()
+    const add = (rows: { c: string | null }[]) => {
+      for (const row of rows) seen.add(normalizeCurrency(row.c))
+    }
+    add(this.db.selectDistinct({ c: assetSnapshots.valueCurrency }).from(assetSnapshots).all())
+    add(this.db.selectDistinct({ c: subscriptions.currency }).from(subscriptions).all())
+    add(this.db.selectDistinct({ c: loans.currency }).from(loans).all())
+    return [...seen]
   }
 
   async listCategories(input: ListCategoriesInput = {}): Promise<Result<CategorySummary[]>> {

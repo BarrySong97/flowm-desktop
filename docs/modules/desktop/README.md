@@ -31,8 +31,8 @@
 - `subscriptions/` - recurring future obligation views, calendar/list surfaces, and detail panels.
 - `components/charts/` - renderer chart components.
 - `components/layout/` - desktop shell, title bar, dock, and banners.
-- `components/ui/` - renderer-local UI atoms that are more product-shaped than `@flowm/ui`.
-- `lib/` - browser-safe renderer helpers, tRPC client wiring, command parsing, and UI state atoms.
+- `components/ui/` - renderer-local UI atoms that are more product-shaped than `@flowm/ui`, including `CurrencySelect` (autocomplete currency picker over the common-currency set).
+- `lib/` - browser-safe renderer helpers, tRPC client wiring, command parsing, and UI state atoms; `lib/useCurrentRates.ts` exposes the base currency and a `toDisplay` conversion helper used by cross-currency totals.
 - `routes/` - TanStack Router route modules; `routeTree.gen.ts` is generated and intentionally excluded from file-header enforcement.
 
 ## Data Flow
@@ -91,6 +91,7 @@ Update `apps/desktop/src/preload/index.d.ts` whenever the preload contract chang
 - Budget creation must work on an empty personal ledger by lazily creating the default budget set and current monthly period before inserting the first item.
 - Desktop tests and development depend on the Electron ABI for `better-sqlite3`.
 - UI copy and flows must preserve the separation between cashflow, assets, and obligations.
+- Multi-currency: single items render in their original currency symbol; aggregated totals (net worth, asset totals, subscription/loan summaries, future pressure) render in the base currency after conversion via `useCurrentRates().toDisplay`. The base currency is editable in settings, and opening a ledger triggers a background daily FX refresh. Past cashflow, imports, and budgets stay in native amounts and are not converted.
 - Asset account removal is an archive workflow. Archived accounts stay out of
   current asset totals, net worth, and asset composition, but remain viewable
   from the assets surface so users can inspect history or restore the account.

@@ -9,6 +9,7 @@ import { useState, useMemo } from "react"
 import { Button, Drawer } from "@heroui/react"
 import { useQuery } from "@tanstack/react-query"
 import type { AssetSnapshotSummary } from "@flowm/shared/contracts"
+import { currencySymbol } from "@flowm/shared"
 import { AreaChart, Area, XAxis, ResponsiveContainer, Tooltip } from "recharts"
 import { trpc } from "@/lib/trpc"
 import { usePagePerf } from "@/lib/debug/perf"
@@ -118,7 +119,6 @@ function ChartTooltip({
   )
 }
 
-const CURRENCY_SYMBOL: Record<string, string> = { CNY: "¥", USD: "$", HKD: "HK$", EUR: "€" }
 const PREVIEW_COUNT = 3
 
 interface Props {
@@ -153,7 +153,7 @@ export function AssetDetailPanel({ asset, onBack, onEdit, onDelete }: Props) {
   const isLiability = asset.assetType === "liability"
   const prevEntry = history.length >= 2 ? history[history.length - 2] : null
   const lastChange = prevEntry ? history[history.length - 1].value - prevEntry.value : 0
-  const symbol = CURRENCY_SYMBOL[asset.valueCurrency] ?? asset.valueCurrency
+  const symbol = currencySymbol(asset.valueCurrency)
 
   const chartData = history.map((h) => ({ date: h.date, value: h.value }))
   const tableRows = [...history].reverse()

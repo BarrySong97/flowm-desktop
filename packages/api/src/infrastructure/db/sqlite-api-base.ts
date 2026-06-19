@@ -349,17 +349,16 @@ export abstract class FlowmApiBase {
     toCurrency: string,
     date: string,
   ): Promise<number | null> {
+    // Current-rate model: value everything at the most recent cached rate for the pair,
+    // not the rate on `date`. Foreign holdings then reflect today's rate once the daily
+    // refresh runs, and old snapshots stop forcing per-date historical lookups.
     const row = this.db
       .select({ rate: exchangeRates.rate })
       .from(exchangeRates)
       .where(
-        and(
-          eq(exchangeRates.fromCurrency, fromCurrency),
-          eq(exchangeRates.toCurrency, toCurrency),
-          eq(exchangeRates.rateDate, date),
-        ),
+        and(eq(exchangeRates.fromCurrency, fromCurrency), eq(exchangeRates.toCurrency, toCurrency)),
       )
-      .orderBy(desc(exchangeRates.fetchedAt))
+      .orderBy(desc(exchangeRates.rateDate), desc(exchangeRates.fetchedAt))
       .limit(1)
       .get()
     if (row?.rate != null) return amount * Number(row.rate)

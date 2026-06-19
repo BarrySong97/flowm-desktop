@@ -74,6 +74,21 @@ export const appRouter = router({
       .query(({ ctx, input }) =>
         callApi(ctx, (api) => api.listExchangeRates(inputOrEmpty<"listExchangeRates">(input))),
       ),
+    currentRates: publicProcedure.query(({ ctx }) => callApi(ctx, (api) => api.getCurrentRates())),
+    updateCurrencySettings: publicProcedure
+      .input(apiInput<"updateCurrencySettings">())
+      .mutation(({ ctx, input }) =>
+        callApi(ctx, (api) =>
+          api.updateCurrencySettings(requiredInput<"updateCurrencySettings">(input)),
+        ),
+      ),
+    refreshExchangeRates: publicProcedure
+      .input(apiInput<"refreshExchangeRates">())
+      .mutation(({ ctx, input }) =>
+        callApi(ctx, (api) =>
+          api.refreshExchangeRates(inputOrEmpty<"refreshExchangeRates">(input)),
+        ),
+      ),
   }),
   imports: router({
     statementImports: publicProcedure

@@ -21,6 +21,7 @@
   net worth, and asset change contracts shared by renderer and API.
 - `ipc/index.ts` - local ledger-change event and socket path helper used for CLI commit refresh notifications.
 - `utils/account.ts` - account hierarchy and display helpers.
+- `utils/currency.ts` - curated common-currency registry (code, localized name, display symbol) with `currencySymbol` and `formatMoney` helpers used by renderer pickers and money formatting.
 - `utils/platform.ts` - cross-package platform helpers that do not import Electron.
 
 ## Data Flow

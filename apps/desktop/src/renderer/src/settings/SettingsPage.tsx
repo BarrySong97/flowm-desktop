@@ -6,10 +6,11 @@
  */
 
 import { useState } from "react"
-import { useQuery } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 import { Dock } from "../components/layout/Dock"
 import { ScrollArea } from "../components/ui/ScrollArea"
+import { CurrencySelect } from "../components/ui/CurrencySelect"
 import { LedgerSection } from "./LedgerSection"
 import { GroupLabel, LinkRow, Row, Toggle } from "./components"
 import { trpc } from "@/lib/trpc"
@@ -19,14 +20,40 @@ export function SettingsPage() {
   const navigate = useNavigate()
   const [grp, setGrp] = useState(true)
   const [hide, setHide] = useState(false)
+  const queryClient = useQueryClient()
   const categoriesQuery = useQuery(trpc.reference.categories.queryOptions())
   const currencyQuery = useQuery(trpc.reference.currencySettings.queryOptions())
+  const ratesQuery = useQuery(trpc.reference.currentRates.queryOptions())
   usePagePerf("settings", [
     { name: "reference.categories", query: categoriesQuery },
     { name: "reference.currencySettings", query: currencyQuery },
+    { name: "reference.currentRates", query: ratesQuery },
   ])
   const categories = categoriesQuery.data ?? []
-  const displayCurrency = currencyQuery.data?.displayCurrency ?? "—"
+  const displayCurrency = currencyQuery.data?.displayCurrency ?? "CNY"
+
+  async function invalidateCurrencyViews() {
+    await queryClient.invalidateQueries(trpc.reference.currencySettings.queryFilter())
+    await queryClient.invalidateQueries(trpc.reference.currentRates.queryFilter())
+    await queryClient.invalidateQueries(trpc.assets.netWorth.queryFilter())
+    await queryClient.invalidateQueries(trpc.loans.futurePressure.queryFilter())
+  }
+  const refreshRates = useMutation(
+    trpc.reference.refreshExchangeRates.mutationOptions({
+      onSuccess: () => void invalidateCurrencyViews(),
+    }),
+  )
+  const updateCurrency = useMutation(
+    trpc.reference.updateCurrencySettings.mutationOptions({
+      onSuccess: async () => {
+        // A new base currency needs rates for that base, then a re-convert of every total.
+        await refreshRates.mutateAsync({ force: true }).catch(() => {})
+        await invalidateCurrencyViews()
+      },
+    }),
+  )
+  const asOf = ratesQuery.data?.asOf
+  const ratesUpdatedLabel = asOf ? new Date(asOf).toLocaleString("zh-CN") : "尚未更新"
 
   return (
     <div
@@ -72,23 +99,20 @@ export function SettingsPage() {
           <div style={{ marginTop: 30 }}>
             <GroupLabel>显示偏好</GroupLabel>
             <Row first label="主显示货币" sub="所有资产、净资产汇总以此折算">
-              <span
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  padding: "3px 10px",
-                  borderRadius: 100,
-                  fontSize: 12,
-                  fontWeight: 500,
-                  background: "var(--accent-soft)",
-                  border: "1px solid var(--accent-line)",
-                  color: "var(--accent)",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {displayCurrency}
-              </span>
+              <div style={{ width: 168 }}>
+                <CurrencySelect
+                  value={displayCurrency}
+                  onChange={(code) => updateCurrency.mutate({ displayCurrency: code })}
+                  isDisabled={updateCurrency.isPending}
+                />
+              </div>
             </Row>
+            <LinkRow
+              note={`上次更新 ${ratesUpdatedLabel}`}
+              onClick={() => refreshRates.mutate({ force: true })}
+            >
+              {refreshRates.isPending ? "刷新汇率中…" : "刷新汇率"}
+            </LinkRow>
             <Row label="千分位分隔" sub="¥1,234,567 / ¥1234567">
               <Toggle on={grp} onChange={setGrp} />
             </Row>

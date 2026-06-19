@@ -159,8 +159,13 @@ export class LedgerStore {
     this.client = client
     this.drizzleDb = drizzle(client, { schema })
     migrate(this.drizzleDb, { migrationsFolder: this.migrationsFolder() })
-    this.api = createFlowmApi(this.drizzleDb, { fxProvider: createFrankfurterFxProvider() })
+    const api = createFlowmApi(this.drizzleDb, { fxProvider: createFrankfurterFxProvider() })
+    this.api = api
     this.activeFilePath = absPath
+    // Refresh foreign-exchange rates in the background once the ledger is live. The call
+    // self-skips currency pairs already refreshed today, so launches and ledger switches
+    // stay cheap and never block opening.
+    void api.refreshExchangeRates().catch(() => {})
   }
 
   close(): void {

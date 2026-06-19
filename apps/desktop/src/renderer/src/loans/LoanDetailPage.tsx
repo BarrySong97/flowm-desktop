@@ -9,7 +9,8 @@ import React, { useMemo, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 import { Button, Input, Modal } from "@heroui/react"
-import { useForm } from "react-hook-form"
+import { Controller, useForm } from "react-hook-form"
+import { CurrencySelect } from "../components/ui/CurrencySelect"
 import { Dock } from "../components/layout/Dock"
 import { ScrollArea } from "../components/ui/ScrollArea"
 import { useConfirm } from "../components/ui/ConfirmModal"
@@ -82,6 +83,7 @@ export function LoanDetailPage() {
       termMonths: loan?.termMonths == null ? "" : String(loan.termMonths),
       startDate: loan?.startDate ?? todayKey(),
       note: loan?.note ?? "",
+      cur: loan?.currency ?? "CNY",
     },
   })
   const prepayForm = useForm({ values: { amount: "" } })
@@ -448,6 +450,7 @@ export function LoanDetailPage() {
                       termMonths: values.termMonths ? Math.max(Number(values.termMonths), 1) : null,
                       startDate: values.startDate,
                       note: values.note.trim() || null,
+                      currency: values.cur,
                     })
                     await refreshLoanViews()
                     setEditing(false)
@@ -486,6 +489,15 @@ export function LoanDetailPage() {
                     min="0"
                     step="0.01"
                     {...editForm.register("currentPrincipalEstimate")}
+                  />
+                </FormField>
+                <FormField label="币种">
+                  <Controller
+                    control={editForm.control}
+                    name="cur"
+                    render={({ field }) => (
+                      <CurrencySelect value={field.value} onChange={field.onChange} />
+                    )}
                   />
                 </FormField>
                 <FormField
@@ -562,6 +574,7 @@ export function LoanDetailPage() {
                       termMonths: values.termMonths ? Math.max(Number(values.termMonths), 1) : null,
                       startDate: values.startDate,
                       note: values.note.trim() || null,
+                      currency: values.cur,
                     })
                     await refreshLoanViews()
                     setEditing(false)

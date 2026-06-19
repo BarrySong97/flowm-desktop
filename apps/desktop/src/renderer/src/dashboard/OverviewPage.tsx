@@ -32,6 +32,8 @@ import { BUDGET_CATEGORY_COLORS } from "@/lib/domainDisplay"
 import { NetWorthTrend } from "../components/charts/NetWorthTrend"
 import { DailyBars } from "../components/charts/DailyBars"
 import { ScrollArea } from "../components/ui/ScrollArea"
+import { useCurrentRates } from "@/lib/useCurrentRates"
+import { currencySymbol } from "@flowm/shared"
 
 const fmt = formatNumber
 const signed = formatSignedCurrency
@@ -184,6 +186,7 @@ function useDailyBars(
 }
 
 function useNetWorthTrend(snapshots: AssetSnapshotSummary[]): number[] {
+  const { toDisplay } = useCurrentRates()
   return useMemo(() => {
     if (snapshots.length === 0) return new Array(12).fill(0)
     const buckets = new Map<string, Map<string, AssetSnapshotSummary>>()
@@ -200,30 +203,36 @@ function useNetWorthTrend(snapshots: AssetSnapshotSummary[]): number[] {
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([, bucket]) =>
         [...bucket.values()].reduce((sum, asset) => {
-          const amount = Math.abs(Number(asset.valueNumber || 0))
+          // Value every snapshot at the current rate so the trend is FX-neutral.
+          const amount = Math.abs(
+            toDisplay(Number(asset.valueNumber || 0), asset.valueCurrency) ?? 0,
+          )
           return sum + (asset.assetType === "liability" ? -amount : amount)
         }, 0),
       )
     if (values.length >= 12) return values.slice(-12)
     return [...new Array(12 - values.length).fill(values[0] ?? 0), ...values]
-  }, [snapshots])
+  }, [snapshots, toDisplay])
 }
 
 function useUpcoming(
   subscriptions: Array<{ id: string | number; name: string }>,
   subscriptionOccurrences: SubscriptionOccurrenceSummary[],
-  loans: Array<{ id: string | number; name: string }>,
+  loans: Array<{ id: string | number; name: string; currency?: string }>,
   loanOccurrences: LoanPaymentOccurrenceSummary[],
 ) {
   return useMemo(() => {
     const now = new Date()
     const subNames = new Map(subscriptions.map((sub) => [String(sub.id), sub.name]))
     const loanNames = new Map(loans.map((loan) => [String(loan.id), loan.name]))
+    // Loan occurrences inherit the loan's currency.
+    const loanCur = new Map(loans.map((loan) => [String(loan.id), loan.currency ?? "CNY"]))
     const rows = [
       ...subscriptionOccurrences.map((occ) => ({
         name: subNames.get(String(occ.subscriptionId)) ?? "订阅",
         d: occ.dueDate.slice(5),
         amt: Math.abs(Number(occ.amount) || 0),
+        cur: occ.currency,
         kind: "订阅",
         dueDate: new Date(occ.dueDate),
       })),
@@ -231,6 +240,7 @@ function useUpcoming(
         name: loanNames.get(String(occ.loanId)) ?? "贷款",
         d: occ.dueDate.slice(5),
         amt: Math.abs(Number(occ.paymentAmount) || 0),
+        cur: loanCur.get(String(occ.loanId)) ?? "CNY",
         kind: "贷款",
         dueDate: new Date(occ.dueDate),
       })),
@@ -294,6 +304,7 @@ export function OverviewPage() {
     { name: "budgets.progress", query: budgetProgressQuery },
   ])
 
+  const { toDisplay, baseSymbol } = useCurrentRates()
   const events = cashflowQuery.data ?? []
   const assetSnapshots = assetSnapshotsQuery.data ?? []
   const totalAssets = Number(netWorthQuery.data?.assetValue.number ?? 0)
@@ -302,8 +313,8 @@ export function OverviewPage() {
     () =>
       assetSnapshots
         .filter((a) => ["cash", "bank", "wallet"].includes(a.assetType))
-        .reduce((s, a) => s + Number(a.valueNumber || 0), 0),
-    [assetSnapshots],
+        .reduce((s, a) => s + (toDisplay(Number(a.valueNumber || 0), a.valueCurrency) ?? 0), 0),
+    [assetSnapshots, toDisplay],
   )
   const netWorth = Number(netWorthQuery.data?.netWorth.number ?? totalAssets - totalLiab)
   const _netTrend = useNetWorthTrend(assetHistoryQuery.data ?? [])
@@ -331,7 +342,7 @@ export function OverviewPage() {
     loanOccurrencesQuery.data ?? [],
   )
 
-  const upSum = upcoming.reduce((s, u) => s + u.amt, 0)
+  const upSum = upcoming.reduce((s, u) => s + (toDisplay(u.amt, u.cur) ?? 0), 0)
   const monthlyFixed = Number(futurePressureQuery.data?.total ?? upSum)
 
   const budgetTotal = budgets.reduce((s, b) => s + b.limit, 0)
@@ -362,20 +373,23 @@ export function OverviewPage() {
             <div>
               <Kicker className="mb-1.5">净资产</Kicker>
               <BigNumber className="text-[48px]">
-                <span className="text-[21px] font-medium text-[var(--ink-3)] mr-1.5">¥</span>
+                <span className="text-[21px] font-medium text-[var(--ink-3)] mr-1.5">
+                  {baseSymbol}
+                </span>
                 {fmt(netWorth)}
               </BigNumber>
               <div className="flex gap-[30px] mt-3">
-                <StatBlock label="流动资产" value={`¥${fmt(liquidAssets)}`} />
-                <StatBlock label="总资产" value={`¥${fmt(totalAssets)}`} />
-                <StatBlock label="欠款" value={`¥${fmt(totalLiab)}`} />
+                <StatBlock label="流动资产" value={`${baseSymbol}${fmt(liquidAssets)}`} />
+                <StatBlock label="总资产" value={`${baseSymbol}${fmt(totalAssets)}`} />
+                <StatBlock label="欠款" value={`${baseSymbol}${fmt(totalLiab)}`} />
               </div>
             </div>
             <div className="ml-auto flex flex-col w-1/2 text-right">
               <Dim className="text-[11.5px] mb-2 block">
                 近 12 个月{" "}
                 <span className="font-['IBM_Plex_Mono'] text-[var(--green)] ml-1">
-                  +¥{fmt(netGain)}
+                  +{baseSymbol}
+                  {fmt(netGain)}
                 </span>
               </Dim>
               <div className="mt-auto">
@@ -494,12 +508,14 @@ export function OverviewPage() {
               </div>
               <div className="flex items-baseline gap-2 mb-3">
                 <span className="font-['IBM_Plex_Mono'] text-[22px] font-semibold text-[var(--ink)]">
-                  ¥{fmt(upSum)}
+                  {baseSymbol}
+                  {fmt(upSum)}
                 </span>
                 <Dim className="text-[11px] ml-auto whitespace-nowrap">
                   月固定支出{" "}
                   <b className="font-['IBM_Plex_Mono'] text-[var(--ink)] font-semibold">
-                    ¥{fmt(monthlyFixed)}
+                    {baseSymbol}
+                    {fmt(monthlyFixed)}
                   </b>
                 </Dim>
               </div>
@@ -514,7 +530,7 @@ export function OverviewPage() {
                       color={u.kind === "贷款" ? "#ad7c2c" : "#7c6ac4"}
                       name={u.name}
                       kind={u.kind}
-                      amount={`¥${fmt(u.amt)}`}
+                      amount={`${currencySymbol(u.cur)}${fmt(u.amt)}`}
                     />
                   ))}
                 </div>

@@ -27,9 +27,10 @@ import { AssetTreemap } from "../components/charts/AssetTreemap"
 import { AddAssetModal, TYPE_LABEL } from "./AddAssetModal"
 import type { AssetForm } from "./AddAssetModal"
 import { AssetDetailPanel } from "./AssetDetailPanel"
+import { useCurrentRates } from "@/lib/useCurrentRates"
+import { currencySymbol } from "@flowm/shared"
 
 const fmt = formatNumber
-const CURRENCY_SYMBOL: Record<string, string> = { CNY: "¥", USD: "$", HKD: "HK$", EUR: "€" }
 
 const EMPTY: AssetForm = {
   accountName: "",
@@ -90,7 +91,9 @@ const AssetRow = memo(function AssetRow({ asset, change, onSelect }: AssetRowPro
               color: isLiability ? "var(--red)" : "var(--ink)",
             }}
           >
-            {isLiability ? "−" : ""}¥{fmt(Math.abs(val))}
+            {isLiability ? "−" : ""}
+            {currencySymbol(asset.valueCurrency)}
+            {fmt(Math.abs(val))}
           </div>
           <div
             style={{
@@ -149,9 +152,7 @@ function ArchivedAssetsDrawer({
               <div>
                 {items.map((item) => {
                   const latest = latestSnapshots.get(String(item.id))
-                  const symbol = latest
-                    ? (CURRENCY_SYMBOL[latest.valueCurrency] ?? latest.valueCurrency)
-                    : ""
+                  const symbol = latest ? currencySymbol(latest.valueCurrency) : ""
                   return (
                     <div
                       key={item.id}
@@ -270,13 +271,21 @@ export function AssetsPage() {
     return changes
   }, [assetSparklinesQuery.data])
 
+  const { toDisplay, baseSymbol } = useCurrentRates()
   const nonLiab = assetSnapshots.filter((a) => a.assetType !== "liability")
   const liabilities = assetSnapshots.filter((a) => a.assetType === "liability")
-  const totalAssets = nonLiab.reduce((s, a) => s + Number(a.valueNumber || 0), 0)
-  const totalLiab = liabilities.reduce((s, a) => s + Math.abs(Number(a.valueNumber || 0)), 0)
+  // Convert each snapshot to the base currency before summing (see useCurrentRates).
+  const totalAssets = nonLiab.reduce(
+    (s, a) => s + (toDisplay(Number(a.valueNumber || 0), a.valueCurrency) ?? 0),
+    0,
+  )
+  const totalLiab = liabilities.reduce(
+    (s, a) => s + Math.abs(toDisplay(Number(a.valueNumber || 0), a.valueCurrency) ?? 0),
+    0,
+  )
   const liquidAssets = assetSnapshots
     .filter((a) => ["cash", "bank", "wallet"].includes(a.assetType))
-    .reduce((s, a) => s + Number(a.valueNumber || 0), 0)
+    .reduce((s, a) => s + (toDisplay(Number(a.valueNumber || 0), a.valueCurrency) ?? 0), 0)
 
   const groups = useMemo(() => {
     const map = new Map<string, AssetSnapshotSummary[]>()
@@ -294,20 +303,23 @@ export function AssetsPage() {
       .filter((g) => groups.has(g))
       .map((g) => ({
         name: g,
-        sum: (groups.get(g) ?? []).reduce((s, a) => s + Math.abs(Number(a.valueNumber || 0)), 0),
+        sum: (groups.get(g) ?? []).reduce(
+          (s, a) => s + Math.abs(toDisplay(Number(a.valueNumber || 0), a.valueCurrency) ?? 0),
+          0,
+        ),
         color: ASSET_GROUP_COLORS[g] ?? "#8c8fa0",
       }))
       .filter((g) => g.sum > 0)
-  }, [groups])
+  }, [groups, toDisplay])
 
   const drilldownItems = useMemo(() => {
     if (!selectedGroup) return null
     return (groups.get(selectedGroup) ?? []).map((a) => ({
       name: a.accountName,
-      sum: Math.abs(Number(a.valueNumber || 0)),
+      sum: Math.abs(toDisplay(Number(a.valueNumber || 0), a.valueCurrency) ?? 0),
       color: ASSET_GROUP_COLORS[selectedGroup] ?? "#8c8fa0",
     }))
-  }, [selectedGroup, groups])
+  }, [selectedGroup, groups, toDisplay])
 
   const currentTreemapData = drilldownItems ?? treemapGroups
   const panelTotal = drilldownItems ? drilldownItems.reduce((s, x) => s + x.sum, 0) : totalAssets
@@ -453,7 +465,7 @@ export function AssetsPage() {
           <div>
             <Kicker className="mb-1.5">资产 · 现在有多少钱</Kicker>
             <BigNumber style={{ fontSize: 40 }}>
-              <span style={{ fontSize: 18, marginRight: 6, fontWeight: 400 }}>¥</span>
+              <span style={{ fontSize: 18, marginRight: 6, fontWeight: 400 }}>{baseSymbol}</span>
               {fmt(totalAssets)}
             </BigNumber>
           </div>
@@ -466,10 +478,15 @@ export function AssetsPage() {
               alignItems: "center",
             }}
           >
-            <StatBlock label="流动资产" value={`¥${fmt(liquidAssets)}`} />
+            <StatBlock label="流动资产" value={`${baseSymbol}${fmt(liquidAssets)}`} />
             <StatBlock
               label="负债"
-              value={<span style={{ color: "var(--red)" }}>¥{fmt(totalLiab)}</span>}
+              value={
+                <span style={{ color: "var(--red)" }}>
+                  {baseSymbol}
+                  {fmt(totalLiab)}
+                </span>
+              }
             />
             <StatBlock label="账户数" value={assetSnapshots.length} />
             <StatBlock label="上次更新" value={lastUpdated} />
@@ -607,7 +624,8 @@ export function AssetsPage() {
                           color: "var(--ink-2)",
                         }}
                       >
-                        ¥{fmt(panelTotal)}
+                        {baseSymbol}
+                        {fmt(panelTotal)}
                       </span>
                     ) : (
                       "面积 = 占总资产比例"
@@ -652,7 +670,8 @@ export function AssetsPage() {
                           paddingRight: 8,
                         }}
                       >
-                        ¥{fmt(g.sum)}
+                        {baseSymbol}
+                        {fmt(g.sum)}
                       </span>
                       <span
                         style={{

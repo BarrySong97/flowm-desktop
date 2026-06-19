@@ -8,7 +8,7 @@
 import { useMemo, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Button, Input, Modal } from "@heroui/react"
-import { useForm } from "react-hook-form"
+import { Controller, useForm } from "react-hook-form"
 import { trpc } from "@/lib/trpc"
 import { CYCLE_LABELS } from "@/lib/domainDisplay"
 import { dateKey } from "@/lib/dates"
@@ -16,6 +16,7 @@ import { formatNumber } from "@/lib/format"
 import { useConfirm } from "../components/ui/ConfirmModal"
 import type { SubscriptionOccurrenceSummary } from "@flowm/api"
 import { FormField } from "../components/ui/FormField"
+import { CurrencySelect } from "../components/ui/CurrencySelect"
 
 const fmt = formatNumber
 
@@ -78,6 +79,7 @@ export function SubscriptionDetailPanel({ id, onBack }: Props) {
       amount: sub?.amount ?? "",
       nextChargeDate: sub?.nextChargeDate ?? dateKey(new Date()),
       note: sub?.note ?? "",
+      cur: sub?.currency ?? "CNY",
     },
   })
 
@@ -457,6 +459,7 @@ export function SubscriptionDetailPanel({ id, onBack }: Props) {
                       amount: Math.abs(Number(values.amount) || 0).toFixed(2),
                       nextChargeDate: values.nextChargeDate,
                       note: values.note.trim() || null,
+                      currency: values.cur,
                     })
                     await refreshSubscriptionViews()
                     setEditing(false)
@@ -489,6 +492,15 @@ export function SubscriptionDetailPanel({ id, onBack }: Props) {
                     })}
                   />
                 </FormField>
+                <FormField label="币种">
+                  <Controller
+                    control={editForm.control}
+                    name="cur"
+                    render={({ field }) => (
+                      <CurrencySelect value={field.value} onChange={field.onChange} />
+                    )}
+                  />
+                </FormField>
                 <FormField
                   label="下次扣费日期"
                   required
@@ -517,6 +529,7 @@ export function SubscriptionDetailPanel({ id, onBack }: Props) {
                       amount: Math.abs(Number(values.amount) || 0).toFixed(2),
                       nextChargeDate: values.nextChargeDate,
                       note: values.note.trim() || null,
+                      currency: values.cur,
                     })
                     await refreshSubscriptionViews()
                     setEditing(false)

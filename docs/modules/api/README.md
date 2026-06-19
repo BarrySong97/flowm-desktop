@@ -37,7 +37,7 @@
   classification.
 - `links/links-api.ts` - relationships between imported records and explanatory domain objects.
 - `loans/loans-api.ts` - loan plans and projected payment occurrences.
-- `reference/reference-api.ts` - reference/category/tag data used by UI workflows, including category and tag create/update/archive operations.
+- `reference/reference-api.ts` - reference/category/tag data, currency settings (display/base currency), and foreign-exchange rates. `getCurrentRates` returns the latest per-currency rate to the base currency; `refreshExchangeRates` fetches and caches rates (via the FX provider) for the currencies actually held across assets, subscriptions, and loans.
 - `subscriptions/subscriptions-api.ts` - subscription plans and projected occurrences.
 
 ## Data Flow
@@ -65,6 +65,7 @@ The personal starter seed should be idempotent and conservative. It should only 
 - `packages/api/src/sqlite/` is compatibility glue only; new implementation code should use the layered folders directly.
 - `pnpm check-architecture` enforces that `use-cases/` do not import Drizzle or `@flowm/db`, infrastructure does not import use cases, shared contracts stay browser-safe, and `sqlite/` remains compatibility glue.
 - Do not infer asset balances from imports.
+- Cross-currency aggregation (net worth, future pressure) converts each amount to the display currency at the latest cached rate via `convertAmount`; buckets without an available rate are dropped (net worth surfaces them as `missingFx`). Conversion never mutates stored amounts, and past cashflow is intentionally not converted.
 - Asset item archive/restore must preserve snapshot history. Default asset
   snapshot and net worth queries use active accounts only; explicit archived
   queries are for history/recovery surfaces.

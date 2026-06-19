@@ -9,7 +9,7 @@ import { useMemo, useState } from "react"
 import { Button, Input, Modal } from "@heroui/react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Outlet, useNavigate, useRouterState } from "@tanstack/react-router"
-import { useForm } from "react-hook-form"
+import { Controller, useForm } from "react-hook-form"
 import { Dock } from "../components/layout/Dock"
 import { ScrollArea } from "../components/ui/ScrollArea"
 import { trpc } from "@/lib/trpc"
@@ -19,6 +19,9 @@ import { formatNumber } from "@/lib/format"
 import { LoanScheduleBar } from "./LoanScheduleBar"
 import { buildLoanSchedule } from "./loanSchedule"
 import { FormField } from "../components/ui/FormField"
+import { CurrencySelect } from "../components/ui/CurrencySelect"
+import { useCurrentRates } from "@/lib/useCurrentRates"
+import { currencySymbol } from "@flowm/shared"
 
 const fmt = formatNumber
 
@@ -30,6 +33,7 @@ type LoanForm = {
   rate: string
   termTotal: string
   startDate: string
+  cur: string
 }
 const EMPTY_FORM: LoanForm = {
   name: "",
@@ -39,6 +43,7 @@ const EMPTY_FORM: LoanForm = {
   rate: "4.5",
   termTotal: "120",
   startDate: todayKey(),
+  cur: "CNY",
 }
 
 function AddLoanModal({
@@ -51,6 +56,7 @@ function AddLoanModal({
   onSave: (form: LoanForm) => void
 }) {
   const {
+    control,
     formState: { errors, isSubmitting },
     handleSubmit,
     register,
@@ -111,6 +117,15 @@ function AddLoanModal({
                   {...register("principal", {
                     validate: (value) => value === "" || Number(value) >= 0 || "本金不能为负数",
                   })}
+                />
+              </FormField>
+              <FormField label="币种">
+                <Controller
+                  control={control}
+                  name="cur"
+                  render={({ field }) => (
+                    <CurrencySelect value={field.value} onChange={field.onChange} />
+                  )}
                 />
               </FormField>
               <FormField label="月供金额" required error={errors.monthly?.message}>
@@ -216,6 +231,7 @@ export function LoansPage() {
     }),
   )
 
+  const { toDisplay, baseSymbol } = useCurrentRates()
   const occurrencesByLoan = useMemo(() => {
     const map = new Map<string, NonNullable<typeof loanOccurrencesQuery.data>>()
     for (const occurrence of loanOccurrencesQuery.data ?? []) {
@@ -233,6 +249,7 @@ export function LoansPage() {
           id: String(loan.id),
           name: loan.name,
           bank: loan.lender ?? "贷款机构",
+          cur: loan.currency,
           remain: schedule.remain,
           total: schedule.total,
           monthly: schedule.monthly,
@@ -254,11 +271,19 @@ export function LoansPage() {
       name: snapshot.accountName,
       bank: snapshot.note ?? "资产快照",
       label: "最新快照",
+      cur: snapshot.valueCurrency,
       remain: Math.abs(Number(snapshot.valueNumber || 0)),
     }
   }, [assetSnapshotsQuery.data])
-  const totalLiab = loans.reduce((sum, loan) => sum + loan.remain, 0) + (card?.remain ?? 0)
-  const totalMonthly = loans.reduce((sum, loan) => sum + loan.monthly, 0)
+  // Loans and the card liability may sit in different currencies; convert each to the
+  // base currency before summing. Buckets without a rate contribute 0 (see useCurrentRates).
+  const totalLiab =
+    loans.reduce((sum, loan) => sum + (toDisplay(loan.remain, loan.cur) ?? 0), 0) +
+    (card ? (toDisplay(card.remain, card.cur) ?? 0) : 0)
+  const totalMonthly = loans.reduce(
+    (sum, loan) => sum + (toDisplay(loan.monthly, loan.cur) ?? 0),
+    0,
+  )
   const monthlyFixed = Number(futurePressureQuery.data?.total ?? 0) || totalMonthly
   const fixedPct = monthlyFixed > 0 ? Math.round((totalMonthly / monthlyFixed) * 100) : 0
 
@@ -275,6 +300,7 @@ export function LoansPage() {
       paymentDay: Number(form.startDate.slice(8, 10)),
       startDate: form.startDate,
       termMonths: Math.max(Number(form.termTotal) || 1, 1),
+      currency: form.cur,
     })
     setShowAdd(false)
   }
@@ -313,7 +339,8 @@ export function LoansPage() {
                 marginTop: 3,
               }}
             >
-              ¥{fmt(totalLiab)}
+              {baseSymbol}
+              {fmt(totalLiab)}
             </div>
           </div>
           <div style={{ paddingTop: 6 }}>
@@ -328,7 +355,8 @@ export function LoansPage() {
                 letterSpacing: "-0.01em",
               }}
             >
-              ¥{fmt(totalMonthly)}
+              {baseSymbol}
+              {fmt(totalMonthly)}
             </div>
           </div>
           <div style={{ paddingTop: 6 }}>
@@ -391,7 +419,8 @@ export function LoansPage() {
                     {l.name}
                   </button>
                   <span style={{ fontSize: 11, color: "var(--ink-4)", marginLeft: 8 }}>
-                    {l.bank} · {l.rate}% · 月供 ¥{fmt(l.monthly)} · 每条 1 期
+                    {l.bank} · {l.rate}% · 月供 {currencySymbol(l.cur)}
+                    {fmt(l.monthly)} · 每条 1 期
                   </span>
                   <span
                     style={{
@@ -402,7 +431,8 @@ export function LoansPage() {
                       letterSpacing: "-0.02em",
                     }}
                   >
-                    ¥{fmt(l.remain)}
+                    {currencySymbol(l.cur)}
+                    {fmt(l.remain)}
                   </span>
                 </div>
 
@@ -452,7 +482,10 @@ export function LoansPage() {
                       }}
                     />
                     <span style={{ color: "var(--ink-4)" }}>已还 {l.paid} 期 · 偿本金</span>
-                    <b style={{ fontFamily: "var(--mono)", fontWeight: 600 }}>¥{fmt(paidAmt)}</b>
+                    <b style={{ fontFamily: "var(--mono)", fontWeight: 600 }}>
+                      {currencySymbol(l.cur)}
+                      {fmt(paidAmt)}
+                    </b>
                   </span>
                   <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                     <span
@@ -516,7 +549,8 @@ export function LoansPage() {
                   letterSpacing: "-0.02em",
                 }}
               >
-                ¥{fmt(card.remain)}
+                {currencySymbol(card.cur)}
+                {fmt(card.remain)}
               </span>
             </div>
           )}

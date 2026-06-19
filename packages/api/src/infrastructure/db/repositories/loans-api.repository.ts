@@ -254,8 +254,17 @@ export abstract class LoansApiRepository extends SubscriptionsApiRepository {
     try {
       const dateFrom = input.dateFrom ?? todayKey()
       const dateTo = input.dateTo ?? addInterval(dateFrom, "monthly", 1)
-      const sub = this.db
-        .select({ total: sumReal(subscriptionOccurrences.amount) })
+      const settings = await this.getCurrencySettings()
+      const displayCurrency = normalizeCurrency(
+        settings.success ? settings.data.displayCurrency : DEFAULT_CURRENCY,
+      )
+      // Mixed-currency obligations are summed per currency, then each bucket is converted
+      // to the display currency at the current rate before adding the totals together.
+      const subRows = this.db
+        .select({
+          currency: subscriptionOccurrences.currency,
+          total: sumReal(subscriptionOccurrences.amount),
+        })
         .from(subscriptionOccurrences)
         .where(
           and(
@@ -271,32 +280,58 @@ export abstract class LoansApiRepository extends SubscriptionsApiRepository {
             ),
           ),
         )
-        .get()
-      const loan = this.db
-        .select({ total: sumReal(loanPaymentOccurrences.paymentAmount) })
+        .groupBy(subscriptionOccurrences.currency)
+        .all()
+      // Loan payment occurrences inherit the loan's currency, so join to group by it.
+      const loanRows = this.db
+        .select({
+          currency: loans.currency,
+          total: sumReal(loanPaymentOccurrences.paymentAmount),
+        })
         .from(loanPaymentOccurrences)
+        .innerJoin(loans, eq(loanPaymentOccurrences.loanId, loans.id))
         .where(
           and(
             gte(loanPaymentOccurrences.dueDate, dateFrom),
             lte(loanPaymentOccurrences.dueDate, dateTo),
             inArray(loanPaymentOccurrences.status, ["forecast", "paid"]),
-            inArray(
-              loanPaymentOccurrences.loanId,
-              this.db.select({ id: loans.id }).from(loans).where(eq(loans.status, "active")),
-            ),
+            eq(loans.status, "active"),
           ),
         )
-        .get()
-      const subscriptionsTotal = Number(sub?.total ?? 0)
-      const loansTotal = Number(loan?.total ?? 0)
+        .groupBy(loans.currency)
+        .all()
+      const today = todayKey()
+      const subscriptionsTotal = await this.sumConvertedBuckets(subRows, displayCurrency, today)
+      const loansTotal = await this.sumConvertedBuckets(loanRows, displayCurrency, today)
       return ok({
         subscriptions: subscriptionsTotal.toFixed(2),
         loans: loansTotal.toFixed(2),
         total: (subscriptionsTotal + loansTotal).toFixed(2),
-        currency: DEFAULT_CURRENCY,
+        currency: displayCurrency,
       })
     } catch (error) {
       return fail(error)
     }
+  }
+
+  // Convert per-currency subtotals into the display currency and add them. Buckets that
+  // have no available rate are dropped (mirrors net worth's missing-FX degradation).
+  private async sumConvertedBuckets(
+    rows: { currency: string; total: number }[],
+    displayCurrency: string,
+    date: string,
+  ): Promise<number> {
+    let total = 0
+    for (const row of rows) {
+      const amount = Number(row.total ?? 0)
+      if (amount === 0) continue
+      const currency = normalizeCurrency(row.currency)
+      const converted =
+        currency === displayCurrency
+          ? amount
+          : await this.convertAmount(amount, currency, displayCurrency, date)
+      if (converted != null) total += converted
+    }
+    return total
   }
 }

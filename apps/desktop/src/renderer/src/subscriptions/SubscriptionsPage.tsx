@@ -19,6 +19,8 @@ import { SUBSCRIPTION_CATEGORY_COLORS } from "@/lib/domainDisplay"
 import { formatNumber } from "@/lib/format"
 import { SubscriptionDetailPanel } from "./SubscriptionDetailPanel"
 import { FormField } from "../components/ui/FormField"
+import { CurrencySelect } from "../components/ui/CurrencySelect"
+import { useCurrentRates } from "@/lib/useCurrentRates"
 
 const fmt = formatNumber
 
@@ -34,8 +36,15 @@ interface Sub {
   auto: boolean
 }
 
-type SubForm = { name: string; cycle: "月" | "年"; amt: string; next: string; auto: boolean }
-const EMPTY: SubForm = { name: "", cycle: "月", amt: "", next: todayKey(), auto: true }
+type SubForm = {
+  name: string
+  cycle: "月" | "年"
+  amt: string
+  next: string
+  auto: boolean
+  cur: string
+}
+const EMPTY: SubForm = { name: "", cycle: "月", amt: "", next: todayKey(), auto: true, cur: "CNY" }
 
 function AddSubModal({
   open,
@@ -109,6 +118,9 @@ function AddSubModal({
                       (value.trim().length > 0 && Number(value) > 0) || "请输入大于 0 的金额",
                   })}
                 />
+              </FormField>
+              <FormField label="币种">
+                <CurrencySelect value={form.cur} onChange={(c) => setValue("cur", c)} />
               </FormField>
               <div>
                 <Label
@@ -239,6 +251,7 @@ export function SubscriptionsPage() {
     }),
   )
 
+  const { toDisplay, baseSymbol } = useCurrentRates()
   const subNameById = useMemo(
     () => new Map((subscriptionsQuery.data ?? []).map((sub) => [String(sub.id), sub])),
     [subscriptionsQuery.data],
@@ -281,15 +294,17 @@ export function SubscriptionsPage() {
     return output
   }, [monthStart, occurrencesQuery.data, subNameById])
   const monthCharges = Object.values(byDay).flat()
-  const monthTotal = monthCharges.reduce((sum, sub) => sum + sub.amt, 0)
-  const subMonthly = subs.reduce(
-    (sum, sub) => sum + (sub.cycle === "年" ? sub.amt / 12 : sub.amt),
-    0,
-  )
-  const subYearly = subs.reduce(
-    (sum, sub) => sum + (sub.cycle === "年" ? sub.amt : sub.amt * 12),
-    0,
-  )
+  // Convert each charge to the base currency before summing; mixed-currency totals
+  // are meaningless otherwise. Buckets without a rate contribute 0 (see useCurrentRates).
+  const monthTotal = monthCharges.reduce((sum, sub) => sum + (toDisplay(sub.amt, sub.cur) ?? 0), 0)
+  const subMonthly = subs.reduce((sum, sub) => {
+    const m = toDisplay(sub.amt, sub.cur) ?? 0
+    return sum + (sub.cycle === "年" ? m / 12 : m)
+  }, 0)
+  const subYearly = subs.reduce((sum, sub) => {
+    const y = toDisplay(sub.amt, sub.cur) ?? 0
+    return sum + (sub.cycle === "年" ? y : y * 12)
+  }, 0)
   const cells = monthCells(year, mon)
 
   function handleSave(form: SubForm) {
@@ -299,7 +314,7 @@ export function SubscriptionsPage() {
       billingCycle: form.cycle === "年" ? "yearly" : "monthly",
       nextChargeDate: form.next,
       autoRenew: form.auto,
-      currency: "CNY",
+      currency: form.cur,
     })
   }
 
@@ -337,7 +352,8 @@ export function SubscriptionsPage() {
                 marginTop: 3,
               }}
             >
-              ¥{fmt(subMonthly)}
+              {baseSymbol}
+              {fmt(subMonthly)}
             </div>
           </div>
           <div style={{ paddingTop: 6 }}>
@@ -352,7 +368,8 @@ export function SubscriptionsPage() {
                 letterSpacing: "-0.01em",
               }}
             >
-              ¥{fmt(monthTotal)} · {monthCharges.length} 笔
+              {baseSymbol}
+              {fmt(monthTotal)} · {monthCharges.length} 笔
             </div>
           </div>
           <div style={{ paddingTop: 6 }}>
@@ -502,7 +519,8 @@ export function SubscriptionsPage() {
                   letterSpacing: "-0.02em",
                 }}
               >
-                ¥{fmt(subMonthly)}
+                {baseSymbol}
+                {fmt(subMonthly)}
               </span>
             </div>
             <div style={{ display: "flex", alignItems: "baseline" }}>
@@ -515,7 +533,8 @@ export function SubscriptionsPage() {
                   color: "var(--ink-4)",
                 }}
               >
-                ¥{fmt(subYearly)}
+                {baseSymbol}
+                {fmt(subYearly)}
               </span>
             </div>
             <div
@@ -607,7 +626,7 @@ export function SubscriptionsPage() {
                               letterSpacing: "-0.02em",
                             }}
                           >
-                            ¥{fmt(s.amt)}
+                            {s.raw ?? `¥${fmt(s.amt)}`}
                           </span>
                           <span
                             style={{
