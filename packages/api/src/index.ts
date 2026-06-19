@@ -111,6 +111,7 @@ export interface FlowmApi {
   createAssetItem(input: CreateAssetItemInput): Promise<Result<AssetItemSummary>>
   updateAssetItem(input: UpdateAssetItemInput): Promise<Result<AssetItemSummary>>
   archiveAssetItem(input: { id: FlowmId }): Promise<Result<void>>
+  restoreAssetItem(input: { id: FlowmId }): Promise<Result<void>>
   listAssetSnapshots(input?: ListAssetSnapshotsInput): Promise<Result<AssetSnapshotSummary[]>>
   listAssetSparklines(input?: ListAssetSparklinesInput): Promise<Result<AssetSparklinePoint[]>>
   addAssetSnapshot(input: AddAssetSnapshotInput): Promise<Result<AssetSnapshotSummary>>

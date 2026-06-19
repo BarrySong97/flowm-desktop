@@ -1298,4 +1298,3 @@ These can be decided during implementation without changing the architecture:
 - Whether budget periods are generated ahead of time or created lazily.
 - Whether `object_links` should enforce known `from_type` and `to_type` values
   in application code or database constraints.
-

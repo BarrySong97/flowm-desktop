@@ -933,7 +933,7 @@ describe("@flowm/api — clean-slate data model", () => {
     expect(new Set(truncated.map((point) => point.assetItemId)).size).toBe(4)
   }, 30_000)
 
-  it("hides archived asset items from active snapshots, sparklines, and net worth", async () => {
+  it("hides archived asset items from active views while allowing archived history and restore", async () => {
     const { api } = await createApi("archived-asset-snapshots")
     const fixture = await createGoldenFixture(api)
 
@@ -941,6 +941,11 @@ describe("@flowm/api — clean-slate data model", () => {
 
     const items = expectOk(await api.listAssetItems())
     expect(items.map((asset) => asset.id)).not.toContain(fixture.assets.fund.id)
+
+    const archivedItems = expectOk(await api.listAssetItems({ includeArchived: true }))
+    const archivedFund = archivedItems.find((asset) => asset.id === fixture.assets.fund.id)
+    expect(archivedFund?.archived).toBe(true)
+    expect(archivedFund?.archivedAt).toEqual(expect.any(String))
 
     const latestSnapshots = expectOk(await api.listAssetSnapshots({ latestOnly: true }))
     expect(latestSnapshots.map((snapshot) => snapshot.assetItemId)).not.toContain(
@@ -952,12 +957,32 @@ describe("@flowm/api — clean-slate data model", () => {
     )
     expect(fundHistory).toEqual([])
 
+    const archivedFundHistory = expectOk(
+      await api.listAssetSnapshots({
+        assetItemId: fixture.assets.fund.id,
+        includeArchived: true,
+      }),
+    )
+    expect(archivedFundHistory.map((snapshot) => snapshot.valueNumber)).toEqual([
+      "120000.00",
+      "100000.00",
+    ])
+
     const points = expectOk(await api.listAssetSparklines())
     expect(points.map((point) => point.assetItemId)).not.toContain(fixture.assets.fund.id)
 
     const netWorth = expectOk(await api.getNetWorthSnapshot())
     expect(netWorth.assetValue.number).toBe("3050000.00")
     expect(netWorth.netWorth.number).toBe("1220000.00")
+
+    expectOk(await api.restoreAssetItem({ id: fixture.assets.fund.id }))
+
+    const restoredItems = expectOk(await api.listAssetItems())
+    expect(restoredItems.map((asset) => asset.id)).toContain(fixture.assets.fund.id)
+
+    const restoredNetWorth = expectOk(await api.getNetWorthSnapshot())
+    expect(restoredNetWorth.assetValue.number).toBe("3170000.00")
+    expect(restoredNetWorth.netWorth.number).toBe("1340000.00")
   }, 30_000)
 
   it("keeps subscriptions and loans as future pressure without creating cashflow or liability assets", async () => {

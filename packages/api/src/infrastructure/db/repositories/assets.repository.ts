@@ -86,8 +86,16 @@ export function createAssetsRepository(db: Database) {
         .run()
     },
 
+    restoreItem(id: FlowmId, timestamp: string): void {
+      db.update(assetItems)
+        .set({ archivedAt: null, updatedAt: timestamp })
+        .where(eq(assetItems.id, toSqlId(id)))
+        .run()
+    },
+
     listSnapshots(input: ListAssetSnapshotsInput = {}): AssetSnapshotWithItem[] {
-      const conds: SQL[] = [isNull(assetItems.archivedAt)]
+      const conds: SQL[] = []
+      if (!input.includeArchived) conds.push(isNull(assetItems.archivedAt))
       if (input.assetItemId) conds.push(eq(assetSnapshots.assetItemId, toSqlId(input.assetItemId)))
       if (input.accountName) conds.push(eq(assetItems.name, input.accountName))
       return db
@@ -112,7 +120,8 @@ export function createAssetsRepository(db: Database) {
         order by s2.snapshot_at desc, s2.created_at desc, s2.id desc
         limit 1
       )`
-      const conds: SQL[] = [sql`${assetSnapshots.id} = ${latestId}`, isNull(assetItems.archivedAt)]
+      const conds: SQL[] = [sql`${assetSnapshots.id} = ${latestId}`]
+      if (!input.includeArchived) conds.push(isNull(assetItems.archivedAt))
       if (input.assetItemId) conds.push(eq(assetSnapshots.assetItemId, toSqlId(input.assetItemId)))
       if (input.accountName) conds.push(eq(assetItems.name, input.accountName))
       return db

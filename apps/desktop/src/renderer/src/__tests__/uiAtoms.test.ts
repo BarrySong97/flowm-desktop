@@ -40,7 +40,11 @@ describe("uiAtoms", () => {
     for (let index = 0; index < 82; index += 1) {
       store.set(
         appendCommandLogAtom,
-        createCommandLogEntry("SYS", `entry-${index}`, new Date(`2026-06-13T00:00:${String(index % 60).padStart(2, "0")}`)),
+        createCommandLogEntry(
+          "SYS",
+          `entry-${index}`,
+          new Date(`2026-06-13T00:00:${String(index % 60).padStart(2, "0")}`),
+        ),
       )
     }
 

@@ -5,8 +5,7 @@
  * @gotcha  Keep parsing deterministic and free of side effects.
  */
 
-export type ParsedCommand =
-  | { kind: "refresh" }
+export type ParsedCommand = { kind: "refresh" }
 
 export interface ParseResult {
   success: boolean

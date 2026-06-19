@@ -16,7 +16,15 @@ export function SubscriptionDetailPage() {
   const navigate = useNavigate()
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden", background: "white" }}>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        height: "100%",
+        overflow: "hidden",
+        background: "white",
+      }}
+    >
       <ScrollArea className="h-full" style={{ flex: 1, minHeight: 0 }}>
         <SubscriptionDetailPanel id={id} onBack={() => navigate({ to: "/subscriptions" })} />
       </ScrollArea>

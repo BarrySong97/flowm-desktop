@@ -6,16 +6,16 @@
  * @gotcha  This is a guardrail, not a security boundary; tune RULES as the project learns.
  */
 
-import { readFileSync } from "node:fs";
+import { readFileSync } from "node:fs"
 
-let payload = {};
+let payload = {}
 try {
-  payload = JSON.parse(readFileSync(0, "utf8") || "{}");
+  payload = JSON.parse(readFileSync(0, "utf8") || "{}")
 } catch {
   // Keep payload empty on malformed hook input.
 }
 
-const cmd = payload?.tool_input?.command ?? "";
+const cmd = payload?.tool_input?.command ?? ""
 
 const RULES = [
   {
@@ -38,7 +38,7 @@ const RULES = [
     re: /(^|[\s;&|])(rm|mv)\s[^\n]*\.env\b|>\s*\.env\b/,
     why: "Blocked deleting or overwriting .env files.",
   },
-];
+]
 
 for (const rule of RULES) {
   if (rule.re.test(cmd)) {
@@ -50,9 +50,9 @@ for (const rule of RULES) {
           permissionDecisionReason: rule.why,
         },
       }),
-    );
-    process.exit(0);
+    )
+    process.exit(0)
   }
 }
 
-process.exit(0);
+process.exit(0)

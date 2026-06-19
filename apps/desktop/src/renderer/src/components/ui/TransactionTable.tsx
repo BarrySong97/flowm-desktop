@@ -44,9 +44,7 @@ export function TransactionTable({ rows }: Props) {
             <DataTableCell className="font-['IBM_Plex_Mono'] text-[var(--ink-4)]">
               {t.date.slice(5)}
             </DataTableCell>
-            <DataTableCell truncate>
-              {t.counterparty || t.description || "—"}
-            </DataTableCell>
+            <DataTableCell truncate>{t.counterparty || t.description || "—"}</DataTableCell>
             <DataTableCell>
               <span className="inline-flex items-center gap-1.5 text-[11.5px] text-[var(--ink-3)]">
                 <ColorDot color={color} size={7} />

@@ -21,7 +21,7 @@
 
 ## Renderer Feature Map
 
-- `assets/` - present asset snapshot list, detail, and edit workflows.
+- `assets/` - present asset snapshot list, detail, edit, and archived-account workflows.
 - `analysis/` - long-range cashflow analysis for monthly income, expense, and net savings trends.
 - `budget/` - budget list/detail workflows and budget query invalidation helpers.
 - `dashboard/` - cross-layer overview that composes cashflow, assets, and obligations.
@@ -91,6 +91,9 @@ Update `apps/desktop/src/preload/index.d.ts` whenever the preload contract chang
 - Budget creation must work on an empty personal ledger by lazily creating the default budget set and current monthly period before inserting the first item.
 - Desktop tests and development depend on the Electron ABI for `better-sqlite3`.
 - UI copy and flows must preserve the separation between cashflow, assets, and obligations.
+- Asset account removal is an archive workflow. Archived accounts stay out of
+  current asset totals, net worth, and asset composition, but remain viewable
+  from the assets surface so users can inspect history or restore the account.
 - Analysis charts summarize past cashflow only; keep them visually connected to
   cashflow review, not asset reconciliation or forecast planning.
 - The demo ledger banner is intentionally non-dismissible while a demo ledger is active; the explicit exit is switching to a non-demo ledger.

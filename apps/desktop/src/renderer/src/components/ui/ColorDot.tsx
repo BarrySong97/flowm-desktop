@@ -5,7 +5,11 @@
  * @gotcha  Keep product data fetching out of reusable UI atoms.
  */
 
-interface ColorDotProps { color: string; size?: number; className?: string }
+interface ColorDotProps {
+  color: string
+  size?: number
+  className?: string
+}
 
 export function ColorDot({ color, size = 7, className = "" }: ColorDotProps) {
   return (

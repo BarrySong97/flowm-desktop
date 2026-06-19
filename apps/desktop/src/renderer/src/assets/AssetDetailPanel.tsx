@@ -371,15 +371,15 @@ export function AssetDetailPanel({ asset, onBack, onEdit, onDelete }: Props) {
           style={{ borderRadius: 5 }}
           onPress={() =>
             confirm({
-              title: "删除账户",
-              description: `删除「${asset.accountName}」后，该账户会从资产列表中移除。确定继续？`,
-              confirmText: "删除",
+              title: "归档账户",
+              description: `归档「${asset.accountName}」后，该账户会从当前资产列表中移除，但余额历史仍可在归档账户中查看和恢复。确定继续？`,
+              confirmText: "归档",
               danger: true,
               onConfirm: () => onDelete(asset.assetItemId),
             })
           }
         >
-          删除账户
+          归档账户
         </Button>
       </div>
 

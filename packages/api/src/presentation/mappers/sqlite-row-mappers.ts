@@ -130,6 +130,7 @@ export function mapAssetItem(row: AssetItemRow): AssetItemSummary {
     defaultCurrency: row.defaultCurrency,
     valuationMethod: row.valuationMethod,
     archived: row.archivedAt != null,
+    archivedAt: row.archivedAt,
     note: row.note,
   }
 }

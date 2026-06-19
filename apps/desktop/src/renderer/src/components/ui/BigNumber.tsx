@@ -7,7 +7,11 @@
 
 import type { CSSProperties, ReactNode } from "react"
 
-interface BigNumberProps { children: ReactNode; style?: CSSProperties; className?: string }
+interface BigNumberProps {
+  children: ReactNode
+  style?: CSSProperties
+  className?: string
+}
 
 export function BigNumber({ children, style, className = "" }: BigNumberProps) {
   return (

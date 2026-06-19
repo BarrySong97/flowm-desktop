@@ -56,7 +56,9 @@ export function GlobalConfirmModal() {
     <Modal.Backdrop
       isOpen={opts != null}
       isDismissable={!loading}
-      onOpenChange={(v) => { if (!v) void handleCancel() }}
+      onOpenChange={(v) => {
+        if (!v) void handleCancel()
+      }}
     >
       <Modal.Container>
         <Modal.Dialog style={{ maxWidth: 380 }}>
@@ -65,7 +67,9 @@ export function GlobalConfirmModal() {
           </Modal.Header>
           {opts?.description != null && (
             <Modal.Body>
-              <div style={{ fontSize: 13, color: "var(--ink-3)", lineHeight: 1.6 }}>{opts.description}</div>
+              <div style={{ fontSize: 13, color: "var(--ink-3)", lineHeight: 1.6 }}>
+                {opts.description}
+              </div>
             </Modal.Body>
           )}
           <Modal.Footer>

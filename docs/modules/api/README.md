@@ -25,7 +25,8 @@
 
 ## Use-Case Map
 
-- `assets/assets-api.ts` - asset snapshot CRUD, net worth inputs, and asset detail data.
+- `assets/assets-api.ts` - asset item archive/restore, asset snapshot CRUD,
+  net worth inputs, and asset detail data.
 - `budgets/budgets-api.ts` - budget definitions and budget-related cashflow summaries.
 - `cashflow/cashflow-api.ts` - past cashflow event queries, mutations, and monthly income/expense/net trend summaries.
 - `dashboard/dashboard-api.ts` - cross-layer dashboard composition without requiring reconciliation.
@@ -64,6 +65,9 @@ The personal starter seed should be idempotent and conservative. It should only 
 - `packages/api/src/sqlite/` is compatibility glue only; new implementation code should use the layered folders directly.
 - `pnpm check-architecture` enforces that `use-cases/` do not import Drizzle or `@flowm/db`, infrastructure does not import use cases, shared contracts stay browser-safe, and `sqlite/` remains compatibility glue.
 - Do not infer asset balances from imports.
+- Asset item archive/restore must preserve snapshot history. Default asset
+  snapshot and net worth queries use active accounts only; explicit archived
+  queries are for history/recovery surfaces.
 - Do not materialize subscription or loan forecasts as actual cashflow unless an explicit workflow is being built.
 - Keep platform-specific statement parsing outside durable product code when a
   local agent command can normalize the source into imported cashflow records.

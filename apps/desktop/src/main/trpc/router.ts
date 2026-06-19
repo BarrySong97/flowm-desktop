@@ -199,6 +199,11 @@ export const appRouter = router({
       .mutation(({ ctx, input }) =>
         callApi(ctx, (api) => api.archiveAssetItem(requiredInput<"archiveAssetItem">(input))),
       ),
+    restoreItem: publicProcedure
+      .input(apiInput<"restoreAssetItem">())
+      .mutation(({ ctx, input }) =>
+        callApi(ctx, (api) => api.restoreAssetItem(requiredInput<"restoreAssetItem">(input))),
+      ),
     addSnapshot: publicProcedure
       .input(apiInput<"addAssetSnapshot">())
       .mutation(({ ctx, input }) =>

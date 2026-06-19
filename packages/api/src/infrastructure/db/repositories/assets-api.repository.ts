@@ -97,6 +97,15 @@ export abstract class AssetsApiRepository extends CashflowApiRepository {
     }
   }
 
+  async restoreAssetItem(input: { id: FlowmId }): Promise<Result<void>> {
+    try {
+      this.assetRepository().restoreItem(input.id, nowIso())
+      return ok(undefined)
+    } catch (error) {
+      return fail(error)
+    }
+  }
+
   async listAssetSnapshots(
     input: ListAssetSnapshotsInput = {},
   ): Promise<Result<AssetSnapshotSummary[]>> {

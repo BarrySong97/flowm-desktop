@@ -8,7 +8,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { useNavigate } from "@tanstack/react-router"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Button, Input, Modal } from "@heroui/react"
+import { Button, Chip, Input, Modal } from "@heroui/react"
 import { Controller, useForm } from "react-hook-form"
 import type { CashflowEventSummary, CategorySummary } from "@flowm/api"
 import { trpc } from "@/lib/trpc"
@@ -115,25 +115,7 @@ function GroupLabel({ children }: { children: string }) {
 
 function KindBadge({ kind, archived }: { kind: string; archived?: boolean }) {
   const meta = KIND_META[kind] ?? { label: kind, tone: "var(--ink-3)" }
-  return (
-    <span
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        height: 22,
-        padding: "0 8px",
-        borderRadius: 5,
-        border: "1px solid var(--hair-2)",
-        background: archived ? "var(--surface-2)" : "white",
-        color: archived ? "var(--ink-4)" : meta.tone,
-        fontSize: 11,
-        fontWeight: 500,
-        whiteSpace: "nowrap",
-      }}
-    >
-      {archived ? "已归档" : meta.label}
-    </span>
-  )
+  return <Chip size="sm">{archived ? "已归档" : meta.label}</Chip>
 }
 
 function CategoryModal({
@@ -324,26 +306,10 @@ function CategoryRow({
       </span>
       {!category.archived ? (
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 6 }}>
-          <Button
-            size="sm"
-            variant="outline"
-            style={{ borderRadius: 5, height: 28, fontSize: 11.5, padding: "0 9px" }}
-            onPress={() => onEdit(category)}
-          >
+          <Button size="sm" variant="outline" onPress={() => onEdit(category)}>
             编辑
           </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            style={{
-              borderRadius: 5,
-              height: 28,
-              fontSize: 11.5,
-              padding: "0 9px",
-              color: "var(--red)",
-            }}
-            onPress={() => onArchive(category)}
-          >
+          <Button size="sm" variant="danger" onPress={() => onArchive(category)}>
             归档
           </Button>
         </div>
@@ -599,7 +565,7 @@ export function CategoriesPage() {
             maxWidth: "100%",
             boxSizing: "border-box",
             margin: "0 auto",
-            padding: "0 32px 112px",
+            padding: "0 0 112px",
           }}
         >
           <CategorySection

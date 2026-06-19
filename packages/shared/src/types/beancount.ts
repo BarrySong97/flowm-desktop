@@ -8,13 +8,7 @@
 // Domain primitives that mirror beancount's source-of-truth definitions.
 // See: beancount/core/data.py, beancount/core/account_types.py, beancount/core/flags.py
 
-export const ACCOUNT_TYPES = [
-  "Assets",
-  "Liabilities",
-  "Equity",
-  "Income",
-  "Expenses",
-] as const
+export const ACCOUNT_TYPES = ["Assets", "Liabilities", "Equity", "Income", "Expenses"] as const
 export type AccountType = (typeof ACCOUNT_TYPES)[number]
 
 // All 7 booking methods recognized by beancount v3.

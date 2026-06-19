@@ -21,10 +21,18 @@ export const ScrollArea = React.forwardRef<HTMLDivElement, ScrollAreaProps>(func
     <div
       ref={ref}
       data-slot="scroll-area"
-      className={cn("flowm-scroll-area min-h-0 overflow-auto overscroll-contain", viewportClassName, className)}
+      className={cn(
+        "flowm-scroll-area min-h-0 overflow-auto overscroll-contain",
+        viewportClassName,
+        className,
+      )}
       {...props}
     >
-      {contentClassName ? <div className={cn("min-w-full", contentClassName)}>{children}</div> : children}
+      {contentClassName ? (
+        <div className={cn("min-w-full", contentClassName)}>{children}</div>
+      ) : (
+        children
+      )}
     </div>
   )
 })

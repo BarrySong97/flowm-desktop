@@ -30,12 +30,9 @@ export const resetUiStateAtom = atom(null, (_get, set) => {
   set(commandLogAtom, [])
 })
 
-export const appendCommandLogAtom = atom(
-  null,
-  (get, set, entry: CommandLogEntry) => {
-    set(commandLogAtom, [...get(commandLogAtom), entry].slice(-80))
-  },
-)
+export const appendCommandLogAtom = atom(null, (get, set, entry: CommandLogEntry) => {
+  set(commandLogAtom, [...get(commandLogAtom), entry].slice(-80))
+})
 
 export function createCommandLogEntry(
   who: CommandLogEntry["who"],

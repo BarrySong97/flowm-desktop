@@ -31,6 +31,7 @@ export interface AssetItemSummary {
   defaultCurrency: string
   valuationMethod: string
   archived: boolean
+  archivedAt: string | null
   note: string | null
 }
 
@@ -74,6 +75,7 @@ export interface ListAssetSnapshotsInput {
   assetItemId?: FlowmId
   accountName?: string
   latestOnly?: boolean
+  includeArchived?: boolean
 }
 
 export interface ListAssetSparklinesInput {

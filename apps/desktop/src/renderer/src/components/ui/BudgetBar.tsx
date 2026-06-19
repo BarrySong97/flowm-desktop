@@ -23,12 +23,19 @@ interface Props {
 export function BudgetBar({ color, spent, limit, label, scaleMax }: Props) {
   const max = scaleMax ?? limit
   const over = spent > limit
-  const inPct  = (Math.min(spent, limit) / max) * 100
-  const limPct  = (limit / max) * 100
+  const inPct = (Math.min(spent, limit) / max) * 100
+  const limPct = (limit / max) * 100
   const spentPct = (spent / max) * 100
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "56px 1fr 120px", gap: 11, alignItems: "center" }}>
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "56px 1fr 120px",
+        gap: 11,
+        alignItems: "center",
+      }}
+    >
       <span className="inline-flex items-center gap-[7px] min-w-0">
         <ColorDot color={color} size={8} className="flex-none" />
         <span className="text-[12px] text-[var(--ink-2)] truncate">{label}</span>
@@ -66,7 +73,10 @@ export function BudgetBar({ color, spent, limit, label, scaleMax }: Props) {
         >
           ¥{fmt(spent)}
         </span>
-        <span className="font-['IBM_Plex_Mono'] text-[10.5px] text-[var(--ink-4)]"> / {fmt(limit)}</span>
+        <span className="font-['IBM_Plex_Mono'] text-[10.5px] text-[var(--ink-4)]">
+          {" "}
+          / {fmt(limit)}
+        </span>
         <span
           className="font-['IBM_Plex_Mono'] text-[10px] ml-[7px]"
           style={{ color: over ? "var(--red)" : "var(--ink-4)" }}

@@ -39,7 +39,13 @@ export function DataTable({ columns, children }: DataTableProps) {
   )
 }
 
-export function DataTableRow({ children, className = "" }: { children: ReactNode; className?: string }) {
+export function DataTableRow({
+  children,
+  className = "",
+}: {
+  children: ReactNode
+  className?: string
+}) {
   return (
     <tr className={`border-t border-[var(--hair)] hover:bg-[var(--surface-2)] ${className}`}>
       {children}

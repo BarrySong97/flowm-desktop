@@ -91,16 +91,12 @@
       "indexes": {
         "idx_asset_items_type": {
           "name": "idx_asset_items_type",
-          "columns": [
-            "asset_type"
-          ],
+          "columns": ["asset_type"],
           "isUnique": false
         },
         "idx_asset_items_archived": {
           "name": "idx_asset_items_archived",
-          "columns": [
-            "archived_at"
-          ],
+          "columns": ["archived_at"],
           "isUnique": false
         }
       },
@@ -202,16 +198,12 @@
       "indexes": {
         "idx_asset_snapshots_item": {
           "name": "idx_asset_snapshots_item",
-          "columns": [
-            "asset_item_id"
-          ],
+          "columns": ["asset_item_id"],
           "isUnique": false
         },
         "idx_asset_snapshots_snapshot_at": {
           "name": "idx_asset_snapshots_snapshot_at",
-          "columns": [
-            "snapshot_at"
-          ],
+          "columns": ["snapshot_at"],
           "isUnique": false
         }
       },
@@ -220,12 +212,8 @@
           "name": "asset_snapshots_asset_item_id_asset_items_id_fk",
           "tableFrom": "asset_snapshots",
           "tableTo": "asset_items",
-          "columnsFrom": [
-            "asset_item_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["asset_item_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -269,16 +257,12 @@
       "indexes": {
         "idx_budget_item_scopes_item": {
           "name": "idx_budget_item_scopes_item",
-          "columns": [
-            "budget_item_id"
-          ],
+          "columns": ["budget_item_id"],
           "isUnique": false
         },
         "idx_budget_item_scopes_kind": {
           "name": "idx_budget_item_scopes_kind",
-          "columns": [
-            "scope_kind"
-          ],
+          "columns": ["scope_kind"],
           "isUnique": false
         }
       },
@@ -287,12 +271,8 @@
           "name": "budget_item_scopes_budget_item_id_budget_items_id_fk",
           "tableFrom": "budget_item_scopes",
           "tableTo": "budget_items",
-          "columnsFrom": [
-            "budget_item_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["budget_item_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -389,9 +369,7 @@
       "indexes": {
         "idx_budget_items_period": {
           "name": "idx_budget_items_period",
-          "columns": [
-            "budget_period_id"
-          ],
+          "columns": ["budget_period_id"],
           "isUnique": false
         }
       },
@@ -400,12 +378,8 @@
           "name": "budget_items_budget_period_id_budget_periods_id_fk",
           "tableFrom": "budget_items",
           "tableTo": "budget_periods",
-          "columnsFrom": [
-            "budget_period_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["budget_period_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -413,12 +387,8 @@
           "name": "budget_items_category_id_categories_id_fk",
           "tableFrom": "budget_items",
           "tableTo": "categories",
-          "columnsFrom": [
-            "category_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["category_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -485,17 +455,12 @@
       "indexes": {
         "idx_budget_periods_set": {
           "name": "idx_budget_periods_set",
-          "columns": [
-            "budget_set_id"
-          ],
+          "columns": ["budget_set_id"],
           "isUnique": false
         },
         "idx_budget_periods_range": {
           "name": "idx_budget_periods_range",
-          "columns": [
-            "period_start",
-            "period_end"
-          ],
+          "columns": ["period_start", "period_end"],
           "isUnique": false
         }
       },
@@ -504,12 +469,8 @@
           "name": "budget_periods_budget_set_id_budget_sets_id_fk",
           "tableFrom": "budget_periods",
           "tableTo": "budget_sets",
-          "columnsFrom": [
-            "budget_set_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["budget_set_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -588,12 +549,8 @@
           "name": "cashflow_event_tags_cashflow_event_id_cashflow_events_id_fk",
           "tableFrom": "cashflow_event_tags",
           "tableTo": "cashflow_events",
-          "columnsFrom": [
-            "cashflow_event_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["cashflow_event_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -601,22 +558,15 @@
           "name": "cashflow_event_tags_tag_id_tags_id_fk",
           "tableFrom": "cashflow_event_tags",
           "tableTo": "tags",
-          "columnsFrom": [
-            "tag_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["tag_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
         "cashflow_event_tags_cashflow_event_id_tag_id_pk": {
-          "columns": [
-            "cashflow_event_id",
-            "tag_id"
-          ],
+          "columns": ["cashflow_event_id", "tag_id"],
           "name": "cashflow_event_tags_cashflow_event_id_tag_id_pk"
         }
       },
@@ -789,37 +739,27 @@
       "indexes": {
         "idx_cashflow_events_date": {
           "name": "idx_cashflow_events_date",
-          "columns": [
-            "event_date"
-          ],
+          "columns": ["event_date"],
           "isUnique": false
         },
         "idx_cashflow_events_flow_kind": {
           "name": "idx_cashflow_events_flow_kind",
-          "columns": [
-            "flow_kind"
-          ],
+          "columns": ["flow_kind"],
           "isUnique": false
         },
         "idx_cashflow_events_direction": {
           "name": "idx_cashflow_events_direction",
-          "columns": [
-            "direction"
-          ],
+          "columns": ["direction"],
           "isUnique": false
         },
         "idx_cashflow_events_category": {
           "name": "idx_cashflow_events_category",
-          "columns": [
-            "category_id"
-          ],
+          "columns": ["category_id"],
           "isUnique": false
         },
         "idx_cashflow_events_status": {
           "name": "idx_cashflow_events_status",
-          "columns": [
-            "status"
-          ],
+          "columns": ["status"],
           "isUnique": false
         }
       },
@@ -828,12 +768,8 @@
           "name": "cashflow_events_statement_line_id_statement_lines_id_fk",
           "tableFrom": "cashflow_events",
           "tableTo": "statement_lines",
-          "columnsFrom": [
-            "statement_line_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["statement_line_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -841,12 +777,8 @@
           "name": "cashflow_events_category_id_categories_id_fk",
           "tableFrom": "cashflow_events",
           "tableTo": "categories",
-          "columnsFrom": [
-            "category_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["category_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -933,23 +865,17 @@
       "indexes": {
         "idx_categories_parent": {
           "name": "idx_categories_parent",
-          "columns": [
-            "parent_id"
-          ],
+          "columns": ["parent_id"],
           "isUnique": false
         },
         "idx_categories_kind": {
           "name": "idx_categories_kind",
-          "columns": [
-            "category_kind"
-          ],
+          "columns": ["category_kind"],
           "isUnique": false
         },
         "idx_categories_order": {
           "name": "idx_categories_order",
-          "columns": [
-            "display_order"
-          ],
+          "columns": ["display_order"],
           "isUnique": false
         }
       },
@@ -1083,21 +1009,12 @@
       "indexes": {
         "exchange_rates_pair_date_provider_unique": {
           "name": "exchange_rates_pair_date_provider_unique",
-          "columns": [
-            "from_currency",
-            "to_currency",
-            "rate_date",
-            "provider"
-          ],
+          "columns": ["from_currency", "to_currency", "rate_date", "provider"],
           "isUnique": true
         },
         "idx_exchange_rates_pair_date": {
           "name": "idx_exchange_rates_pair_date",
-          "columns": [
-            "from_currency",
-            "to_currency",
-            "rate_date"
-          ],
+          "columns": ["from_currency", "to_currency", "rate_date"],
           "isUnique": false
         }
       },
@@ -1184,17 +1101,12 @@
       "indexes": {
         "loan_payment_occurrences_unique": {
           "name": "loan_payment_occurrences_unique",
-          "columns": [
-            "loan_id",
-            "due_date"
-          ],
+          "columns": ["loan_id", "due_date"],
           "isUnique": true
         },
         "idx_loan_payment_occurrences_due": {
           "name": "idx_loan_payment_occurrences_due",
-          "columns": [
-            "due_date"
-          ],
+          "columns": ["due_date"],
           "isUnique": false
         }
       },
@@ -1203,12 +1115,8 @@
           "name": "loan_payment_occurrences_loan_id_loans_id_fk",
           "tableFrom": "loan_payment_occurrences",
           "tableTo": "loans",
-          "columnsFrom": [
-            "loan_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["loan_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1338,9 +1246,7 @@
       "indexes": {
         "idx_loans_status": {
           "name": "idx_loans_status",
-          "columns": [
-            "status"
-          ],
+          "columns": ["status"],
           "isUnique": false
         }
       },
@@ -1427,18 +1333,12 @@
       "indexes": {
         "idx_object_links_from": {
           "name": "idx_object_links_from",
-          "columns": [
-            "from_type",
-            "from_id"
-          ],
+          "columns": ["from_type", "from_id"],
           "isUnique": false
         },
         "idx_object_links_to": {
           "name": "idx_object_links_to",
-          "columns": [
-            "to_type",
-            "to_id"
-          ],
+          "columns": ["to_type", "to_id"],
           "isUnique": false
         }
       },
@@ -1511,16 +1411,12 @@
       "indexes": {
         "idx_statement_imports_source": {
           "name": "idx_statement_imports_source",
-          "columns": [
-            "source_name"
-          ],
+          "columns": ["source_name"],
           "isUnique": false
         },
         "idx_statement_imports_status": {
           "name": "idx_statement_imports_status",
-          "columns": [
-            "status"
-          ],
+          "columns": ["status"],
           "isUnique": false
         }
       },
@@ -1650,31 +1546,22 @@
       "indexes": {
         "statement_lines_import_hash_unique": {
           "name": "statement_lines_import_hash_unique",
-          "columns": [
-            "import_id",
-            "line_hash"
-          ],
+          "columns": ["import_id", "line_hash"],
           "isUnique": true
         },
         "idx_statement_lines_import": {
           "name": "idx_statement_lines_import",
-          "columns": [
-            "import_id"
-          ],
+          "columns": ["import_id"],
           "isUnique": false
         },
         "idx_statement_lines_date": {
           "name": "idx_statement_lines_date",
-          "columns": [
-            "event_date"
-          ],
+          "columns": ["event_date"],
           "isUnique": false
         },
         "idx_statement_lines_status": {
           "name": "idx_statement_lines_status",
-          "columns": [
-            "status"
-          ],
+          "columns": ["status"],
           "isUnique": false
         }
       },
@@ -1683,12 +1570,8 @@
           "name": "statement_lines_import_id_statement_imports_id_fk",
           "tableFrom": "statement_lines",
           "tableTo": "statement_imports",
-          "columnsFrom": [
-            "import_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["import_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1755,17 +1638,12 @@
       "indexes": {
         "subscription_occurrences_unique": {
           "name": "subscription_occurrences_unique",
-          "columns": [
-            "subscription_id",
-            "due_date"
-          ],
+          "columns": ["subscription_id", "due_date"],
           "isUnique": true
         },
         "idx_subscription_occurrences_due": {
           "name": "idx_subscription_occurrences_due",
-          "columns": [
-            "due_date"
-          ],
+          "columns": ["due_date"],
           "isUnique": false
         }
       },
@@ -1774,12 +1652,8 @@
           "name": "subscription_occurrences_subscription_id_subscriptions_id_fk",
           "tableFrom": "subscription_occurrences",
           "tableTo": "subscriptions",
-          "columnsFrom": [
-            "subscription_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["subscription_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1897,16 +1771,12 @@
       "indexes": {
         "idx_subscriptions_status": {
           "name": "idx_subscriptions_status",
-          "columns": [
-            "status"
-          ],
+          "columns": ["status"],
           "isUnique": false
         },
         "idx_subscriptions_next_charge": {
           "name": "idx_subscriptions_next_charge",
-          "columns": [
-            "next_charge_date"
-          ],
+          "columns": ["next_charge_date"],
           "isUnique": false
         }
       },
@@ -1915,12 +1785,8 @@
           "name": "subscriptions_category_id_categories_id_fk",
           "tableFrom": "subscriptions",
           "tableTo": "categories",
-          "columnsFrom": [
-            "category_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["category_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -1978,9 +1844,7 @@
       "indexes": {
         "tags_name_unique": {
           "name": "tags_name_unique",
-          "columns": [
-            "name"
-          ],
+          "columns": ["name"],
           "isUnique": true
         }
       },

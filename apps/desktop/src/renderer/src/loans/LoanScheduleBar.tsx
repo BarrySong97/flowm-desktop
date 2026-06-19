@@ -40,12 +40,25 @@ interface LoanScheduleBarProps {
  * positioning, so it is never clipped by a scroll container nor covered by the
  * page header.
  */
-export function LoanScheduleBar({ sched, paid, termTotal, monthly, height = 42 }: LoanScheduleBarProps) {
+export function LoanScheduleBar({
+  sched,
+  paid,
+  termTotal,
+  monthly,
+  height = 42,
+}: LoanScheduleBarProps) {
   const [tip, setTip] = useState<TipState | null>(null)
 
   return (
     <div
-      style={{ position: "relative", display: "flex", gap: 2, height, flex: 1, alignItems: "stretch" }}
+      style={{
+        position: "relative",
+        display: "flex",
+        gap: 2,
+        height,
+        flex: 1,
+        alignItems: "stretch",
+      }}
       onMouseLeave={() => setTip(null)}
     >
       {sched.map((s, k) => {
@@ -76,7 +89,10 @@ export function LoanScheduleBar({ sched, paid, termTotal, monthly, height = 42 }
               const el = e.currentTarget
               const rect = el.getBoundingClientRect()
               const track = el.parentElement?.getBoundingClientRect()
-              const ratio = track && track.width > 0 ? (rect.left + rect.width / 2 - track.left) / track.width : 0.5
+              const ratio =
+                track && track.width > 0
+                  ? (rect.left + rect.width / 2 - track.left) / track.width
+                  : 0.5
               setTip({
                 k,
                 paid: isPaid,
@@ -91,13 +107,16 @@ export function LoanScheduleBar({ sched, paid, termTotal, monthly, height = 42 }
         )
       })}
 
-      {tip
-        && createPortal(
+      {tip &&
+        createPortal(
           (() => {
             const al = tip.ratio > 0.8 ? "r" : tip.ratio < 0.2 ? "l" : "c"
             const tf =
-              (al === "r" ? "translate(-100%,-100%)" : al === "l" ? "translate(0,-100%)" : "translate(-50%,-100%)")
-              + " translateY(-9px)"
+              (al === "r"
+                ? "translate(-100%,-100%)"
+                : al === "l"
+                  ? "translate(0,-100%)"
+                  : "translate(-50%,-100%)") + " translateY(-9px)"
             const arLeft = al === "r" ? "calc(100% - 14px)" : al === "l" ? "10px" : "50%"
             return (
               <div
@@ -115,18 +134,32 @@ export function LoanScheduleBar({ sched, paid, termTotal, monthly, height = 42 }
                   whiteSpace: "nowrap",
                 }}
               >
-                <div style={{ fontSize: 10, fontWeight: 600, opacity: 0.65, marginBottom: 5, letterSpacing: ".03em" }}>
+                <div
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 600,
+                    opacity: 0.65,
+                    marginBottom: 5,
+                    letterSpacing: ".03em",
+                  }}
+                >
                   第 {tip.k + 1} / {termTotal} 期 · {tip.paid ? "已还" : "未还"}
                 </div>
                 <div style={{ display: "flex", gap: 16 }}>
-                  {([["本金", tip.principal], ["利息", tip.interest], ["月供", monthly]] as Array<[string, number]>).map(
-                    ([label, val]) => (
-                      <div key={label} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                        <span style={{ fontSize: 9, fontWeight: 500, opacity: 0.6 }}>{label}</span>
-                        <span style={{ fontFamily: "var(--mono)", fontSize: 12, fontWeight: 600 }}>¥{fmt(val)}</span>
-                      </div>
-                    ),
-                  )}
+                  {(
+                    [
+                      ["本金", tip.principal],
+                      ["利息", tip.interest],
+                      ["月供", monthly],
+                    ] as Array<[string, number]>
+                  ).map(([label, val]) => (
+                    <div key={label} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                      <span style={{ fontSize: 9, fontWeight: 500, opacity: 0.6 }}>{label}</span>
+                      <span style={{ fontFamily: "var(--mono)", fontSize: 12, fontWeight: 600 }}>
+                        ¥{fmt(val)}
+                      </span>
+                    </div>
+                  ))}
                 </div>
                 <span
                   style={{

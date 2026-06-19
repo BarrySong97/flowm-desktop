@@ -40,12 +40,18 @@ async function main() {
     migrate(db, { migrationsFolder })
     await seedDefaultCategories(db)
     const report = await seedDemoData(db, { anchorDate: DEMO_ANCHOR, validate: true })
-    console.log(JSON.stringify({
-      output: outputPath,
-      anchorDate: DEMO_ANCHOR,
-      validationOk: report.validation?.ok ?? null,
-      tableCounts: report.tableCounts,
-    }, null, 2))
+    console.log(
+      JSON.stringify(
+        {
+          output: outputPath,
+          anchorDate: DEMO_ANCHOR,
+          validationOk: report.validation?.ok ?? null,
+          tableCounts: report.tableCounts,
+        },
+        null,
+        2,
+      ),
+    )
     if (report.validation && !report.validation.ok) {
       console.error("Demo validation failed:", report.validation.issues)
       process.exitCode = 1

@@ -1,392 +1,1129 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-CN">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Flowm · 设计系统</title>
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet" />
-<style>
-:root {
-  --bg:#ebeeea; --surface:#ffffff; --surface-2:#f7f9f7; --surface-3:#f1f4f1; --hover:#f0f4f0;
-  --ink:#161e19; --ink-2:#58625b; --ink-3:#8a948c; --ink-4:#b3bbb4; --ink-5:#d3d9d3;
-  --hair:#e6eae6; --hair-2:#eef1ee; --hair-3:#f3f5f3;
-  --green:#14794a; --green-2:#178a52; --green-soft:#e7f3eb; --green-line:#c8e4d2;
-  --red:#b8412f; --red-soft:#f9ece8; --amber:#ad7c2c; --amber-soft:#f6efe1;
-  --accent:#14794a; --accent-2:#178a52; --accent-soft:#e7f3eb; --accent-line:#c8e4d2;
-  --c-live:#a9763f; --c-food:#c2873b; --c-trans:#4a7fb5; --c-shop:#8a6db5; --c-sub:#3d9d8f;
-  --c-fun:#bd6493; --c-invest:#2a8d5b; --c-income:#14794a; --c-other:#8b918d; --c-xfer:#6b8fa5;
-  --mono:"IBM Plex Mono",ui-monospace,"SF Mono",monospace;
-  --sans:"Noto Sans SC","IBM Plex Sans",system-ui,sans-serif;
-  --lat:"IBM Plex Sans","Noto Sans SC",system-ui,sans-serif;
-}
-* { box-sizing:border-box; margin:0; padding:0; }
-body { background:var(--bg); color:var(--ink); font-family:var(--sans); font-size:14px; line-height:1.6;
-  -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility; }
-.mono { font-family:var(--mono); font-feature-settings:"tnum" 1,"zero" 1,"ss01" 1; letter-spacing:-0.01em; }
-.lat { font-family:var(--lat); }
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Flowm · 设计系统</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #ebeeea;
+        --surface: #ffffff;
+        --surface-2: #f7f9f7;
+        --surface-3: #f1f4f1;
+        --hover: #f0f4f0;
+        --ink: #161e19;
+        --ink-2: #58625b;
+        --ink-3: #8a948c;
+        --ink-4: #b3bbb4;
+        --ink-5: #d3d9d3;
+        --hair: #e6eae6;
+        --hair-2: #eef1ee;
+        --hair-3: #f3f5f3;
+        --green: #14794a;
+        --green-2: #178a52;
+        --green-soft: #e7f3eb;
+        --green-line: #c8e4d2;
+        --red: #b8412f;
+        --red-soft: #f9ece8;
+        --amber: #ad7c2c;
+        --amber-soft: #f6efe1;
+        --accent: #14794a;
+        --accent-2: #178a52;
+        --accent-soft: #e7f3eb;
+        --accent-line: #c8e4d2;
+        --c-live: #a9763f;
+        --c-food: #c2873b;
+        --c-trans: #4a7fb5;
+        --c-shop: #8a6db5;
+        --c-sub: #3d9d8f;
+        --c-fun: #bd6493;
+        --c-invest: #2a8d5b;
+        --c-income: #14794a;
+        --c-other: #8b918d;
+        --c-xfer: #6b8fa5;
+        --mono: "IBM Plex Mono", ui-monospace, "SF Mono", monospace;
+        --sans: "Noto Sans SC", "IBM Plex Sans", system-ui, sans-serif;
+        --lat: "IBM Plex Sans", "Noto Sans SC", system-ui, sans-serif;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        background: var(--bg);
+        color: var(--ink);
+        font-family: var(--sans);
+        font-size: 14px;
+        line-height: 1.6;
+        -webkit-font-smoothing: antialiased;
+        text-rendering: optimizeLegibility;
+      }
+      .mono {
+        font-family: var(--mono);
+        font-feature-settings:
+          "tnum" 1,
+          "zero" 1,
+          "ss01" 1;
+        letter-spacing: -0.01em;
+      }
+      .lat {
+        font-family: var(--lat);
+      }
 
-.wrap { max-width:1080px; margin:0 auto; padding:0 40px; }
+      .wrap {
+        max-width: 1080px;
+        margin: 0 auto;
+        padding: 0 40px;
+      }
 
-/* ── hero ── */
-.hero { padding:88px 0 54px; border-bottom:1px solid var(--hair); }
-.logo { display:inline-flex; align-items:center; gap:11px; margin-bottom:34px; }
-.logo .mark { width:34px; height:34px; border-radius:10px; background:var(--accent); display:grid; place-items:center; }
-.logo .nm { font:700 22px var(--lat); letter-spacing:-0.02em; }
-.hero h1 { font-size:46px; font-weight:700; letter-spacing:-0.03em; line-height:1.1; }
-.hero .sub { font-size:16px; color:var(--ink-2); margin-top:18px; max-width:600px; line-height:1.7; }
-.hero .meta { display:flex; gap:30px; margin-top:34px; }
-.hero .meta .it .k { font:600 10px var(--lat); letter-spacing:.16em; text-transform:uppercase; color:var(--ink-4); }
-.hero .meta .it .v { font-size:13.5px; color:var(--ink-2); margin-top:6px; }
+      /* ── hero ── */
+      .hero {
+        padding: 88px 0 54px;
+        border-bottom: 1px solid var(--hair);
+      }
+      .logo {
+        display: inline-flex;
+        align-items: center;
+        gap: 11px;
+        margin-bottom: 34px;
+      }
+      .logo .mark {
+        width: 34px;
+        height: 34px;
+        border-radius: 10px;
+        background: var(--accent);
+        display: grid;
+        place-items: center;
+      }
+      .logo .nm {
+        font: 700 22px var(--lat);
+        letter-spacing: -0.02em;
+      }
+      .hero h1 {
+        font-size: 46px;
+        font-weight: 700;
+        letter-spacing: -0.03em;
+        line-height: 1.1;
+      }
+      .hero .sub {
+        font-size: 16px;
+        color: var(--ink-2);
+        margin-top: 18px;
+        max-width: 600px;
+        line-height: 1.7;
+      }
+      .hero .meta {
+        display: flex;
+        gap: 30px;
+        margin-top: 34px;
+      }
+      .hero .meta .it .k {
+        font: 600 10px var(--lat);
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--ink-4);
+      }
+      .hero .meta .it .v {
+        font-size: 13.5px;
+        color: var(--ink-2);
+        margin-top: 6px;
+      }
 
-/* ── section frame ── */
-section { padding:64px 0; border-bottom:1px solid var(--hair); }
-.sec-head { display:flex; align-items:baseline; gap:16px; margin-bottom:38px; }
-.sec-no { font:600 12px var(--mono); color:var(--accent); letter-spacing:.04em; }
-.sec-head h2 { font-size:25px; font-weight:600; letter-spacing:-0.02em; }
-.sec-head .desc { font-size:13.5px; color:var(--ink-3); margin-left:auto; max-width:340px; text-align:right; line-height:1.55; }
-.kick { font:600 10px var(--lat); letter-spacing:.16em; text-transform:uppercase; color:var(--ink-4); }
+      /* ── section frame ── */
+      section {
+        padding: 64px 0;
+        border-bottom: 1px solid var(--hair);
+      }
+      .sec-head {
+        display: flex;
+        align-items: baseline;
+        gap: 16px;
+        margin-bottom: 38px;
+      }
+      .sec-no {
+        font: 600 12px var(--mono);
+        color: var(--accent);
+        letter-spacing: 0.04em;
+      }
+      .sec-head h2 {
+        font-size: 25px;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+      }
+      .sec-head .desc {
+        font-size: 13.5px;
+        color: var(--ink-3);
+        margin-left: auto;
+        max-width: 340px;
+        text-align: right;
+        line-height: 1.55;
+      }
+      .kick {
+        font: 600 10px var(--lat);
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--ink-4);
+      }
 
-/* ── philosophy ── */
-.principles { display:grid; grid-template-columns:1fr 1fr; gap:1px; background:var(--hair); border:1px solid var(--hair); border-radius:14px; overflow:hidden; }
-.principle { background:var(--surface); padding:28px 30px; }
-.principle .idx { font:600 11px var(--mono); color:var(--accent); }
-.principle h3 { font-size:17px; font-weight:600; margin:14px 0 9px; letter-spacing:-0.01em; }
-.principle p { font-size:13.5px; color:var(--ink-2); line-height:1.7; }
-.principle .ex { font-size:12px; color:var(--ink-4); margin-top:12px; padding-top:12px; border-top:1px solid var(--hair-3); }
+      /* ── philosophy ── */
+      .principles {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1px;
+        background: var(--hair);
+        border: 1px solid var(--hair);
+        border-radius: 14px;
+        overflow: hidden;
+      }
+      .principle {
+        background: var(--surface);
+        padding: 28px 30px;
+      }
+      .principle .idx {
+        font: 600 11px var(--mono);
+        color: var(--accent);
+      }
+      .principle h3 {
+        font-size: 17px;
+        font-weight: 600;
+        margin: 14px 0 9px;
+        letter-spacing: -0.01em;
+      }
+      .principle p {
+        font-size: 13.5px;
+        color: var(--ink-2);
+        line-height: 1.7;
+      }
+      .principle .ex {
+        font-size: 12px;
+        color: var(--ink-4);
+        margin-top: 12px;
+        padding-top: 12px;
+        border-top: 1px solid var(--hair-3);
+      }
 
-/* ── type ── */
-.type-fams { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-bottom:44px; }
-.fam { background:var(--surface); border:1px solid var(--hair); border-radius:13px; padding:24px 26px; }
-.fam .role { font:600 10px var(--lat); letter-spacing:.14em; text-transform:uppercase; color:var(--accent); }
-.fam .big { font-size:40px; margin:14px 0 4px; line-height:1.1; }
-.fam .name { font-size:13px; color:var(--ink); font-weight:500; }
-.fam .stack { font:500 11px var(--mono); color:var(--ink-4); margin-top:8px; word-break:break-all; line-height:1.5; }
-.fam .wts { display:flex; gap:8px; margin-top:14px; flex-wrap:wrap; }
-.fam .wts span { font-size:11px; color:var(--ink-3); border:1px solid var(--hair); border-radius:5px; padding:2px 7px; }
+      /* ── type ── */
+      .type-fams {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 16px;
+        margin-bottom: 44px;
+      }
+      .fam {
+        background: var(--surface);
+        border: 1px solid var(--hair);
+        border-radius: 13px;
+        padding: 24px 26px;
+      }
+      .fam .role {
+        font: 600 10px var(--lat);
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--accent);
+      }
+      .fam .big {
+        font-size: 40px;
+        margin: 14px 0 4px;
+        line-height: 1.1;
+      }
+      .fam .name {
+        font-size: 13px;
+        color: var(--ink);
+        font-weight: 500;
+      }
+      .fam .stack {
+        font: 500 11px var(--mono);
+        color: var(--ink-4);
+        margin-top: 8px;
+        word-break: break-all;
+        line-height: 1.5;
+      }
+      .fam .wts {
+        display: flex;
+        gap: 8px;
+        margin-top: 14px;
+        flex-wrap: wrap;
+      }
+      .fam .wts span {
+        font-size: 11px;
+        color: var(--ink-3);
+        border: 1px solid var(--hair);
+        border-radius: 5px;
+        padding: 2px 7px;
+      }
 
-.scale { background:var(--surface); border:1px solid var(--hair); border-radius:13px; overflow:hidden; }
-.scale-row { display:flex; align-items:baseline; gap:24px; padding:18px 26px; border-top:1px solid var(--hair-3); }
-.scale-row:first-child { border-top:none; }
-.scale-row .spec { flex:1; min-width:0; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.scale-row .lbl { font:500 11px var(--mono); color:var(--ink-4); width:200px; flex:0 0 200px; text-align:right; }
+      .scale {
+        background: var(--surface);
+        border: 1px solid var(--hair);
+        border-radius: 13px;
+        overflow: hidden;
+      }
+      .scale-row {
+        display: flex;
+        align-items: baseline;
+        gap: 24px;
+        padding: 18px 26px;
+        border-top: 1px solid var(--hair-3);
+      }
+      .scale-row:first-child {
+        border-top: none;
+      }
+      .scale-row .spec {
+        flex: 1;
+        min-width: 0;
+        color: var(--ink);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .scale-row .lbl {
+        font: 500 11px var(--mono);
+        color: var(--ink-4);
+        width: 200px;
+        flex: 0 0 200px;
+        text-align: right;
+      }
 
-/* ── colors ── */
-.col-grp { margin-bottom:36px; }
-.col-grp > .kick { margin-bottom:16px; display:block; }
-.sw-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:14px; }
-.sw { background:var(--surface); border:1px solid var(--hair); border-radius:11px; overflow:hidden; }
-.sw .chip { height:74px; border-bottom:1px solid var(--hair-3); }
-.sw .info { padding:11px 13px; }
-.sw .nm { font-size:12.5px; font-weight:500; }
-.sw .hx { font:500 11px var(--mono); color:var(--ink-4); margin-top:3px; text-transform:uppercase; }
-.sw .vr { font:500 10px var(--mono); color:var(--accent); margin-top:5px; }
-.cat-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:12px; }
-.cat { display:flex; align-items:center; gap:10px; background:var(--surface); border:1px solid var(--hair); border-radius:10px; padding:12px 14px; }
-.cat .dot { width:16px; height:16px; border-radius:5px; flex:0 0 16px; }
-.cat .t { font-size:13px; font-weight:500; }
-.cat .h { font:500 10px var(--mono); color:var(--ink-4); margin-top:2px; }
+      /* ── colors ── */
+      .col-grp {
+        margin-bottom: 36px;
+      }
+      .col-grp > .kick {
+        margin-bottom: 16px;
+        display: block;
+      }
+      .sw-grid {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 14px;
+      }
+      .sw {
+        background: var(--surface);
+        border: 1px solid var(--hair);
+        border-radius: 11px;
+        overflow: hidden;
+      }
+      .sw .chip {
+        height: 74px;
+        border-bottom: 1px solid var(--hair-3);
+      }
+      .sw .info {
+        padding: 11px 13px;
+      }
+      .sw .nm {
+        font-size: 12.5px;
+        font-weight: 500;
+      }
+      .sw .hx {
+        font: 500 11px var(--mono);
+        color: var(--ink-4);
+        margin-top: 3px;
+        text-transform: uppercase;
+      }
+      .sw .vr {
+        font: 500 10px var(--mono);
+        color: var(--accent);
+        margin-top: 5px;
+      }
+      .cat-grid {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 12px;
+      }
+      .cat {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        background: var(--surface);
+        border: 1px solid var(--hair);
+        border-radius: 10px;
+        padding: 12px 14px;
+      }
+      .cat .dot {
+        width: 16px;
+        height: 16px;
+        border-radius: 5px;
+        flex: 0 0 16px;
+      }
+      .cat .t {
+        font-size: 13px;
+        font-weight: 500;
+      }
+      .cat .h {
+        font: 500 10px var(--mono);
+        color: var(--ink-4);
+        margin-top: 2px;
+      }
 
-/* ── spacing ── */
-.two { display:grid; grid-template-columns:1fr 1fr; gap:28px; }
-.panel { background:var(--surface); border:1px solid var(--hair); border-radius:13px; padding:26px 28px; }
-.panel > .kick { margin-bottom:20px; display:block; }
-.sp-row { display:flex; align-items:center; gap:16px; margin-bottom:13px; }
-.sp-bar { height:14px; background:var(--accent-soft); border:1px solid var(--accent-line); border-radius:3px; }
-.sp-row .v { font:500 11px var(--mono); color:var(--ink-3); width:42px; flex:0 0 42px; }
-.rad-row { display:flex; align-items:center; gap:16px; margin-bottom:14px; }
-.rad-box { width:46px; height:46px; background:var(--surface-3); border:1px solid var(--hair); flex:0 0 46px; }
-.rad-row .v { font:500 11.5px var(--mono); color:var(--ink-3); }
-.rad-row .u { font-size:12px; color:var(--ink-4); margin-left:auto; }
+      /* ── spacing ── */
+      .two {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 28px;
+      }
+      .panel {
+        background: var(--surface);
+        border: 1px solid var(--hair);
+        border-radius: 13px;
+        padding: 26px 28px;
+      }
+      .panel > .kick {
+        margin-bottom: 20px;
+        display: block;
+      }
+      .sp-row {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        margin-bottom: 13px;
+      }
+      .sp-bar {
+        height: 14px;
+        background: var(--accent-soft);
+        border: 1px solid var(--accent-line);
+        border-radius: 3px;
+      }
+      .sp-row .v {
+        font: 500 11px var(--mono);
+        color: var(--ink-3);
+        width: 42px;
+        flex: 0 0 42px;
+      }
+      .rad-row {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        margin-bottom: 14px;
+      }
+      .rad-box {
+        width: 46px;
+        height: 46px;
+        background: var(--surface-3);
+        border: 1px solid var(--hair);
+        flex: 0 0 46px;
+      }
+      .rad-row .v {
+        font: 500 11.5px var(--mono);
+        color: var(--ink-3);
+      }
+      .rad-row .u {
+        font-size: 12px;
+        color: var(--ink-4);
+        margin-left: auto;
+      }
 
-/* ── components ── */
-.comp-grid { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
-.comp { background:var(--surface); border:1px solid var(--hair); border-radius:13px; padding:24px 26px; }
-.comp .kick { margin-bottom:18px; display:block; }
-.comp .stage { display:flex; flex-wrap:wrap; gap:12px; align-items:center; }
-.d-btn { font:500 12.5px var(--sans); padding:8px 16px; border-radius:9px; white-space:nowrap; border:none; cursor:pointer; }
-.d-btn.p { background:var(--accent); color:#fff; }
-.d-btn.g { background:var(--surface); border:1px solid var(--hair); color:var(--ink-2); }
-.d-btn.danger { color:var(--red); background:var(--surface); border:1px solid var(--hair); }
-.pill { display:inline-flex; align-items:center; gap:6px; padding:4px 11px; border-radius:100px; font:600 11px var(--lat); border:1px solid var(--hair); color:var(--ink-2); }
-.pill.on { background:var(--accent-soft); border-color:var(--accent-line); color:var(--accent); }
-.tag { font:500 12px var(--sans); color:var(--ink-3); white-space:nowrap; }
-.tag::before { content:"#"; opacity:.5; }
-.tgl { width:40px; height:23px; border-radius:100px; background:var(--accent); position:relative; }
-.tgl::after { content:""; position:absolute; top:2.5px; right:2.5px; width:18px; height:18px; border-radius:50%; background:#fff; box-shadow:0 1px 3px rgba(20,40,30,.28); }
-.tgl.off { background:var(--hair); }
-.tgl.off::after { right:auto; left:2.5px; }
-.seg { display:inline-flex; background:var(--surface-2); border-radius:9px; padding:2px; gap:2px; }
-.seg button { font:500 12px var(--sans); color:var(--ink-3); padding:5px 13px; border-radius:7px; border:none; background:none; }
-.seg button.on { background:var(--surface); color:var(--ink); box-shadow:0 1px 2px rgba(20,40,30,.10); font-weight:600; }
-.bar-track { height:9px; background:var(--hair-2); border-radius:6px; position:relative; width:100%; }
-.bar-fill { position:absolute; left:0; top:0; bottom:0; border-radius:6px; }
-.dnum { font:600 30px var(--mono); letter-spacing:-0.03em; }
-.dnum .cu { color:var(--ink-3); font-weight:500; font-size:16px; }
+      /* ── components ── */
+      .comp-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 18px;
+      }
+      .comp {
+        background: var(--surface);
+        border: 1px solid var(--hair);
+        border-radius: 13px;
+        padding: 24px 26px;
+      }
+      .comp .kick {
+        margin-bottom: 18px;
+        display: block;
+      }
+      .comp .stage {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: center;
+      }
+      .d-btn {
+        font: 500 12.5px var(--sans);
+        padding: 8px 16px;
+        border-radius: 9px;
+        white-space: nowrap;
+        border: none;
+        cursor: pointer;
+      }
+      .d-btn.p {
+        background: var(--accent);
+        color: #fff;
+      }
+      .d-btn.g {
+        background: var(--surface);
+        border: 1px solid var(--hair);
+        color: var(--ink-2);
+      }
+      .d-btn.danger {
+        color: var(--red);
+        background: var(--surface);
+        border: 1px solid var(--hair);
+      }
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 11px;
+        border-radius: 100px;
+        font: 600 11px var(--lat);
+        border: 1px solid var(--hair);
+        color: var(--ink-2);
+      }
+      .pill.on {
+        background: var(--accent-soft);
+        border-color: var(--accent-line);
+        color: var(--accent);
+      }
+      .tag {
+        font: 500 12px var(--sans);
+        color: var(--ink-3);
+        white-space: nowrap;
+      }
+      .tag::before {
+        content: "#";
+        opacity: 0.5;
+      }
+      .tgl {
+        width: 40px;
+        height: 23px;
+        border-radius: 100px;
+        background: var(--accent);
+        position: relative;
+      }
+      .tgl::after {
+        content: "";
+        position: absolute;
+        top: 2.5px;
+        right: 2.5px;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: #fff;
+        box-shadow: 0 1px 3px rgba(20, 40, 30, 0.28);
+      }
+      .tgl.off {
+        background: var(--hair);
+      }
+      .tgl.off::after {
+        right: auto;
+        left: 2.5px;
+      }
+      .seg {
+        display: inline-flex;
+        background: var(--surface-2);
+        border-radius: 9px;
+        padding: 2px;
+        gap: 2px;
+      }
+      .seg button {
+        font: 500 12px var(--sans);
+        color: var(--ink-3);
+        padding: 5px 13px;
+        border-radius: 7px;
+        border: none;
+        background: none;
+      }
+      .seg button.on {
+        background: var(--surface);
+        color: var(--ink);
+        box-shadow: 0 1px 2px rgba(20, 40, 30, 0.1);
+        font-weight: 600;
+      }
+      .bar-track {
+        height: 9px;
+        background: var(--hair-2);
+        border-radius: 6px;
+        position: relative;
+        width: 100%;
+      }
+      .bar-fill {
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        border-radius: 6px;
+      }
+      .dnum {
+        font: 600 30px var(--mono);
+        letter-spacing: -0.03em;
+      }
+      .dnum .cu {
+        color: var(--ink-3);
+        font-weight: 500;
+        font-size: 16px;
+      }
 
-footer { padding:50px 0 80px; }
-footer .f { font-size:12.5px; color:var(--ink-4); line-height:1.7; }
-</style>
-</head>
-<body>
-
-<div class="wrap">
-
-  <!-- HERO -->
-  <header class="hero">
-    <div class="logo">
-      <span class="mark"><svg width="19" height="19" viewBox="0 0 20 20" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14l4-5 3 3 4-6 3 4" /></svg></span>
-      <span class="nm">Flowm</span>
-    </div>
-    <h1>设计系统</h1>
-    <p class="sub">一套用于个人财务全局视图的克制视觉语言。仪器般的浅色界面，等宽数字，绿色只承担状态——把账目诚实地摊开，不替用户做判断。</p>
-    <div class="meta">
-      <div class="it"><div class="k">版本</div><div class="v mono">v1.4.0 · 2026.06</div></div>
-      <div class="it"><div class="k">字体</div><div class="v">Noto Sans SC · IBM Plex</div></div>
-      <div class="it"><div class="k">基调</div><div class="v">浅色 · 仪器白 · 单色强调</div></div>
-    </div>
-  </header>
-
-  <!-- PHILOSOPHY -->
-  <section>
-    <div class="sec-head">
-      <span class="sec-no">01</span>
-      <h2>设计思路</h2>
-      <span class="desc">五条原则贯穿每一个页面与组件，决定了什么该出现、什么该克制。</span>
-    </div>
-    <div class="principles">
-      <div class="principle">
-        <div class="idx">01</div>
-        <h3>只呈现，不替你判断</h3>
-        <p>Flowm 把账目、余额、超支诚实地摊开给你看，但从不评价"该不该花"。更新余额只算出差额，调预算只给出历史参考——决定永远是你的。</p>
-        <div class="ex">例：超支只标红提示，不弹"警告"，不劝你省钱。</div>
-      </div>
-      <div class="principle">
-        <div class="idx">02</div>
-        <h3>诚实，不造假精度</h3>
-        <p>余额是手动维护的，就用「历次更新记录」呈现，绝不画一条平滑的假日线。数据有多少确定性，界面就表达多少确定性。</p>
-        <div class="ex">例：手动余额走势是离散的更新点，而非插值曲线。</div>
-      </div>
-      <div class="principle">
-        <div class="idx">03</div>
-        <h3>本地优先</h3>
-        <p>不联网、不上传，所有账单与余额只存在这台设备。这是产品的灵魂，也写进了每个空状态与设置说明里。</p>
-        <div class="ex">例：设置底部常驻一句"数据仅保存在本机"。</div>
-      </div>
-      <div class="principle">
-        <div class="idx">04</div>
-        <h3>编辑式，少用盒子</h3>
-        <p>分区靠留白、细线与底色带，而不是把每块内容装进描边卡片。读起来像一份干净的财务报表，而非一堆控件。</p>
-        <div class="ex">例：栏目之间用一条 hairline 或浅灰分隔带，不加边框。</div>
-      </div>
-      <div class="principle">
-        <div class="idx">05</div>
-        <h3>绿色只做状态</h3>
-        <p>绿色代表"收入 / 正向 / 主操作"，与表达"分类"的彩色调色板严格分离。颜色有职责，不做装饰。</p>
-        <div class="ex">例：品牌强调色独立于状态色，可在 Tweaks 切换而不影响红/绿语义。</div>
-      </div>
-    </div>
-  </section>
-
-  <!-- TYPOGRAPHY -->
-  <section>
-    <div class="sec-head">
-      <span class="sec-no">02</span>
-      <h2>字体</h2>
-      <span class="desc">中文为主力，拉丁与数字分工明确。数字一律等宽，开启 tnum 对齐。</span>
-    </div>
-    <div class="type-fams">
-      <div class="fam">
-        <div class="role">中文主力 · sans</div>
-        <div class="big">收支一目了然</div>
-        <div class="name">Noto Sans SC</div>
-        <div class="stack">"Noto Sans SC", "IBM Plex Sans", system-ui</div>
-        <div class="wts"><span>300 Light</span><span>400 Regular</span><span>500 Medium</span><span>700 Bold</span></div>
-      </div>
-      <div class="fam">
-        <div class="role">拉丁 / 标签 · lat</div>
-        <div class="big lat">Flowm Net Worth</div>
-        <div class="name">IBM Plex Sans</div>
-        <div class="stack">"IBM Plex Sans", "Noto Sans SC", system-ui</div>
-        <div class="wts"><span>400</span><span>500</span><span>600</span><span>700</span></div>
-      </div>
-      <div class="fam">
-        <div class="role">数字 · mono</div>
-        <div class="big mono">¥1,234,567</div>
-        <div class="name">IBM Plex Mono</div>
-        <div class="stack">"IBM Plex Mono", ui-monospace, "SF Mono"</div>
-        <div class="wts"><span>400</span><span>500</span><span>600</span><span>tnum · zero</span></div>
-      </div>
-    </div>
-    <span class="kick" style="display:block; margin-bottom:14px;">类型尺度</span>
-    <div class="scale">
-      <div class="scale-row"><span class="spec mono" style="font-size:46px; font-weight:600; letter-spacing:-0.03em;">¥2,684,431</span><span class="lbl">展示数字 / mono 600 / 40–48px</span></div>
-      <div class="scale-row"><span class="spec" style="font-size:25px; font-weight:600; letter-spacing:-0.02em;">资产详情页</span><span class="lbl">页面标题 / sans 600 / 23–26px</span></div>
-      <div class="spec scale-row"><span class="spec" style="font-size:17px; font-weight:600;">即将扣费</span><span class="lbl">区块标题 / sans 600 / 16–17px</span></div>
-      <div class="scale-row"><span class="spec" style="font-size:14px;">余额由你手动维护，仅作参考核对。</span><span class="lbl">正文 / sans 400 / 13–14px</span></div>
-      <div class="scale-row"><span class="spec lat" style="font:600 10px var(--lat); letter-spacing:.16em; text-transform:uppercase; color:var(--ink-4);">NET WORTH · 净资产</span><span class="lbl">Kicker / lat 600 / 10px / 字距 .16em</span></div>
-    </div>
-  </section>
-
-  <!-- COLORS -->
-  <section>
-    <div class="sec-head">
-      <span class="sec-no">03</span>
-      <h2>颜色</h2>
-      <span class="desc">浅色仪器白打底，墨色文字分五级，状态色克制，分类调色板柔和去饱和。</span>
-    </div>
-
-    <div class="col-grp">
-      <span class="kick">表面 · Surfaces</span>
-      <div class="sw-grid">
-        <div class="sw"><div class="chip" style="background:#ebeeea;"></div><div class="info"><div class="nm">工作区底</div><div class="hx">#EBEEEA</div><div class="vr">--bg</div></div></div>
-        <div class="sw"><div class="chip" style="background:#ffffff;"></div><div class="info"><div class="nm">主表面</div><div class="hx">#FFFFFF</div><div class="vr">--surface</div></div></div>
-        <div class="sw"><div class="chip" style="background:#f7f9f7;"></div><div class="info"><div class="nm">次表面</div><div class="hx">#F7F9F7</div><div class="vr">--surface-2</div></div></div>
-        <div class="sw"><div class="chip" style="background:#f1f4f1;"></div><div class="info"><div class="nm">三级表面</div><div class="hx">#F1F4F1</div><div class="vr">--surface-3</div></div></div>
-        <div class="sw"><div class="chip" style="background:#f0f4f0;"></div><div class="info"><div class="nm">悬停</div><div class="hx">#F0F4F0</div><div class="vr">--hover</div></div></div>
-      </div>
-    </div>
-
-    <div class="col-grp">
-      <span class="kick">墨色 · Ink（五级）</span>
-      <div class="sw-grid">
-        <div class="sw"><div class="chip" style="background:#161e19;"></div><div class="info"><div class="nm">正文</div><div class="hx">#161E19</div><div class="vr">--ink</div></div></div>
-        <div class="sw"><div class="chip" style="background:#58625b;"></div><div class="info"><div class="nm">次要</div><div class="hx">#58625B</div><div class="vr">--ink-2</div></div></div>
-        <div class="sw"><div class="chip" style="background:#8a948c;"></div><div class="info"><div class="nm">辅助</div><div class="hx">#8A948C</div><div class="vr">--ink-3</div></div></div>
-        <div class="sw"><div class="chip" style="background:#b3bbb4;"></div><div class="info"><div class="nm">占位</div><div class="hx">#B3BBB4</div><div class="vr">--ink-4</div></div></div>
-        <div class="sw"><div class="chip" style="background:#d3d9d3;"></div><div class="info"><div class="nm">极弱</div><div class="hx">#D3D9D3</div><div class="vr">--ink-5</div></div></div>
-      </div>
-    </div>
-
-    <div class="col-grp">
-      <span class="kick">状态 + 强调 · Status</span>
-      <div class="sw-grid">
-        <div class="sw"><div class="chip" style="background:#14794a;"></div><div class="info"><div class="nm">绿 · 正向/主操作</div><div class="hx">#14794A</div><div class="vr">--green / --accent</div></div></div>
-        <div class="sw"><div class="chip" style="background:#b8412f;"></div><div class="info"><div class="nm">红 · 支出/超支</div><div class="hx">#B8412F</div><div class="vr">--red</div></div></div>
-        <div class="sw"><div class="chip" style="background:#ad7c2c;"></div><div class="info"><div class="nm">琥珀 · 提醒</div><div class="hx">#AD7C2C</div><div class="vr">--amber</div></div></div>
-        <div class="sw"><div class="chip" style="background:#e7f3eb; border-bottom:1px solid var(--green-line);"></div><div class="info"><div class="nm">绿 · 浅底</div><div class="hx">#E7F3EB</div><div class="vr">--accent-soft</div></div></div>
-        <div class="sw"><div class="chip" style="background:#f9ece8;"></div><div class="info"><div class="nm">红 · 浅底</div><div class="hx">#F9ECE8</div><div class="vr">--red-soft</div></div></div>
-      </div>
-    </div>
-
-    <div class="col-grp">
-      <span class="kick">分类调色板 · Category（去饱和 · 仅用于分类标识）</span>
-      <div class="cat-grid">
-        <div class="cat"><span class="dot" style="background:#a9763f;"></span><div><div class="t">居住</div><div class="h">#A9763F</div></div></div>
-        <div class="cat"><span class="dot" style="background:#c2873b;"></span><div><div class="t">餐饮</div><div class="h">#C2873B</div></div></div>
-        <div class="cat"><span class="dot" style="background:#4a7fb5;"></span><div><div class="t">交通</div><div class="h">#4A7FB5</div></div></div>
-        <div class="cat"><span class="dot" style="background:#8a6db5;"></span><div><div class="t">购物</div><div class="h">#8A6DB5</div></div></div>
-        <div class="cat"><span class="dot" style="background:#3d9d8f;"></span><div><div class="t">订阅</div><div class="h">#3D9D8F</div></div></div>
-        <div class="cat"><span class="dot" style="background:#bd6493;"></span><div><div class="t">娱乐</div><div class="h">#BD6493</div></div></div>
-        <div class="cat"><span class="dot" style="background:#2a8d5b;"></span><div><div class="t">理财</div><div class="h">#2A8D5B</div></div></div>
-        <div class="cat"><span class="dot" style="background:#14794a;"></span><div><div class="t">收入</div><div class="h">#14794A</div></div></div>
-        <div class="cat"><span class="dot" style="background:#6b8fa5;"></span><div><div class="t">转账</div><div class="h">#6B8FA5</div></div></div>
-        <div class="cat"><span class="dot" style="background:#8b918d;"></span><div><div class="t">其他</div><div class="h">#8B918D</div></div></div>
-      </div>
-    </div>
-  </section>
-
-  <!-- SPACING -->
-  <section>
-    <div class="sec-head">
-      <span class="sec-no">04</span>
-      <h2>间距 · 圆角 · 分隔</h2>
-      <span class="desc">4px 基准的间距阶梯，柔和圆角，发丝级分隔线——分区不靠边框，靠留白与底色带。</span>
-    </div>
-    <div class="two">
-      <div class="panel">
-        <span class="kick">间距阶梯 · 4px 基准</span>
-        <div class="sp-row"><span class="v">4</span><div class="sp-bar" style="width:4px;"></div></div>
-        <div class="sp-row"><span class="v">8</span><div class="sp-bar" style="width:8px;"></div></div>
-        <div class="sp-row"><span class="v">12</span><div class="sp-bar" style="width:12px;"></div></div>
-        <div class="sp-row"><span class="v">16</span><div class="sp-bar" style="width:16px;"></div></div>
-        <div class="sp-row"><span class="v">20</span><div class="sp-bar" style="width:20px;"></div></div>
-        <div class="sp-row"><span class="v">24</span><div class="sp-bar" style="width:24px;"></div></div>
-        <div class="sp-row"><span class="v">30</span><div class="sp-bar" style="width:30px;"></div></div>
-        <div class="sp-row"><span class="v">36</span><div class="sp-bar" style="width:36px;"></div></div>
-      </div>
-      <div class="panel">
-        <span class="kick">圆角 · Radii</span>
-        <div class="rad-row"><div class="rad-box" style="border-radius:5px;"></div><span class="v">5px</span><span class="u">标签 / 小标记</span></div>
-        <div class="rad-row"><div class="rad-box" style="border-radius:9px;"></div><span class="v">9px</span><span class="u">按钮 / 输入框</span></div>
-        <div class="rad-row"><div class="rad-box" style="border-radius:12px;"></div><span class="v">12px</span><span class="u">卡片 / 弹窗内块</span></div>
-        <div class="rad-row"><div class="rad-box" style="border-radius:16px;"></div><span class="v">16px</span><span class="u">弹窗 / 大面板</span></div>
-        <div style="margin-top:24px; padding-top:20px; border-top:1px solid var(--hair-3);">
-          <span class="kick" style="display:block; margin-bottom:16px;">分隔 · Dividers</span>
-          <div style="height:1px; background:var(--hair); margin-bottom:6px;"></div>
-          <div style="font:500 11px var(--mono); color:var(--ink-4); margin-bottom:18px;">1px hairline · --hair #E6EAE6</div>
-          <div style="height:8px; background:var(--surface-2); border-radius:2px; margin-bottom:6px;"></div>
-          <div style="font:500 11px var(--mono); color:var(--ink-4);">8px 底色分隔带 · 移动端分区</div>
+      footer {
+        padding: 50px 0 80px;
+      }
+      footer .f {
+        font-size: 12.5px;
+        color: var(--ink-4);
+        line-height: 1.7;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <!-- HERO -->
+      <header class="hero">
+        <div class="logo">
+          <span class="mark"
+            ><svg
+              width="19"
+              height="19"
+              viewBox="0 0 20 20"
+              fill="none"
+              stroke="#fff"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M3 14l4-5 3 3 4-6 3 4" /></svg
+          ></span>
+          <span class="nm">Flowm</span>
         </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- COMPONENTS -->
-  <section>
-    <div class="sec-head">
-      <span class="sec-no">05</span>
-      <h2>组件</h2>
-      <span class="desc">最小一组原子：按钮、药丸、标签、开关、分段、进度条、展示数字。</span>
-    </div>
-    <div class="comp-grid">
-      <div class="comp">
-        <span class="kick">按钮 · Buttons</span>
-        <div class="stage">
-          <button class="d-btn p">更新余额</button>
-          <button class="d-btn g">编辑账户</button>
-          <button class="d-btn danger">删除</button>
-        </div>
-      </div>
-      <div class="comp">
-        <span class="kick">药丸 + 标签 · Pill / Tag</span>
-        <div class="stage">
-          <span class="pill on">CNY · ¥</span>
-          <span class="pill">USD · $</span>
-          <span class="tag">咖啡</span>
-          <span class="tag">外卖</span>
-          <span class="tag">数码</span>
-        </div>
-      </div>
-      <div class="comp">
-        <span class="kick">开关 · Toggle</span>
-        <div class="stage" style="gap:20px;">
-          <span class="tgl"></span>
-          <span class="tgl off"></span>
-        </div>
-      </div>
-      <div class="comp">
-        <span class="kick">分段 · Segmented</span>
-        <div class="stage">
-          <div class="seg"><button class="on">支出</button><button>收入</button></div>
-          <div class="seg"><button>0</button><button class="on">2</button></div>
-        </div>
-      </div>
-      <div class="comp">
-        <span class="kick">进度条 · Bars</span>
-        <div class="stage" style="flex-direction:column; align-items:stretch; gap:16px;">
-          <div class="bar-track"><div class="bar-fill" style="width:64%; background:var(--accent);"></div></div>
-          <div class="bar-track">
-            <div class="bar-fill" style="width:80%; background:var(--accent); border-radius:6px 0 0 6px;"></div>
-            <div class="bar-fill" style="left:80%; width:20%; background:var(--red); border-radius:0 6px 6px 0; box-shadow:-1px 0 0 #fff;"></div>
+        <h1>设计系统</h1>
+        <p class="sub">
+          一套用于个人财务全局视图的克制视觉语言。仪器般的浅色界面，等宽数字，绿色只承担状态——把账目诚实地摊开，不替用户做判断。
+        </p>
+        <div class="meta">
+          <div class="it">
+            <div class="k">版本</div>
+            <div class="v mono">v1.4.0 · 2026.06</div>
+          </div>
+          <div class="it">
+            <div class="k">字体</div>
+            <div class="v">Noto Sans SC · IBM Plex</div>
+          </div>
+          <div class="it">
+            <div class="k">基调</div>
+            <div class="v">浅色 · 仪器白 · 单色强调</div>
           </div>
         </div>
-      </div>
-      <div class="comp">
-        <span class="kick">展示数字 · Display</span>
-        <div class="stage" style="align-items:baseline; gap:8px;">
-          <span class="dnum"><span class="cu">¥</span>88,300</span>
-          <span class="mono" style="color:var(--green); font-weight:600;">+¥40,070</span>
+      </header>
+
+      <!-- PHILOSOPHY -->
+      <section>
+        <div class="sec-head">
+          <span class="sec-no">01</span>
+          <h2>设计思路</h2>
+          <span class="desc">五条原则贯穿每一个页面与组件，决定了什么该出现、什么该克制。</span>
         </div>
-      </div>
+        <div class="principles">
+          <div class="principle">
+            <div class="idx">01</div>
+            <h3>只呈现，不替你判断</h3>
+            <p>
+              Flowm
+              把账目、余额、超支诚实地摊开给你看，但从不评价"该不该花"。更新余额只算出差额，调预算只给出历史参考——决定永远是你的。
+            </p>
+            <div class="ex">例：超支只标红提示，不弹"警告"，不劝你省钱。</div>
+          </div>
+          <div class="principle">
+            <div class="idx">02</div>
+            <h3>诚实，不造假精度</h3>
+            <p>
+              余额是手动维护的，就用「历次更新记录」呈现，绝不画一条平滑的假日线。数据有多少确定性，界面就表达多少确定性。
+            </p>
+            <div class="ex">例：手动余额走势是离散的更新点，而非插值曲线。</div>
+          </div>
+          <div class="principle">
+            <div class="idx">03</div>
+            <h3>本地优先</h3>
+            <p>
+              不联网、不上传，所有账单与余额只存在这台设备。这是产品的灵魂，也写进了每个空状态与设置说明里。
+            </p>
+            <div class="ex">例：设置底部常驻一句"数据仅保存在本机"。</div>
+          </div>
+          <div class="principle">
+            <div class="idx">04</div>
+            <h3>编辑式，少用盒子</h3>
+            <p>
+              分区靠留白、细线与底色带，而不是把每块内容装进描边卡片。读起来像一份干净的财务报表，而非一堆控件。
+            </p>
+            <div class="ex">例：栏目之间用一条 hairline 或浅灰分隔带，不加边框。</div>
+          </div>
+          <div class="principle">
+            <div class="idx">05</div>
+            <h3>绿色只做状态</h3>
+            <p>
+              绿色代表"收入 / 正向 /
+              主操作"，与表达"分类"的彩色调色板严格分离。颜色有职责，不做装饰。
+            </p>
+            <div class="ex">例：品牌强调色独立于状态色，可在 Tweaks 切换而不影响红/绿语义。</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TYPOGRAPHY -->
+      <section>
+        <div class="sec-head">
+          <span class="sec-no">02</span>
+          <h2>字体</h2>
+          <span class="desc">中文为主力，拉丁与数字分工明确。数字一律等宽，开启 tnum 对齐。</span>
+        </div>
+        <div class="type-fams">
+          <div class="fam">
+            <div class="role">中文主力 · sans</div>
+            <div class="big">收支一目了然</div>
+            <div class="name">Noto Sans SC</div>
+            <div class="stack">"Noto Sans SC", "IBM Plex Sans", system-ui</div>
+            <div class="wts">
+              <span>300 Light</span><span>400 Regular</span><span>500 Medium</span
+              ><span>700 Bold</span>
+            </div>
+          </div>
+          <div class="fam">
+            <div class="role">拉丁 / 标签 · lat</div>
+            <div class="big lat">Flowm Net Worth</div>
+            <div class="name">IBM Plex Sans</div>
+            <div class="stack">"IBM Plex Sans", "Noto Sans SC", system-ui</div>
+            <div class="wts"><span>400</span><span>500</span><span>600</span><span>700</span></div>
+          </div>
+          <div class="fam">
+            <div class="role">数字 · mono</div>
+            <div class="big mono">¥1,234,567</div>
+            <div class="name">IBM Plex Mono</div>
+            <div class="stack">"IBM Plex Mono", ui-monospace, "SF Mono"</div>
+            <div class="wts">
+              <span>400</span><span>500</span><span>600</span><span>tnum · zero</span>
+            </div>
+          </div>
+        </div>
+        <span class="kick" style="display: block; margin-bottom: 14px">类型尺度</span>
+        <div class="scale">
+          <div class="scale-row">
+            <span
+              class="spec mono"
+              style="font-size: 46px; font-weight: 600; letter-spacing: -0.03em"
+              >¥2,684,431</span
+            ><span class="lbl">展示数字 / mono 600 / 40–48px</span>
+          </div>
+          <div class="scale-row">
+            <span class="spec" style="font-size: 25px; font-weight: 600; letter-spacing: -0.02em"
+              >资产详情页</span
+            ><span class="lbl">页面标题 / sans 600 / 23–26px</span>
+          </div>
+          <div class="spec scale-row">
+            <span class="spec" style="font-size: 17px; font-weight: 600">即将扣费</span
+            ><span class="lbl">区块标题 / sans 600 / 16–17px</span>
+          </div>
+          <div class="scale-row">
+            <span class="spec" style="font-size: 14px">余额由你手动维护，仅作参考核对。</span
+            ><span class="lbl">正文 / sans 400 / 13–14px</span>
+          </div>
+          <div class="scale-row">
+            <span
+              class="spec lat"
+              style="
+                font: 600 10px var(--lat);
+                letter-spacing: 0.16em;
+                text-transform: uppercase;
+                color: var(--ink-4);
+              "
+              >NET WORTH · 净资产</span
+            ><span class="lbl">Kicker / lat 600 / 10px / 字距 .16em</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- COLORS -->
+      <section>
+        <div class="sec-head">
+          <span class="sec-no">03</span>
+          <h2>颜色</h2>
+          <span class="desc"
+            >浅色仪器白打底，墨色文字分五级，状态色克制，分类调色板柔和去饱和。</span
+          >
+        </div>
+
+        <div class="col-grp">
+          <span class="kick">表面 · Surfaces</span>
+          <div class="sw-grid">
+            <div class="sw">
+              <div class="chip" style="background: #ebeeea"></div>
+              <div class="info">
+                <div class="nm">工作区底</div>
+                <div class="hx">#EBEEEA</div>
+                <div class="vr">--bg</div>
+              </div>
+            </div>
+            <div class="sw">
+              <div class="chip" style="background: #ffffff"></div>
+              <div class="info">
+                <div class="nm">主表面</div>
+                <div class="hx">#FFFFFF</div>
+                <div class="vr">--surface</div>
+              </div>
+            </div>
+            <div class="sw">
+              <div class="chip" style="background: #f7f9f7"></div>
+              <div class="info">
+                <div class="nm">次表面</div>
+                <div class="hx">#F7F9F7</div>
+                <div class="vr">--surface-2</div>
+              </div>
+            </div>
+            <div class="sw">
+              <div class="chip" style="background: #f1f4f1"></div>
+              <div class="info">
+                <div class="nm">三级表面</div>
+                <div class="hx">#F1F4F1</div>
+                <div class="vr">--surface-3</div>
+              </div>
+            </div>
+            <div class="sw">
+              <div class="chip" style="background: #f0f4f0"></div>
+              <div class="info">
+                <div class="nm">悬停</div>
+                <div class="hx">#F0F4F0</div>
+                <div class="vr">--hover</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-grp">
+          <span class="kick">墨色 · Ink（五级）</span>
+          <div class="sw-grid">
+            <div class="sw">
+              <div class="chip" style="background: #161e19"></div>
+              <div class="info">
+                <div class="nm">正文</div>
+                <div class="hx">#161E19</div>
+                <div class="vr">--ink</div>
+              </div>
+            </div>
+            <div class="sw">
+              <div class="chip" style="background: #58625b"></div>
+              <div class="info">
+                <div class="nm">次要</div>
+                <div class="hx">#58625B</div>
+                <div class="vr">--ink-2</div>
+              </div>
+            </div>
+            <div class="sw">
+              <div class="chip" style="background: #8a948c"></div>
+              <div class="info">
+                <div class="nm">辅助</div>
+                <div class="hx">#8A948C</div>
+                <div class="vr">--ink-3</div>
+              </div>
+            </div>
+            <div class="sw">
+              <div class="chip" style="background: #b3bbb4"></div>
+              <div class="info">
+                <div class="nm">占位</div>
+                <div class="hx">#B3BBB4</div>
+                <div class="vr">--ink-4</div>
+              </div>
+            </div>
+            <div class="sw">
+              <div class="chip" style="background: #d3d9d3"></div>
+              <div class="info">
+                <div class="nm">极弱</div>
+                <div class="hx">#D3D9D3</div>
+                <div class="vr">--ink-5</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-grp">
+          <span class="kick">状态 + 强调 · Status</span>
+          <div class="sw-grid">
+            <div class="sw">
+              <div class="chip" style="background: #14794a"></div>
+              <div class="info">
+                <div class="nm">绿 · 正向/主操作</div>
+                <div class="hx">#14794A</div>
+                <div class="vr">--green / --accent</div>
+              </div>
+            </div>
+            <div class="sw">
+              <div class="chip" style="background: #b8412f"></div>
+              <div class="info">
+                <div class="nm">红 · 支出/超支</div>
+                <div class="hx">#B8412F</div>
+                <div class="vr">--red</div>
+              </div>
+            </div>
+            <div class="sw">
+              <div class="chip" style="background: #ad7c2c"></div>
+              <div class="info">
+                <div class="nm">琥珀 · 提醒</div>
+                <div class="hx">#AD7C2C</div>
+                <div class="vr">--amber</div>
+              </div>
+            </div>
+            <div class="sw">
+              <div
+                class="chip"
+                style="background: #e7f3eb; border-bottom: 1px solid var(--green-line)"
+              ></div>
+              <div class="info">
+                <div class="nm">绿 · 浅底</div>
+                <div class="hx">#E7F3EB</div>
+                <div class="vr">--accent-soft</div>
+              </div>
+            </div>
+            <div class="sw">
+              <div class="chip" style="background: #f9ece8"></div>
+              <div class="info">
+                <div class="nm">红 · 浅底</div>
+                <div class="hx">#F9ECE8</div>
+                <div class="vr">--red-soft</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-grp">
+          <span class="kick">分类调色板 · Category（去饱和 · 仅用于分类标识）</span>
+          <div class="cat-grid">
+            <div class="cat">
+              <span class="dot" style="background: #a9763f"></span>
+              <div>
+                <div class="t">居住</div>
+                <div class="h">#A9763F</div>
+              </div>
+            </div>
+            <div class="cat">
+              <span class="dot" style="background: #c2873b"></span>
+              <div>
+                <div class="t">餐饮</div>
+                <div class="h">#C2873B</div>
+              </div>
+            </div>
+            <div class="cat">
+              <span class="dot" style="background: #4a7fb5"></span>
+              <div>
+                <div class="t">交通</div>
+                <div class="h">#4A7FB5</div>
+              </div>
+            </div>
+            <div class="cat">
+              <span class="dot" style="background: #8a6db5"></span>
+              <div>
+                <div class="t">购物</div>
+                <div class="h">#8A6DB5</div>
+              </div>
+            </div>
+            <div class="cat">
+              <span class="dot" style="background: #3d9d8f"></span>
+              <div>
+                <div class="t">订阅</div>
+                <div class="h">#3D9D8F</div>
+              </div>
+            </div>
+            <div class="cat">
+              <span class="dot" style="background: #bd6493"></span>
+              <div>
+                <div class="t">娱乐</div>
+                <div class="h">#BD6493</div>
+              </div>
+            </div>
+            <div class="cat">
+              <span class="dot" style="background: #2a8d5b"></span>
+              <div>
+                <div class="t">理财</div>
+                <div class="h">#2A8D5B</div>
+              </div>
+            </div>
+            <div class="cat">
+              <span class="dot" style="background: #14794a"></span>
+              <div>
+                <div class="t">收入</div>
+                <div class="h">#14794A</div>
+              </div>
+            </div>
+            <div class="cat">
+              <span class="dot" style="background: #6b8fa5"></span>
+              <div>
+                <div class="t">转账</div>
+                <div class="h">#6B8FA5</div>
+              </div>
+            </div>
+            <div class="cat">
+              <span class="dot" style="background: #8b918d"></span>
+              <div>
+                <div class="t">其他</div>
+                <div class="h">#8B918D</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SPACING -->
+      <section>
+        <div class="sec-head">
+          <span class="sec-no">04</span>
+          <h2>间距 · 圆角 · 分隔</h2>
+          <span class="desc"
+            >4px 基准的间距阶梯，柔和圆角，发丝级分隔线——分区不靠边框，靠留白与底色带。</span
+          >
+        </div>
+        <div class="two">
+          <div class="panel">
+            <span class="kick">间距阶梯 · 4px 基准</span>
+            <div class="sp-row">
+              <span class="v">4</span>
+              <div class="sp-bar" style="width: 4px"></div>
+            </div>
+            <div class="sp-row">
+              <span class="v">8</span>
+              <div class="sp-bar" style="width: 8px"></div>
+            </div>
+            <div class="sp-row">
+              <span class="v">12</span>
+              <div class="sp-bar" style="width: 12px"></div>
+            </div>
+            <div class="sp-row">
+              <span class="v">16</span>
+              <div class="sp-bar" style="width: 16px"></div>
+            </div>
+            <div class="sp-row">
+              <span class="v">20</span>
+              <div class="sp-bar" style="width: 20px"></div>
+            </div>
+            <div class="sp-row">
+              <span class="v">24</span>
+              <div class="sp-bar" style="width: 24px"></div>
+            </div>
+            <div class="sp-row">
+              <span class="v">30</span>
+              <div class="sp-bar" style="width: 30px"></div>
+            </div>
+            <div class="sp-row">
+              <span class="v">36</span>
+              <div class="sp-bar" style="width: 36px"></div>
+            </div>
+          </div>
+          <div class="panel">
+            <span class="kick">圆角 · Radii</span>
+            <div class="rad-row">
+              <div class="rad-box" style="border-radius: 5px"></div>
+              <span class="v">5px</span><span class="u">标签 / 小标记</span>
+            </div>
+            <div class="rad-row">
+              <div class="rad-box" style="border-radius: 9px"></div>
+              <span class="v">9px</span><span class="u">按钮 / 输入框</span>
+            </div>
+            <div class="rad-row">
+              <div class="rad-box" style="border-radius: 12px"></div>
+              <span class="v">12px</span><span class="u">卡片 / 弹窗内块</span>
+            </div>
+            <div class="rad-row">
+              <div class="rad-box" style="border-radius: 16px"></div>
+              <span class="v">16px</span><span class="u">弹窗 / 大面板</span>
+            </div>
+            <div style="margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--hair-3)">
+              <span class="kick" style="display: block; margin-bottom: 16px">分隔 · Dividers</span>
+              <div style="height: 1px; background: var(--hair); margin-bottom: 6px"></div>
+              <div style="font: 500 11px var(--mono); color: var(--ink-4); margin-bottom: 18px">
+                1px hairline · --hair #E6EAE6
+              </div>
+              <div
+                style="
+                  height: 8px;
+                  background: var(--surface-2);
+                  border-radius: 2px;
+                  margin-bottom: 6px;
+                "
+              ></div>
+              <div style="font: 500 11px var(--mono); color: var(--ink-4)">
+                8px 底色分隔带 · 移动端分区
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- COMPONENTS -->
+      <section>
+        <div class="sec-head">
+          <span class="sec-no">05</span>
+          <h2>组件</h2>
+          <span class="desc">最小一组原子：按钮、药丸、标签、开关、分段、进度条、展示数字。</span>
+        </div>
+        <div class="comp-grid">
+          <div class="comp">
+            <span class="kick">按钮 · Buttons</span>
+            <div class="stage">
+              <button class="d-btn p">更新余额</button>
+              <button class="d-btn g">编辑账户</button>
+              <button class="d-btn danger">删除</button>
+            </div>
+          </div>
+          <div class="comp">
+            <span class="kick">药丸 + 标签 · Pill / Tag</span>
+            <div class="stage">
+              <span class="pill on">CNY · ¥</span>
+              <span class="pill">USD · $</span>
+              <span class="tag">咖啡</span>
+              <span class="tag">外卖</span>
+              <span class="tag">数码</span>
+            </div>
+          </div>
+          <div class="comp">
+            <span class="kick">开关 · Toggle</span>
+            <div class="stage" style="gap: 20px">
+              <span class="tgl"></span>
+              <span class="tgl off"></span>
+            </div>
+          </div>
+          <div class="comp">
+            <span class="kick">分段 · Segmented</span>
+            <div class="stage">
+              <div class="seg"><button class="on">支出</button><button>收入</button></div>
+              <div class="seg"><button>0</button><button class="on">2</button></div>
+            </div>
+          </div>
+          <div class="comp">
+            <span class="kick">进度条 · Bars</span>
+            <div class="stage" style="flex-direction: column; align-items: stretch; gap: 16px">
+              <div class="bar-track">
+                <div class="bar-fill" style="width: 64%; background: var(--accent)"></div>
+              </div>
+              <div class="bar-track">
+                <div
+                  class="bar-fill"
+                  style="width: 80%; background: var(--accent); border-radius: 6px 0 0 6px"
+                ></div>
+                <div
+                  class="bar-fill"
+                  style="
+                    left: 80%;
+                    width: 20%;
+                    background: var(--red);
+                    border-radius: 0 6px 6px 0;
+                    box-shadow: -1px 0 0 #fff;
+                  "
+                ></div>
+              </div>
+            </div>
+          </div>
+          <div class="comp">
+            <span class="kick">展示数字 · Display</span>
+            <div class="stage" style="align-items: baseline; gap: 8px">
+              <span class="dnum"><span class="cu">¥</span>88,300</span>
+              <span class="mono" style="color: var(--green); font-weight: 600">+¥40,070</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <footer>
+        <div class="f">
+          Flowm Design System · 个人财务全局视图<br />浅色仪器白 · 绿色只做状态 · 中文为主 ·
+          等宽数字 · 本地优先
+        </div>
+      </footer>
     </div>
-  </section>
-
-  <footer>
-    <div class="f">Flowm Design System · 个人财务全局视图<br>浅色仪器白 · 绿色只做状态 · 中文为主 · 等宽数字 · 本地优先</div>
-  </footer>
-
-</div>
-
-</body>
+  </body>
 </html>

@@ -21,7 +21,13 @@ type CliOptions = DemoSeedOptions & {
 }
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-const DEFAULT_DB_PATH = join(homedir(), "Library", "Application Support", "com.flowm.desktop", "flowm.sqlite3")
+const DEFAULT_DB_PATH = join(
+  homedir(),
+  "Library",
+  "Application Support",
+  "com.flowm.desktop",
+  "flowm.sqlite3",
+)
 const migrationsFolder = resolve(__dirname, "../../../packages/db/migrations")
 
 function parseArgs(argv: string[]): CliOptions {
@@ -87,16 +93,22 @@ async function main() {
 
   try {
     const report = await seedDemoData(db, options)
-    console.log(JSON.stringify({
-      target: options.dbPath,
-      databaseExistedBeforeRun: dbExists,
-      force: options.force,
-      dryRun: report.dryRun,
-      message: willWrite
-        ? "Demo data written. Only demo_ rows were deleted and rebuilt."
-        : "Dry run only. Pass --force to write the target database.",
-      report,
-    }, null, 2))
+    console.log(
+      JSON.stringify(
+        {
+          target: options.dbPath,
+          databaseExistedBeforeRun: dbExists,
+          force: options.force,
+          dryRun: report.dryRun,
+          message: willWrite
+            ? "Demo data written. Only demo_ rows were deleted and rebuilt."
+            : "Dry run only. Pass --force to write the target database.",
+          report,
+        },
+        null,
+        2,
+      ),
+    )
 
     if (report.validation && !report.validation.ok) {
       process.exitCode = 1

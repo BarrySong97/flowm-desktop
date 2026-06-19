@@ -7,9 +7,9 @@
 
 import { memo, useMemo, useState } from "react"
 import { Group as PanelGroup, Panel, Separator as PanelResizeHandle } from "react-resizable-panels"
-import { Button } from "@heroui/react"
+import { Button, Drawer } from "@heroui/react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import type { AssetSnapshotSummary } from "@flowm/shared/contracts"
+import type { AssetItemSummary, AssetSnapshotSummary } from "@flowm/shared/contracts"
 import { trpc } from "@/lib/trpc"
 import { usePagePerf } from "@/lib/debug/perf"
 import { ASSET_GROUP_COLORS, ASSET_GROUPS } from "@/lib/domainDisplay"
@@ -29,6 +29,7 @@ import type { AssetForm } from "./AddAssetModal"
 import { AssetDetailPanel } from "./AssetDetailPanel"
 
 const fmt = formatNumber
+const CURRENCY_SYMBOL: Record<string, string> = { CNY: "¥", USD: "$", HKD: "HK$", EUR: "€" }
 
 const EMPTY: AssetForm = {
   accountName: "",
@@ -106,16 +107,122 @@ const AssetRow = memo(function AssetRow({ asset, change, onSelect }: AssetRowPro
   )
 })
 
+interface ArchivedAssetsDrawerProps {
+  open: boolean
+  items: AssetItemSummary[]
+  latestSnapshots: Map<string, AssetSnapshotSummary>
+  restoring: boolean
+  onRestore: (assetItemId: AssetItemSummary["id"]) => void | Promise<void>
+  onClose: () => void
+}
+
+function ArchivedAssetsDrawer({
+  open,
+  items,
+  latestSnapshots,
+  restoring,
+  onRestore,
+  onClose,
+}: ArchivedAssetsDrawerProps) {
+  return (
+    <Drawer.Backdrop
+      isOpen={open}
+      onOpenChange={(v) => {
+        if (!v) onClose()
+      }}
+    >
+      <Drawer.Content placement="right">
+        <Drawer.Dialog style={{ width: 576, maxWidth: "85vw", touchAction: "none" }}>
+          <Drawer.CloseTrigger />
+          <Drawer.Header>
+            <Drawer.Heading style={{ fontSize: 14 }}>归档账户</Drawer.Heading>
+            <Dim style={{ fontSize: 11, marginTop: 2 }}>
+              不计入当前资产、净值和资产构成，可恢复后继续更新余额。
+            </Dim>
+          </Drawer.Header>
+          <Drawer.Body>
+            {items.length === 0 ? (
+              <div style={{ padding: "16px 0", fontSize: 12, color: "var(--ink-4)" }}>
+                暂无归档账户。
+              </div>
+            ) : (
+              <div>
+                {items.map((item) => {
+                  const latest = latestSnapshots.get(String(item.id))
+                  const symbol = latest
+                    ? (CURRENCY_SYMBOL[latest.valueCurrency] ?? latest.valueCurrency)
+                    : ""
+                  return (
+                    <div
+                      key={item.id}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 12,
+                        padding: "10px 4px",
+                        borderBottom: "1px solid var(--hair-3)",
+                      }}
+                    >
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: "var(--ink)" }}>
+                          {item.name}
+                        </div>
+                        <Dim style={{ fontSize: 10.5, marginTop: 2 }}>
+                          {TYPE_LABEL[item.assetType]} ·{" "}
+                          {item.archivedAt ? `归档于 ${item.archivedAt.slice(0, 10)}` : "已归档"}
+                        </Dim>
+                      </div>
+                      {latest && (
+                        <div
+                          style={{
+                            fontFamily: "IBM Plex Mono, monospace",
+                            fontSize: 12,
+                            color: item.assetType === "liability" ? "var(--red)" : "var(--ink-2)",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {symbol}
+                          {fmt(Math.abs(Number(latest.valueNumber || 0)))}
+                        </div>
+                      )}
+                      <Button
+                        size="sm"
+                        variant="primary"
+                        isDisabled={restoring}
+                        style={{ borderRadius: 5, flexShrink: 0 }}
+                        onPress={() => onRestore(item.id)}
+                      >
+                        恢复
+                      </Button>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </Drawer.Body>
+        </Drawer.Dialog>
+      </Drawer.Content>
+    </Drawer.Backdrop>
+  )
+}
+
 export function AssetsPage() {
   const queryClient = useQueryClient()
   const assetSnapshotsQuery = useQuery(trpc.assets.snapshots.queryOptions({ latestOnly: true }))
+  const assetItemsQuery = useQuery(trpc.assets.items.queryOptions({ includeArchived: true }))
+  const allLatestSnapshotsQuery = useQuery(
+    trpc.assets.snapshots.queryOptions({ latestOnly: true, includeArchived: true }),
+  )
   const assetSparklinesQuery = useQuery(trpc.assets.sparklines.queryOptions({}))
   const createAssetItem = useMutation(trpc.assets.createItem.mutationOptions())
   const updateAssetItem = useMutation(trpc.assets.updateItem.mutationOptions())
   const archiveAssetItem = useMutation(trpc.assets.archiveItem.mutationOptions())
+  const restoreAssetItem = useMutation(trpc.assets.restoreItem.mutationOptions())
   const addAssetSnapshot = useMutation(trpc.assets.addSnapshot.mutationOptions())
   usePagePerf("assets", [
     { name: "assets.snapshots.latest", query: assetSnapshotsQuery },
+    { name: "assets.items.all", query: assetItemsQuery },
+    { name: "assets.snapshots.allLatest", query: allLatestSnapshotsQuery },
     { name: "assets.sparklines", query: assetSparklinesQuery },
   ])
 
@@ -125,8 +232,20 @@ export function AssetsPage() {
   const [saving, setSaving] = useState(false)
   const [detailAsset, setDetailAsset] = useState<AssetSnapshotSummary | null>(null)
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null)
+  const [showArchived, setShowArchived] = useState(false)
 
   const assetSnapshots = assetSnapshotsQuery.data ?? []
+  const archivedItems = useMemo(
+    () => (assetItemsQuery.data ?? []).filter((item) => item.archived),
+    [assetItemsQuery.data],
+  )
+  const latestSnapshotByAsset = useMemo(() => {
+    const map = new Map<string, AssetSnapshotSummary>()
+    for (const snapshot of allLatestSnapshotsQuery.data ?? []) {
+      map.set(String(snapshot.assetItemId), snapshot)
+    }
+    return map
+  }, [allLatestSnapshotsQuery.data])
 
   const changeByAsset = useMemo(() => {
     const grouped = new Map<string, number[]>()
@@ -234,6 +353,7 @@ export function AssetsPage() {
           note: values.note.trim() || null,
         })
         await queryClient.invalidateQueries(trpc.assets.snapshots.queryFilter())
+        await queryClient.invalidateQueries(trpc.assets.items.queryFilter())
         setShowForm(false)
         setForm(EMPTY)
       } finally {
@@ -278,6 +398,7 @@ export function AssetsPage() {
         })
       }
       await queryClient.invalidateQueries(trpc.assets.snapshots.queryFilter())
+      await queryClient.invalidateQueries(trpc.assets.items.queryFilter())
       await queryClient.invalidateQueries(trpc.assets.sparklines.queryFilter())
       await queryClient.invalidateQueries(trpc.assets.netWorth.queryFilter())
       setShowForm(false)
@@ -289,6 +410,15 @@ export function AssetsPage() {
 
   async function removeAsset(assetItemId: AssetSnapshotSummary["assetItemId"]) {
     await archiveAssetItem.mutateAsync({ id: assetItemId })
+    await queryClient.invalidateQueries(trpc.assets.items.queryFilter())
+    await queryClient.invalidateQueries(trpc.assets.snapshots.queryFilter())
+    await queryClient.invalidateQueries(trpc.assets.sparklines.queryFilter())
+    await queryClient.invalidateQueries(trpc.assets.netWorth.queryFilter())
+  }
+
+  async function restoreAsset(assetItemId: AssetItemSummary["id"]) {
+    await restoreAssetItem.mutateAsync({ id: assetItemId })
+    await queryClient.invalidateQueries(trpc.assets.items.queryFilter())
     await queryClient.invalidateQueries(trpc.assets.snapshots.queryFilter())
     await queryClient.invalidateQueries(trpc.assets.sparklines.queryFilter())
     await queryClient.invalidateQueries(trpc.assets.netWorth.queryFilter())
@@ -308,10 +438,17 @@ export function AssetsPage() {
       <div
         style={{
           flexShrink: 0,
+          position: "relative",
           padding: "28px 32px 16px",
           borderBottom: "1px solid var(--hair-2)",
         }}
       >
+        <span
+          onClick={() => setShowArchived(true)}
+          className="absolute top-7 right-8 cursor-pointer text-[11px] text-[var(--accent)] hover:opacity-75 transition-opacity"
+        >
+          归档账户{archivedItems.length > 0 ? ` · ${archivedItems.length}` : ""} →
+        </span>
         <div style={{ display: "flex", alignItems: "flex-start", gap: 36 }}>
           <div>
             <Kicker className="mb-1.5">资产 · 现在有多少钱</Kicker>
@@ -545,6 +682,14 @@ export function AssetsPage() {
         saving={saving}
         onSave={(values) => void save(values)}
         onClose={() => setShowForm(false)}
+      />
+      <ArchivedAssetsDrawer
+        open={showArchived}
+        items={archivedItems}
+        latestSnapshots={latestSnapshotByAsset}
+        restoring={restoreAssetItem.isPending}
+        onRestore={(assetItemId) => void restoreAsset(assetItemId)}
+        onClose={() => setShowArchived(false)}
       />
     </div>
   )

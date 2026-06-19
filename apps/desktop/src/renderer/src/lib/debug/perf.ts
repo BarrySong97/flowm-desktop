@@ -28,7 +28,10 @@ type PageQuery = {
 }
 
 const installedQueryClients = new WeakSet<QueryClient>()
-const queryProfiles = new WeakMap<object, { cycle: number; fetchStatus?: string; startedAt?: number; status?: string }>()
+const queryProfiles = new WeakMap<
+  object,
+  { cycle: number; fetchStatus?: string; startedAt?: number; status?: string }
+>()
 
 function flowmPerfEnabled(): boolean {
   if (typeof window === "undefined") return false
@@ -55,13 +58,20 @@ function jsonLine(value: unknown): string {
 
 export function flowmPerfLog(scope: string, event: string, payload: PerfPayload = {}): void {
   if (!flowmPerfEnabled()) return
-  console.info(`[flowm-perf] ${scope}.${event} ${jsonLine({
-    atMs: roundMs(performance.now()),
-    ...payload,
-  })}`)
+  console.info(
+    `[flowm-perf] ${scope}.${event} ${jsonLine({
+      atMs: roundMs(performance.now()),
+      ...payload,
+    })}`,
+  )
 }
 
-export function flowmPerfMeasure(scope: string, event: string, startedAt: number, payload: PerfPayload = {}): void {
+export function flowmPerfMeasure(
+  scope: string,
+  event: string,
+  startedAt: number,
+  payload: PerfPayload = {},
+): void {
   flowmPerfLog(scope, event, {
     durationMs: roundMs(performance.now() - startedAt),
     ...payload,
@@ -117,7 +127,12 @@ function pageQuerySnapshot({ name, query }: PageQuery): Record<string, unknown> 
     dataUpdatedAt: query.dataUpdatedAt,
     errorUpdatedAt: query.errorUpdatedAt,
     data: summarizeValue(query.data),
-    error: query.error instanceof Error ? query.error.message : query.error == null ? null : String(query.error),
+    error:
+      query.error instanceof Error
+        ? query.error.message
+        : query.error == null
+          ? null
+          : String(query.error),
   }
 }
 
@@ -222,11 +237,12 @@ export function installQueryClientPerfLogger(queryClient: QueryClient): void {
         fetchStatus,
         failures: query.state.fetchFailureCount ?? 0,
         data: summarizeValue(query.state.data),
-        error: query.state.error instanceof Error
-          ? query.state.error.message
-          : query.state.error == null
-            ? null
-            : String(query.state.error),
+        error:
+          query.state.error instanceof Error
+            ? query.state.error.message
+            : query.state.error == null
+              ? null
+              : String(query.state.error),
       })
     }
 

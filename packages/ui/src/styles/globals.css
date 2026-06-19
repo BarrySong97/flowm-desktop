@@ -30,13 +30,13 @@
 
 /* Flowm custom design tokens (not in HeroUI) */
 :root {
-  --ink:   #161e19;
+  --ink: #161e19;
   --ink-2: #3a4a40;
   --ink-3: #6b7d72;
   --ink-4: #9caca3;
   --ink-5: #c8d3ce;
 
-  --hair:   #e6eae6;
+  --hair: #e6eae6;
   --hair-2: #eef1ee;
   --hair-3: #f3f5f3;
 
@@ -44,15 +44,27 @@
   --surface-3: #f1f4f1;
 
   --green: #14794a;
-  --red:   #b8412f;
+  --red: #b8412f;
   --amber: #ad7c2c;
 
   --accent-soft: color-mix(in srgb, #14794a 12%, transparent);
 }
 
 /* Electron drag-region utilities */
-.drag-region    { -webkit-app-region: drag;    app-region: drag; }
-.no-drag-region { -webkit-app-region: no-drag; app-region: no-drag; }
+.drag-region {
+  -webkit-app-region: drag;
+  app-region: drag;
+}
+.no-drag-region {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
 
-*[data-electron-drag-region]    { -webkit-app-region: drag;    app-region: drag; }
-*[data-electron-no-drag-region] { -webkit-app-region: no-drag; app-region: no-drag; }
+*[data-electron-drag-region] {
+  -webkit-app-region: drag;
+  app-region: drag;
+}
+*[data-electron-no-drag-region] {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}

@@ -17,7 +17,8 @@
 - `types/beancount.ts` - import-oriented account and statement types.
 - `types/result.ts` - small Result-style success/failure type.
 - `contracts/common/flowm-primitives.contract.ts` - common Flowm IDs, money, direction, cashflow kind, and status primitives.
-- `contracts/assets/asset.contract.ts` - asset item, asset snapshot, net worth, and asset change contracts shared by renderer and API.
+- `contracts/assets/asset.contract.ts` - asset item/archive state, asset snapshot,
+  net worth, and asset change contracts shared by renderer and API.
 - `ipc/index.ts` - local ledger-change event and socket path helper used for CLI commit refresh notifications.
 - `utils/account.ts` - account hierarchy and display helpers.
 - `utils/platform.ts` - cross-package platform helpers that do not import Electron.
