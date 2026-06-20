@@ -8,9 +8,7 @@
 import { DataTable, DataTableRow, DataTableCell } from "./DataTable"
 import { ColorDot } from "./ColorDot"
 import { categoryColor } from "@/lib/domainDisplay"
-import { formatNumber } from "@/lib/format"
-
-const fmt = formatNumber
+import { useMoney } from "@/lib/useMoney"
 
 interface TxRow {
   date: string
@@ -26,6 +24,7 @@ interface Props {
 }
 
 export function TransactionTable({ rows }: Props) {
+  const fmt = useMoney()
   return (
     <DataTable
       columns={[

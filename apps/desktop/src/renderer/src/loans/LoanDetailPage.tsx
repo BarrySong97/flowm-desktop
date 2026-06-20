@@ -17,13 +17,11 @@ import { ScrollArea } from "../components/ui/ScrollArea"
 import { useConfirm } from "../components/ui/ConfirmModal"
 import { trpc } from "@/lib/trpc"
 import { addMonths, todayKey } from "@/lib/dates"
-import { formatNumber } from "@/lib/format"
+import { useMoney } from "@/lib/useMoney"
 import { Route } from "../routes/loans.$id"
 import { LoanScheduleBar } from "./LoanScheduleBar"
 import { buildLoanSchedule } from "./loanSchedule"
 import { FormField } from "../components/ui/FormField"
-
-const fmt = formatNumber
 
 function InfoRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -52,6 +50,7 @@ const REPAYMENT_LABEL: Record<string, string> = {
 }
 
 export function LoanDetailPage() {
+  const fmt = useMoney()
   const { id } = Route.useParams()
   const navigate = useNavigate()
   const confirm = useConfirm()

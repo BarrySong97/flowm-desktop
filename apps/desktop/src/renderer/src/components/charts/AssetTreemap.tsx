@@ -6,7 +6,7 @@
  */
 
 import { Treemap, ResponsiveContainer, Tooltip } from "recharts"
-import { formatNumber } from "@/lib/format"
+import { useMoney } from "@/lib/useMoney"
 
 interface Group {
   name: string
@@ -21,8 +21,6 @@ interface Props {
   /** Currency symbol for the (already base-converted) values. */
   symbol?: string
 }
-
-const fmt = formatNumber
 
 function Cell({
   x,
@@ -45,6 +43,7 @@ function Cell({
   total?: number
   symbol?: string
 }) {
+  const fmt = useMoney()
   const _x = x ?? 0,
     _y = y ?? 0,
     _w = width ?? 0,
@@ -112,6 +111,7 @@ function TooltipContent({
   payload?: { payload: { name: string; value: number; color: string; total: number } }[]
   symbol?: string
 }) {
+  const fmt = useMoney()
   if (!active || !payload?.length) return null
   const d = payload[0].payload
   return (

@@ -29,7 +29,7 @@ import { trpc } from "@/lib/trpc"
 import { usePagePerf } from "@/lib/debug/perf"
 import { CATEGORY_COLORS, SOURCE_BADGES } from "@/lib/domainDisplay"
 import { addDays, dateKey, monthStart } from "@/lib/dates"
-import { formatNumber } from "@/lib/format"
+import { useMoney } from "@/lib/useMoney"
 import { ScrollArea } from "../components/ui/ScrollArea"
 import { Dock } from "../components/layout/Dock"
 import { TxDetailPanel, type Tx } from "./TxDetailPanel"
@@ -39,7 +39,6 @@ import { Dim } from "../components/ui/Dim"
 import { DailyBars } from "../components/charts/DailyBars"
 import { FormField } from "../components/ui/FormField"
 
-const fmt = formatNumber
 const TIME_FILTER_KEYS = ["this_month", "last_month", "last_30", "last_90", "year", "all"] as const
 const KIND_FILTER_KEYS = ["all", "expense", "income"] as const
 type TimeFilterKey = (typeof TIME_FILTER_KEYS)[number]
@@ -203,6 +202,7 @@ function DonutChart({
   thick?: number
 }) {
   type Seg = { name: string; amt: number; color: string; frac: number; d: string }
+  const fmt = useMoney()
   const [tooltip, setTooltip] = useState<{ x: number; y: number; seg: Seg } | null>(null)
   const total = segments.reduce((s, x) => s + x.amt, 0)
   if (total === 0) return null
@@ -305,6 +305,26 @@ function DonutChart({
 }
 
 const colHelper = createColumnHelper<Tx>()
+// Amount cell is its own component so it can mask via the useMoney hook (COLUMNS is module-level).
+function AmountCell({ value, flowKind }: { value: number; flowKind: string }) {
+  const fmt = useMoney()
+  const isIncome = flowKind === "income"
+  const isTransfer = flowKind === "transfer"
+  return (
+    <span
+      style={{
+        fontFamily: "IBM Plex Mono, monospace",
+        fontSize: 12,
+        fontWeight: 500,
+        color: isIncome ? "var(--accent)" : isTransfer ? "var(--ink-3)" : "var(--red)",
+      }}
+    >
+      {isIncome ? "+" : isTransfer ? "" : "−"}
+      {fmt(value, 1)}
+    </span>
+  )
+}
+
 const COLUMNS = [
   colHelper.accessor("date", {
     header: "日期",
@@ -354,24 +374,7 @@ const COLUMNS = [
   colHelper.accessor("amount", {
     header: "金额",
     size: 96,
-    cell: (c) => {
-      const row = c.row.original
-      const isIncome = row.flowKind === "income"
-      const isTransfer = row.flowKind === "transfer"
-      return (
-        <span
-          style={{
-            fontFamily: "IBM Plex Mono, monospace",
-            fontSize: 12,
-            fontWeight: 500,
-            color: isIncome ? "var(--accent)" : isTransfer ? "var(--ink-3)" : "var(--red)",
-          }}
-        >
-          {isIncome ? "+" : isTransfer ? "" : "−"}
-          {fmt(c.getValue(), 1)}
-        </span>
-      )
-    },
+    cell: (c) => <AmountCell value={c.getValue()} flowKind={c.row.original.flowKind} />,
   }),
 ]
 
@@ -406,6 +409,7 @@ function toTx(event: CashflowEventSummary, index: number): Tx {
 }
 
 export function ImportsPage() {
+  const fmt = useMoney()
   const queryClient = useQueryClient()
   const [selectedTx, setSelectedTx] = useState<Tx | null>(null)
   const [hoveredId, setHoveredId] = useState<number | null>(null)

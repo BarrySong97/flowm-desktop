@@ -92,6 +92,7 @@ Update `apps/desktop/src/preload/index.d.ts` whenever the preload contract chang
 - Desktop tests and development depend on the Electron ABI for `better-sqlite3`.
 - UI copy and flows must preserve the separation between cashflow, assets, and obligations.
 - Multi-currency: single items render in their original currency symbol via `currencySymbol(entity.currency)` — this applies to list rows, detail panels (subscription/loan/asset detail), and per-loan widgets (e.g. the schedule bar). Aggregated totals (net worth, asset totals/treemap, subscription/loan summaries, future pressure) render in the base currency after conversion via `useCurrentRates().toDisplay`. The base currency is editable in settings, and opening a ledger triggers a background daily FX refresh. Past cashflow, imports, and budgets stay in native amounts and are not converted.
+- Hide amounts: a global, persisted preference (`amountsHiddenAtom`) masks every money amount to `⋯⋯` (currency symbols/signs stay) for demos, screenshots, or onlookers. Components must format money through the `useMoney` / `useSignedMoney` / `useCurrencyMoney` hooks (in `@/lib/useMoney`), never the pure `@/lib/format` functions, so toggling re-renders them. Toggle it from settings or the dock eye button.
 - Asset account removal is an archive workflow. Archived accounts stay out of
   current asset totals, net worth, and asset composition, but remain viewable
   from the assets surface so users can inspect history or restore the account.

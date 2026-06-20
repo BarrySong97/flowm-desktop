@@ -12,14 +12,12 @@ import { Controller, useForm } from "react-hook-form"
 import { trpc } from "@/lib/trpc"
 import { CYCLE_LABELS } from "@/lib/domainDisplay"
 import { dateKey } from "@/lib/dates"
-import { formatNumber } from "@/lib/format"
+import { useMoney } from "@/lib/useMoney"
 import { useConfirm } from "../components/ui/ConfirmModal"
 import type { SubscriptionOccurrenceSummary } from "@flowm/api"
 import { FormField } from "../components/ui/FormField"
 import { CurrencySelect } from "../components/ui/CurrencySelect"
 import { currencySymbol } from "@flowm/shared"
-
-const fmt = formatNumber
 
 function InfoRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -46,6 +44,7 @@ interface Props {
 
 /** Subscription detail rendered in-place inside the right panel (no route change). */
 export function SubscriptionDetailPanel({ id, onBack }: Props) {
+  const fmt = useMoney()
   const confirm = useConfirm()
   const queryClient = useQueryClient()
   const [editing, setEditing] = useState(false)

@@ -19,6 +19,9 @@ export const activeDashboardViewIdAtom = atomWithStorage<string | null>(
   null,
 )
 
+/** When true, every money amount renders masked (for demos, screenshots, or onlookers). */
+export const amountsHiddenAtom = atomWithStorage<boolean>("flowm.amountsHidden", false)
+
 export const editingDashboardCardIdAtom = atom<string | null>(null)
 export const commandInputAtom = atom("")
 export const commandLogAtom = atom<CommandLogEntry[]>([])

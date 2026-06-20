@@ -12,7 +12,7 @@ import { Button } from "@heroui/react"
 import { Dock } from "../components/layout/Dock"
 import { ScrollArea } from "../components/ui/ScrollArea"
 import { trpc } from "@/lib/trpc"
-import { formatNumber } from "@/lib/format"
+import { useMoney } from "@/lib/useMoney"
 import { todayKey } from "@/lib/dates"
 import { Route } from "../routes/budget.$id"
 import { useConfirm } from "../components/ui/ConfirmModal"
@@ -20,9 +20,8 @@ import { AddBudgetModal } from "./AddBudgetModal"
 import type { BudgetForm } from "./AddBudgetModal"
 import { invalidateBudgetQueries } from "./invalidateBudgetQueries"
 
-const fmt = formatNumber
-
 export function BudgetDetailPage() {
+  const fmt = useMoney()
   const { id } = Route.useParams()
   const navigate = useNavigate()
   const queryClient = useQueryClient()

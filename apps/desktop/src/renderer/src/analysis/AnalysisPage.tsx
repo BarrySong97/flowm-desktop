@@ -11,7 +11,7 @@ import { useQuery } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 import { trpc } from "@/lib/trpc"
 import { usePagePerf } from "@/lib/debug/perf"
-import { formatCurrency, formatNumber, formatSignedCurrency } from "@/lib/format"
+import { useCurrencyMoney, useMoney, useSignedMoney } from "@/lib/useMoney"
 import { Dock } from "../components/layout/Dock"
 import { ScrollArea } from "../components/ui/ScrollArea"
 import { Kicker } from "../components/ui/Kicker"
@@ -31,8 +31,6 @@ const RANGE_OPTIONS: Array<{ key: RangeKey; label: string; months: number }> = [
   { key: "12m", label: "近 12 月", months: 12 },
   { key: "year", label: "今年", months: new Date().getMonth() + 1 },
 ]
-
-const fmt = formatNumber
 
 function sum(rows: MonthlyCashflowTrendPoint[], key: "income" | "expense" | "net") {
   return rows.reduce((total, row) => total + Number(row[key] || 0), 0)
@@ -94,6 +92,9 @@ function Legend() {
 }
 
 export function AnalysisPage() {
+  const fmt = useMoney()
+  const fmtc = useCurrencyMoney()
+  const signed = useSignedMoney()
   const [rangeKey, setRangeKey] = useState<RangeKey>("12m")
   const range = RANGE_OPTIONS.find((option) => option.key === rangeKey) ?? RANGE_OPTIONS[1]
   const trendQuery = useQuery(
@@ -142,7 +143,7 @@ export function AnalysisPage() {
                 <BigNumber
                   className={`text-[42px] ${latestNet >= 0 ? "text-[var(--green)]" : "text-[var(--red)]"}`}
                 >
-                  {formatSignedCurrency(latestNet)}
+                  {signed(latestNet)}
                 </BigNumber>
                 <Dim className="text-[11px]">
                   {latest ? `${monthLabel(latest.month)}结余` : "暂无数据"}
@@ -152,13 +153,13 @@ export function AnalysisPage() {
                 <div>
                   <Dim className="text-[10.5px] block mb-1">收入合计</Dim>
                   <span className="font-['IBM_Plex_Mono'] text-[13px] font-semibold text-[var(--green)]">
-                    {formatCurrency(incomeTotal)}
+                    {fmtc(incomeTotal)}
                   </span>
                 </div>
                 <div>
                   <Dim className="text-[10.5px] block mb-1">支出合计</Dim>
                   <span className="font-['IBM_Plex_Mono'] text-[13px] font-semibold text-[var(--red)]">
-                    {formatCurrency(expenseTotal)}
+                    {fmtc(expenseTotal)}
                   </span>
                 </div>
                 <div>
@@ -166,7 +167,7 @@ export function AnalysisPage() {
                   <span
                     className={`font-['IBM_Plex_Mono'] text-[13px] font-semibold ${averageNet >= 0 ? "text-[var(--ink)]" : "text-[var(--red)]"}`}
                   >
-                    {formatSignedCurrency(averageNet)}
+                    {signed(averageNet)}
                   </span>
                 </div>
               </div>
@@ -174,7 +175,7 @@ export function AnalysisPage() {
             <div className="ml-auto flex items-center gap-3.5">
               <Dim className="text-[10.5px]">
                 正结余 {positiveMonths}/{trend.length || range.months} 月
-                {previous ? ` · 较上月 ${formatSignedCurrency(latestDelta)}` : ""}
+                {previous ? ` · 较上月 ${signed(latestDelta)}` : ""}
               </Dim>
               <RangeControl value={rangeKey} onChange={setRangeKey} />
             </div>
@@ -210,7 +211,7 @@ export function AnalysisPage() {
               <Dim className="text-[10.5px] block mb-1">最好月份</Dim>
               <div className="font-['IBM_Plex_Mono'] text-[18px] font-semibold text-[var(--green)]">
                 {bestMonth
-                  ? `${monthLabel(bestMonth.month)} ${formatSignedCurrency(Number(bestMonth.net))}`
+                  ? `${monthLabel(bestMonth.month)} ${signed(Number(bestMonth.net))}`
                   : "—"}
               </div>
             </div>
@@ -218,7 +219,7 @@ export function AnalysisPage() {
               <Dim className="text-[10.5px] block mb-1">压力月份</Dim>
               <div className="font-['IBM_Plex_Mono'] text-[18px] font-semibold text-[var(--red)]">
                 {worstMonth
-                  ? `${monthLabel(worstMonth.month)} ${formatSignedCurrency(Number(worstMonth.net))}`
+                  ? `${monthLabel(worstMonth.month)} ${signed(Number(worstMonth.net))}`
                   : "—"}
               </div>
             </div>

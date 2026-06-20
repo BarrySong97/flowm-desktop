@@ -8,7 +8,7 @@
  */
 
 import { currencySymbol, normalizeCurrencyCode } from "@flowm/shared"
-import { formatNumber } from "@/lib/format"
+import { useMoney } from "@/lib/useMoney"
 
 interface MoneyAmountProps {
   amount: number
@@ -21,6 +21,7 @@ interface MoneyAmountProps {
 }
 
 export function MoneyAmount({ amount, currency, base, decimals }: MoneyAmountProps) {
+  const fmt = useMoney()
   const cur = normalizeCurrencyCode(currency)
   const isBase = cur === "" || cur === normalizeCurrencyCode(base)
 
@@ -28,14 +29,14 @@ export function MoneyAmount({ amount, currency, base, decimals }: MoneyAmountPro
     return (
       <span style={{ whiteSpace: "nowrap" }}>
         {currencySymbol(base)}
-        {formatNumber(amount, decimals ?? 0)}
+        {fmt(amount, decimals ?? 0)}
       </span>
     )
   }
 
   return (
     <span style={{ whiteSpace: "nowrap" }}>
-      {cur} {formatNumber(amount, decimals ?? 2)}
+      {cur} {fmt(amount, decimals ?? 2)}
     </span>
   )
 }

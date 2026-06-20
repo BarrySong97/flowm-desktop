@@ -18,7 +18,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts"
-import { formatCurrency } from "@/lib/format"
+import { useCurrencyMoney } from "@/lib/useMoney"
 
 export interface MonthlyCashflowTrendPoint {
   month: string
@@ -60,6 +60,7 @@ function TrendTooltip({
   payload?: Array<{ dataKey?: string; value: number; payload: ChartRow }>
   label?: string
 }) {
+  const fmtc = useCurrencyMoney()
   if (!active || !payload?.length) return null
   const row = payload[0].payload
   const values = [
@@ -86,7 +87,7 @@ function TrendTooltip({
             <span className="text-[var(--ink-4)]">{item.label}</span>
             <span className={`text-right font-['IBM_Plex_Mono'] font-semibold ${item.colorClass}`}>
               {item.key === "net" && item.value >= 0 ? "+" : item.value < 0 ? "−" : ""}
-              {formatCurrency(Math.abs(item.value))}
+              {fmtc(Math.abs(item.value))}
             </span>
           </div>
         ))}

@@ -6,7 +6,7 @@
  */
 
 import { AreaChart, Area, ResponsiveContainer, Tooltip } from "recharts"
-import { formatCurrency } from "@/lib/format"
+import { useCurrencyMoney } from "@/lib/useMoney"
 
 interface Props {
   data: number[]
@@ -14,6 +14,7 @@ interface Props {
 }
 
 function ChartTooltip({ active, payload }: { active?: boolean; payload?: { value: number }[] }) {
+  const fmtc = useCurrencyMoney()
   if (!active || !payload?.length) return null
   const v = payload[0].value
   return (
@@ -30,7 +31,7 @@ function ChartTooltip({ active, payload }: { active?: boolean; payload?: { value
         whiteSpace: "nowrap",
       }}
     >
-      {formatCurrency(v)}
+      {fmtc(v)}
     </div>
   )
 }

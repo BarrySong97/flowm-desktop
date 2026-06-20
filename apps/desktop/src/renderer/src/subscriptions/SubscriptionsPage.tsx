@@ -16,14 +16,12 @@ import { trpc } from "@/lib/trpc"
 import { usePagePerf } from "@/lib/debug/perf"
 import { addDays, dateKey, monthCells, todayKey } from "@/lib/dates"
 import { SUBSCRIPTION_CATEGORY_COLORS } from "@/lib/domainDisplay"
-import { formatNumber } from "@/lib/format"
+import { useMoney } from "@/lib/useMoney"
 import { SubscriptionDetailPanel } from "./SubscriptionDetailPanel"
 import { FormField } from "../components/ui/FormField"
 import { CurrencySelect } from "../components/ui/CurrencySelect"
 import { MoneyAmount } from "../components/ui/MoneyAmount"
 import { useCurrentRates } from "@/lib/useCurrentRates"
-
-const fmt = formatNumber
 
 interface Sub {
   id: string
@@ -251,6 +249,7 @@ export function SubscriptionsPage() {
     }),
   )
 
+  const fmt = useMoney()
   const { toDisplay, baseSymbol, base } = useCurrentRates()
   const subNameById = useMemo(
     () => new Map((subscriptionsQuery.data ?? []).map((sub) => [String(sub.id), sub])),

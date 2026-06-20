@@ -13,14 +13,12 @@ import { currencySymbol } from "@flowm/shared"
 import { AreaChart, Area, XAxis, ResponsiveContainer, Tooltip } from "recharts"
 import { trpc } from "@/lib/trpc"
 import { usePagePerf } from "@/lib/debug/perf"
-import { formatNumber } from "@/lib/format"
+import { useMoney } from "@/lib/useMoney"
 import { Kicker } from "../components/ui/Kicker"
 import { Dim } from "../components/ui/Dim"
 import { SectionTitle } from "../components/ui/SectionTitle"
 import { useConfirm } from "../components/ui/ConfirmModal"
 import { TYPE_LABEL } from "./AddAssetModal"
-
-const fmt = formatNumber
 
 interface HistoryEntry {
   date: string
@@ -53,6 +51,7 @@ function HistoryRow({
   next: HistoryEntry | undefined
   symbol: string
 }) {
+  const fmt = useMoney()
   const delta = next ? h.value - next.value : null
   return (
     <div
@@ -98,6 +97,7 @@ function ChartTooltip({
   active?: boolean
   payload?: { value: number; payload: { date: string } }[]
 }) {
+  const fmt = useMoney()
   if (!active || !payload?.length) return null
   return (
     <div
@@ -129,6 +129,7 @@ interface Props {
 }
 
 export function AssetDetailPanel({ asset, onBack, onEdit, onDelete }: Props) {
+  const fmt = useMoney()
   const confirm = useConfirm()
   const [showHistory, setShowHistory] = useState(false)
   const historyQuery = useQuery(

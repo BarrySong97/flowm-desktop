@@ -6,7 +6,7 @@
  */
 
 import { BarChart, Bar, Cell, ResponsiveContainer, Tooltip } from "recharts"
-import { formatCurrency } from "@/lib/format"
+import { useCurrencyMoney } from "@/lib/useMoney"
 
 interface Props {
   data: number[]
@@ -24,6 +24,7 @@ function ChartTooltip({
   payload?: { value: number; payload: { i: number } }[]
   lastIdx: number
 }) {
+  const fmtc = useCurrencyMoney()
   if (!active || !payload?.length) return null
   const v = payload[0].value
   const i = payload[0].payload.i
@@ -42,9 +43,7 @@ function ChartTooltip({
       }}
     >
       <div style={{ fontSize: 10.5, color: "var(--ink-4)", marginBottom: 2 }}>{dayLabel}</div>
-      <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600 }}>
-        {formatCurrency(v)}
-      </div>
+      <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600 }}>{fmtc(v)}</div>
     </div>
   )
 }

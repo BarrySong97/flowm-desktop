@@ -5,7 +5,7 @@
  * @gotcha  Settings changes can affect user data paths and categories; keep destructive actions explicit.
  */
 
-import { useState } from "react"
+import { useAtom } from "jotai"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 import { Dock } from "../components/layout/Dock"
@@ -15,11 +15,11 @@ import { LedgerSection } from "./LedgerSection"
 import { GroupLabel, LinkRow, Row, Toggle } from "./components"
 import { trpc } from "@/lib/trpc"
 import { usePagePerf } from "@/lib/debug/perf"
+import { amountsHiddenAtom } from "@/lib/state/uiAtoms"
 
 export function SettingsPage() {
   const navigate = useNavigate()
-  const [grp, setGrp] = useState(true)
-  const [hide, setHide] = useState(false)
+  const [hide, setHide] = useAtom(amountsHiddenAtom)
   const queryClient = useQueryClient()
   const categoriesQuery = useQuery(trpc.reference.categories.queryOptions())
   const currencyQuery = useQuery(trpc.reference.currencySettings.queryOptions())
@@ -113,9 +113,6 @@ export function SettingsPage() {
             >
               {refreshRates.isPending ? "刷新汇率中…" : "刷新汇率"}
             </LinkRow>
-            <Row label="千分位分隔" sub="¥1,234,567 / ¥1234567">
-              <Toggle on={grp} onChange={setGrp} />
-            </Row>
             <Row label="隐藏金额" sub="演示或截图时把数字打码为 ⋯⋯">
               <Toggle on={hide} onChange={setHide} />
             </Row>

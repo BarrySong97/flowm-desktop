@@ -13,13 +13,11 @@ import { Outlet, useNavigate, useRouterState } from "@tanstack/react-router"
 import { trpc } from "@/lib/trpc"
 import { usePagePerf } from "@/lib/debug/perf"
 import { BUDGET_CATEGORY_COLORS } from "@/lib/domainDisplay"
-import { formatNumber } from "@/lib/format"
+import { useMoney } from "@/lib/useMoney"
 import { dateKey, monthStart, todayKey } from "@/lib/dates"
 import { AddBudgetModal } from "./AddBudgetModal"
 import type { BudgetForm } from "./AddBudgetModal"
 import { invalidateBudgetQueries } from "./invalidateBudgetQueries"
-
-const fmt = formatNumber
 
 function Bar({ pct, color, h }: { pct: number; color: string; h: number }) {
   return (
@@ -39,6 +37,7 @@ function Bar({ pct, color, h }: { pct: number; color: string; h: number }) {
 }
 
 export function BudgetPage() {
+  const fmt = useMoney()
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const [showAdd, setShowAdd] = useState(false)

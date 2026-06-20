@@ -13,15 +13,13 @@ import { Controller, useForm } from "react-hook-form"
 import type { CashflowEventSummary, CategorySummary } from "@flowm/api"
 import { trpc } from "@/lib/trpc"
 import { usePagePerf } from "@/lib/debug/perf"
-import { formatNumber } from "@/lib/format"
+import { useMoney } from "@/lib/useMoney"
 import { Dock } from "../components/layout/Dock"
 import { ScrollArea } from "../components/ui/ScrollArea"
 import { useConfirm } from "../components/ui/ConfirmModal"
 import { ColorPickerField } from "../components/ui/ColorPickerField"
 import { ColorDot } from "../components/ui/ColorDot"
 import { FormField } from "../components/ui/FormField"
-
-const fmt = formatNumber
 
 const CATEGORY_KINDS = [
   { value: "expense", label: "支出" },
@@ -258,6 +256,7 @@ function CategoryRow({
   onEdit: (category: CategorySummary) => void
   onArchive: (category: CategorySummary) => void
 }) {
+  const fmt = useMoney()
   const kind = kindOf(category)
   return (
     <div

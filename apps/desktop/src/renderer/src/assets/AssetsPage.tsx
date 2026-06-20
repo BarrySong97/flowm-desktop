@@ -13,7 +13,7 @@ import type { AssetItemSummary, AssetSnapshotSummary } from "@flowm/shared/contr
 import { trpc } from "@/lib/trpc"
 import { usePagePerf } from "@/lib/debug/perf"
 import { ASSET_GROUP_COLORS, ASSET_GROUPS } from "@/lib/domainDisplay"
-import { formatNumber } from "@/lib/format"
+import { useMoney } from "@/lib/useMoney"
 import { todayKey } from "@/lib/dates"
 import { Dock } from "../components/layout/Dock"
 import { ScrollArea } from "../components/ui/ScrollArea"
@@ -29,8 +29,6 @@ import type { AssetForm } from "./AddAssetModal"
 import { AssetDetailPanel } from "./AssetDetailPanel"
 import { useCurrentRates } from "@/lib/useCurrentRates"
 import { currencySymbol } from "@flowm/shared"
-
-const fmt = formatNumber
 
 const EMPTY: AssetForm = {
   accountName: "",
@@ -50,6 +48,7 @@ interface AssetRowProps {
 }
 
 const AssetRow = memo(function AssetRow({ asset, change, onSelect }: AssetRowProps) {
+  const fmt = useMoney()
   const rawValue = Number(asset.valueNumber || 0)
   const isLiability = asset.assetType === "liability"
   const val = isLiability ? -Math.abs(rawValue) : rawValue
@@ -127,6 +126,7 @@ function ArchivedAssetsDrawer({
   onRestore,
   onClose,
 }: ArchivedAssetsDrawerProps) {
+  const fmt = useMoney()
   return (
     <Drawer.Backdrop
       isOpen={open}
@@ -208,6 +208,7 @@ function ArchivedAssetsDrawer({
 }
 
 export function AssetsPage() {
+  const fmt = useMoney()
   const queryClient = useQueryClient()
   const assetSnapshotsQuery = useQuery(trpc.assets.snapshots.queryOptions({ latestOnly: true }))
   const assetItemsQuery = useQuery(trpc.assets.items.queryOptions({ includeArchived: true }))

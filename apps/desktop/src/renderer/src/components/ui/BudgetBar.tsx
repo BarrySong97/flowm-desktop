@@ -6,9 +6,7 @@
  */
 
 import { ColorDot } from "./ColorDot"
-import { formatNumber } from "@/lib/format"
-
-const fmt = formatNumber
+import { useMoney } from "@/lib/useMoney"
 
 interface Props {
   color: string
@@ -21,6 +19,7 @@ interface Props {
 }
 
 export function BudgetBar({ color, spent, limit, label, scaleMax }: Props) {
+  const fmt = useMoney()
   const max = scaleMax ?? limit
   const over = spent > limit
   const inPct = (Math.min(spent, limit) / max) * 100

@@ -6,7 +6,9 @@
  */
 
 import { Link, useRouterState } from "@tanstack/react-router"
+import { useAtom } from "jotai"
 import { flowmPerfLog } from "@/lib/debug/perf"
+import { amountsHiddenAtom } from "@/lib/state/uiAtoms"
 
 const ICONS: Record<string, string> = {
   overview: "M2 2h5v5H2zM9 2h5v5H9zM2 9h5v5H2zM9 9h5v5H9z",
@@ -35,6 +37,24 @@ function Glyph({ k }: { k: string }) {
   )
 }
 
+function EyeGlyph({ off }: { off: boolean }) {
+  return (
+    <svg
+      className="w-[18px] h-[18px]"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8z" />
+      <circle cx="8" cy="8" r="2" />
+      {off && <path d="M2.5 2.5l11 11" />}
+    </svg>
+  )
+}
+
 const NAV = [
   { label: "看板", key: "overview", href: "/" },
   { label: "资产", key: "assets", href: "/assets" },
@@ -47,6 +67,7 @@ const NAV = [
 
 export function Dock() {
   const pathname = useRouterState({ select: (s) => s.location.pathname })
+  const [hidden, setHidden] = useAtom(amountsHiddenAtom)
 
   function isActive(href: string) {
     if (href === "/") return pathname === "/"
@@ -86,6 +107,20 @@ export function Dock() {
           </Link>
         </span>
       ))}
+      <span className="w-px self-center h-[30px] bg-black/10 mx-1" />
+      <button
+        type="button"
+        title={hidden ? "显示金额" : "隐藏金额"}
+        aria-label={hidden ? "显示金额" : "隐藏金额"}
+        onClick={() => setHidden((v) => !v)}
+        className={[
+          "flex flex-col items-center justify-center gap-1 w-[62px] py-2 rounded-[11px] text-[10.5px] font-medium tracking-[0.02em] transition-colors duration-[120ms]",
+          hidden ? "bg-[#14794a] text-white" : "text-gray-500 hover:bg-black/5 hover:text-gray-900",
+        ].join(" ")}
+      >
+        <EyeGlyph off={hidden} />
+        <span>{hidden ? "显示" : "隐藏"}</span>
+      </button>
     </nav>
   )
 }

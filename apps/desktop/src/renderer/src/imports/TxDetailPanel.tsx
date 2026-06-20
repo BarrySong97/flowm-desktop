@@ -9,14 +9,12 @@ import React from "react"
 import { Button } from "@heroui/react"
 import { useConfirm } from "../components/ui/ConfirmModal"
 import { CATEGORY_COLORS } from "@/lib/domainDisplay"
-import { formatNumber } from "@/lib/format"
+import { useMoney } from "@/lib/useMoney"
 import { Dim } from "../components/ui/Dim"
 import { ColorDot } from "../components/ui/ColorDot"
 import { SectionTitle } from "../components/ui/SectionTitle"
 
 const DAYS = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"]
-
-const fmt = formatNumber
 
 export interface Tx {
   id: number
@@ -67,6 +65,7 @@ interface Props {
 }
 
 export function TxDetailPanel({ tx, allTxs, onBack, onEdit, onDelete }: Props) {
+  const fmt = useMoney()
   const confirm = useConfirm()
   const isIncome = tx.flowKind === "income"
   const isTransfer = tx.flowKind === "transfer"

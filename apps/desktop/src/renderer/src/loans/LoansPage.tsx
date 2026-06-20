@@ -15,15 +15,13 @@ import { ScrollArea } from "../components/ui/ScrollArea"
 import { trpc } from "@/lib/trpc"
 import { usePagePerf } from "@/lib/debug/perf"
 import { addDays, dateKey, todayKey } from "@/lib/dates"
-import { formatNumber } from "@/lib/format"
+import { useMoney } from "@/lib/useMoney"
 import { LoanScheduleBar } from "./LoanScheduleBar"
 import { buildLoanSchedule } from "./loanSchedule"
 import { FormField } from "../components/ui/FormField"
 import { CurrencySelect } from "../components/ui/CurrencySelect"
 import { useCurrentRates } from "@/lib/useCurrentRates"
 import { currencySymbol } from "@flowm/shared"
-
-const fmt = formatNumber
 
 type LoanForm = {
   name: string
@@ -199,6 +197,7 @@ function AddLoanModal({
 }
 
 export function LoansPage() {
+  const fmt = useMoney()
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const [showAdd, setShowAdd] = useState(false)

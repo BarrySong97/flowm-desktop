@@ -19,7 +19,7 @@ import type { AssetSnapshotSummary } from "@flowm/shared/contracts"
 import { trpc } from "@/lib/trpc"
 import { usePagePerf } from "@/lib/debug/perf"
 import { addDays, dateKey, monthStart } from "@/lib/dates"
-import { formatNumber, formatSignedCurrency } from "@/lib/format"
+import { useMoney, useSignedMoney } from "@/lib/useMoney"
 import { Kicker } from "../components/ui/Kicker"
 import { BigNumber } from "../components/ui/BigNumber"
 import { StatBlock } from "../components/ui/StatBlock"
@@ -35,8 +35,6 @@ import { ScrollArea } from "../components/ui/ScrollArea"
 import { useCurrentRates } from "@/lib/useCurrentRates"
 import { currencySymbol } from "@flowm/shared"
 
-const fmt = formatNumber
-const signed = formatSignedCurrency
 type CashflowRangeKey = "this_month" | "last_month" | "last_30" | "last_90" | "year" | "all"
 const DEFAULT_CASHFLOW_RANGE_KEY: CashflowRangeKey = "this_month"
 const CASHFLOW_RANGE_STORAGE_KEY = "flowm:overview:cashflow-range"
@@ -256,6 +254,8 @@ function useUpcoming(
 }
 
 export function OverviewPage() {
+  const fmt = useMoney()
+  const signed = useSignedMoney()
   const [cashflowRangeKey, setCashflowRangeKey] = useState<CashflowRangeKey>(readCashflowRangeKey)
   const today = dateKey(new Date())
   const range = cashflowRange(cashflowRangeKey)

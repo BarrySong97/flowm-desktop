@@ -7,10 +7,8 @@
 
 import { useState } from "react"
 import { createPortal } from "react-dom"
-import { formatNumber } from "@/lib/format"
+import { useMoney } from "@/lib/useMoney"
 import type { SchedRow } from "./loanSchedule"
-
-const fmt = formatNumber
 
 interface TipState {
   k: number
@@ -50,6 +48,7 @@ export function LoanScheduleBar({
   height = 42,
   symbol = "¥",
 }: LoanScheduleBarProps) {
+  const fmt = useMoney()
   const [tip, setTip] = useState<TipState | null>(null)
 
   return (
