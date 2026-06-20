@@ -634,7 +634,12 @@ export function AssetsPage() {
                 </div>
                 {/* Treemap */}
                 <div style={{ marginTop: 12 }}>
-                  <AssetTreemap groups={currentTreemapData} total={panelTotal} height={220} />
+                  <AssetTreemap
+                    groups={currentTreemapData}
+                    total={panelTotal}
+                    height={220}
+                    symbol={baseSymbol}
+                  />
                 </div>
                 {/* Legend list */}
                 <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 5 }}>

@@ -17,6 +17,7 @@ import { useConfirm } from "../components/ui/ConfirmModal"
 import type { SubscriptionOccurrenceSummary } from "@flowm/api"
 import { FormField } from "../components/ui/FormField"
 import { CurrencySelect } from "../components/ui/CurrencySelect"
+import { currencySymbol } from "@flowm/shared"
 
 const fmt = formatNumber
 
@@ -230,7 +231,7 @@ export function SubscriptionDetailPanel({ id, onBack }: Props) {
                     letterSpacing: "-0.02em",
                   }}
                 >
-                  ¥
+                  {currencySymbol(sub.currency)}
                   {fmt(
                     sub.billingCycle === "yearly"
                       ? amount / 12
@@ -280,7 +281,8 @@ export function SubscriptionDetailPanel({ id, onBack }: Props) {
                   color: "var(--ink)",
                 }}
               >
-                ¥{fmt(yearlyAmt, 0)}{" "}
+                {currencySymbol(sub.currency)}
+                {fmt(yearlyAmt, 0)}{" "}
                 <span style={{ fontWeight: 400, color: "var(--ink-4)" }}>/年</span>
               </span>
             </div>
@@ -317,7 +319,8 @@ export function SubscriptionDetailPanel({ id, onBack }: Props) {
                     marginTop: 2,
                   }}
                 >
-                  ¥{fmt(totalPaid, 0)}
+                  {currencySymbol(sub.currency)}
+                  {fmt(totalPaid, 0)}
                 </div>
               </div>
             </div>
@@ -368,7 +371,8 @@ export function SubscriptionDetailPanel({ id, onBack }: Props) {
             {/* Info rows */}
             <div style={{ marginTop: 16 }}>
               <InfoRow label="计费周期">
-                {cycleLabel} · ¥{fmt(amount, 2)}
+                {cycleLabel} · {currencySymbol(sub.currency)}
+                {fmt(amount, 2)}
               </InfoRow>
               <InfoRow label="自动续费">{sub.autoRenew ? "已开启" : "未开启"}</InfoRow>
               <InfoRow label="扣款方式">

@@ -2,7 +2,7 @@
  * @purpose Bootstrap the Electron app, set the Flowm data location, run migrations, and open the desktop window.
  * @role    Main-process composition root for native modules, SQLite, BrowserWindow, and IPC.
  * @deps    Electron, better-sqlite3, Drizzle migrations, @flowm/api, and @flowm/db.
- * @gotcha  Keep userData at com.flowm.desktop and keep SQLite ownership in the main process.
+ * @gotcha  Production userData stays at com.flowm.desktop; dev runs as com.flowm.desktop.dev ("FlowM Dev"). Keep SQLite ownership in the main process.
  */
 
 import { app, BrowserWindow, ipcMain, nativeImage, shell } from "electron"
@@ -14,7 +14,7 @@ import { performance } from "node:perf_hooks"
 
 import { appRouter } from "./trpc/router"
 import { LedgerStore } from "./ledgers"
-import { APP_DISPLAY_NAME, APP_USER_MODEL_ID } from "./bootstrap/app-info"
+import { appDisplayName, appUserModelId } from "./bootstrap/app-info"
 import { isDevRuntime } from "./bootstrap/runtime-env"
 import { startLocalLedgerChangeServer } from "./local-ledger-change-server"
 
@@ -37,14 +37,16 @@ type TRPCProfile = {
 let trpcRequestSeq = 0
 
 function configureUserDataPath(): void {
-  app.setName(APP_DISPLAY_NAME)
-  app.setAboutPanelOptions({ applicationName: APP_DISPLAY_NAME })
+  const dev = isDevRuntime()
+  const displayName = appDisplayName(dev)
+  app.setName(displayName)
+  app.setAboutPanelOptions({ applicationName: displayName })
   const devUserDataDir = process.env.FLOWM_USER_DATA_DIR
-  if (isDevRuntime() && devUserDataDir) {
+  if (dev && devUserDataDir) {
     app.setPath("userData", resolve(devUserDataDir))
     return
   }
-  app.setPath("userData", join(app.getPath("appData"), APP_USER_MODEL_ID))
+  app.setPath("userData", join(app.getPath("appData"), appUserModelId(dev)))
 }
 
 function getDevIconPath(): string {
@@ -160,7 +162,7 @@ function createWindow(): BrowserWindow {
     show: false,
     autoHideMenuBar: true,
     icon: devIcon,
-    title: APP_DISPLAY_NAME,
+    title: appDisplayName(isDevRuntime()),
     titleBarStyle: process.platform === "darwin" ? "hiddenInset" : "default",
     ...macWindowOptions,
     webPreferences: {
@@ -196,7 +198,7 @@ function createWindow(): BrowserWindow {
 configureUserDataPath()
 
 app.whenReady().then(async () => {
-  electronApp.setAppUserModelId(APP_USER_MODEL_ID)
+  electronApp.setAppUserModelId(appUserModelId(isDevRuntime()))
   configureDevDockIcon()
 
   app.on("browser-window-created", (_, window) => {

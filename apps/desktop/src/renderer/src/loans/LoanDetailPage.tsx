@@ -11,6 +11,7 @@ import { useNavigate } from "@tanstack/react-router"
 import { Button, Input, Modal } from "@heroui/react"
 import { Controller, useForm } from "react-hook-form"
 import { CurrencySelect } from "../components/ui/CurrencySelect"
+import { currencySymbol } from "@flowm/shared"
 import { Dock } from "../components/layout/Dock"
 import { ScrollArea } from "../components/ui/ScrollArea"
 import { useConfirm } from "../components/ui/ConfirmModal"
@@ -72,6 +73,8 @@ export function LoanDetailPage() {
   )
 
   const loan = loanQuery.data
+  // Loan amounts are shown in the loan's own currency (single-currency entity).
+  const curSym = currencySymbol(loan?.currency ?? "CNY")
   const editForm = useForm({
     values: {
       name: loan?.name ?? "",
@@ -230,7 +233,8 @@ export function LoanDetailPage() {
                       flexShrink: 0,
                     }}
                   >
-                    ¥{fmt(currentPrincipal)}
+                    {curSym}
+                    {fmt(currentPrincipal)}
                   </div>
                 </div>
 
@@ -255,7 +259,8 @@ export function LoanDetailPage() {
                       还款进度&nbsp;&nbsp;每条 1 期 · 共 {termMonths} 期
                     </span>
                     <span style={{ fontSize: 11.5, color: "var(--ink-3)" }}>
-                      已还 ¥{fmt(paidAmt)} / {fmt(principal)}
+                      已还 {curSym}
+                      {fmt(paidAmt)} / {fmt(principal)}
                     </span>
                   </div>
 
@@ -268,6 +273,7 @@ export function LoanDetailPage() {
                           paid={paidMonths}
                           termTotal={termMonths}
                           monthly={monthly}
+                          symbol={curSym}
                         />
                       </div>
                     )}
@@ -284,10 +290,12 @@ export function LoanDetailPage() {
                       style={{ marginTop: 8, fontSize: 11, color: "var(--ink-4)", lineHeight: 1.6 }}
                     >
                       <span style={{ marginRight: 8 }}>
-                        ● 已还 {paidMonths}期 · 本金 ¥{fmt(paidAmt)}
+                        ● 已还 {paidMonths}期 · 本金 {curSym}
+                        {fmt(paidAmt)}
                       </span>
                       <span>
-                        □ 剩 {termLeft}期 · 余本金 ¥{fmt(currentPrincipal)} · 预计结清 {clearDate}
+                        □ 剩 {termLeft}期 · 余本金 {curSym}
+                        {fmt(currentPrincipal)} · 预计结清 {clearDate}
                       </span>
                     </div>
                   </div>
@@ -336,7 +344,8 @@ export function LoanDetailPage() {
                         marginTop: 8,
                       }}
                     >
-                      ¥{fmt(parseFloat(nextOccurrence.paymentAmount))}
+                      {curSym}
+                      {fmt(parseFloat(nextOccurrence.paymentAmount))}
                     </div>
                   </div>
                 )}
@@ -345,7 +354,10 @@ export function LoanDetailPage() {
                 <div style={{ borderTop: "1px solid var(--hair-2)", marginTop: 16 }} />
 
                 {/* Info rows */}
-                <InfoRow label="月供">¥{fmt(monthly, 2)}</InfoRow>
+                <InfoRow label="月供">
+                  {curSym}
+                  {fmt(monthly, 2)}
+                </InfoRow>
                 {ratePct != null && <InfoRow label="年利率">{ratePct.toFixed(2)}%</InfoRow>}
                 {termLeft > 0 && (
                   <InfoRow label="剩余期数">

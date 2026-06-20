@@ -18,6 +18,8 @@ interface Props {
   groups: Group[]
   total: number
   height?: number
+  /** Currency symbol for the (already base-converted) values. */
+  symbol?: string
 }
 
 const fmt = formatNumber
@@ -31,6 +33,7 @@ function Cell({
   value,
   color,
   total,
+  symbol,
 }: {
   x?: number
   y?: number
@@ -40,6 +43,7 @@ function Cell({
   value?: number
   color?: string
   total?: number
+  symbol?: string
 }) {
   const _x = x ?? 0,
     _y = y ?? 0,
@@ -81,7 +85,7 @@ function Cell({
           fontWeight={500}
           style={{ fontFamily: "IBM Plex Mono, monospace" }}
         >
-          ¥{fmt(_v)}
+          {`${symbol ?? "¥"}${fmt(_v)}`}
         </text>
       )}
       {showValue && (
@@ -102,9 +106,11 @@ function Cell({
 function TooltipContent({
   active,
   payload,
+  symbol,
 }: {
   active?: boolean
   payload?: { payload: { name: string; value: number; color: string; total: number } }[]
+  symbol?: string
 }) {
   if (!active || !payload?.length) return null
   const d = payload[0].payload
@@ -122,7 +128,9 @@ function TooltipContent({
       }}
     >
       <div style={{ fontWeight: 600, marginBottom: 2 }}>{d.name}</div>
-      <div style={{ fontFamily: "IBM Plex Mono, monospace" }}>¥{fmt(d.value)}</div>
+      <div
+        style={{ fontFamily: "IBM Plex Mono, monospace" }}
+      >{`${symbol ?? "¥"}${fmt(d.value)}`}</div>
       <div style={{ fontSize: 10.5, color: "var(--ink-4)" }}>
         {d.total > 0 ? Math.round((d.value / d.total) * 100) : 0}%
       </div>
@@ -130,7 +138,7 @@ function TooltipContent({
   )
 }
 
-export function AssetTreemap({ groups, total, height = 200 }: Props) {
+export function AssetTreemap({ groups, total, height = 200, symbol = "¥" }: Props) {
   const data = groups.map((g) => ({
     name: g.name,
     value: g.sum,
@@ -143,11 +151,11 @@ export function AssetTreemap({ groups, total, height = 200 }: Props) {
       <Treemap
         data={data}
         dataKey="value"
-        content={<Cell total={total} />}
+        content={<Cell total={total} symbol={symbol} />}
         isAnimationActive={false}
         style={{ outline: "none" }}
       >
-        <Tooltip content={<TooltipContent />} />
+        <Tooltip content={<TooltipContent symbol={symbol} />} />
       </Treemap>
     </ResponsiveContainer>
   )

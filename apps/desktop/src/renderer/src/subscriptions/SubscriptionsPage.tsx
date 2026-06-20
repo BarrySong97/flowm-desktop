@@ -20,6 +20,7 @@ import { formatNumber } from "@/lib/format"
 import { SubscriptionDetailPanel } from "./SubscriptionDetailPanel"
 import { FormField } from "../components/ui/FormField"
 import { CurrencySelect } from "../components/ui/CurrencySelect"
+import { MoneyAmount } from "../components/ui/MoneyAmount"
 import { useCurrentRates } from "@/lib/useCurrentRates"
 
 const fmt = formatNumber
@@ -32,7 +33,6 @@ interface Sub {
   amt: number
   next: string
   cur: string
-  raw?: string
   auto: boolean
 }
 
@@ -251,7 +251,7 @@ export function SubscriptionsPage() {
     }),
   )
 
-  const { toDisplay, baseSymbol } = useCurrentRates()
+  const { toDisplay, baseSymbol, base } = useCurrentRates()
   const subNameById = useMemo(
     () => new Map((subscriptionsQuery.data ?? []).map((sub) => [String(sub.id), sub])),
     [subscriptionsQuery.data],
@@ -266,7 +266,6 @@ export function SubscriptionsPage() {
         amt: Math.abs(Number(sub.amount) || 0),
         next: sub.nextChargeDate.slice(5),
         cur: sub.currency,
-        raw: sub.currency === "CNY" ? undefined : `${sub.currency} ${sub.amount}`,
         auto: sub.autoRenew,
       })),
     [subscriptionsQuery.data],
@@ -285,8 +284,6 @@ export function SubscriptionsPage() {
         amt: Math.abs(Number(occurrence.amount) || 0),
         next: occurrence.dueDate.slice(5),
         cur: occurrence.currency,
-        raw:
-          occurrence.currency === "CNY" ? undefined : `${occurrence.currency} ${occurrence.amount}`,
         auto: sub?.autoRenew ?? true,
       }
       output[day] = [...(output[day] ?? []), row]
@@ -448,6 +445,22 @@ export function SubscriptionsPage() {
                       background: selectedId === s.id ? "var(--surface-2)" : "transparent",
                     }}
                   >
+                    <span
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        padding: "2px 8px",
+                        borderRadius: 100,
+                        fontSize: 9.5,
+                        border: "1px solid var(--hair)",
+                        background: "var(--surface-2)",
+                        color: "var(--ink-3)",
+                        whiteSpace: "nowrap",
+                        flexShrink: 0,
+                      }}
+                    >
+                      {s.cycle}付
+                    </span>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div
                         style={{
@@ -466,32 +479,16 @@ export function SubscriptionsPage() {
                     </div>
                     <span
                       style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        padding: "2px 8px",
-                        borderRadius: 100,
-                        fontSize: 9.5,
-                        border: "1px solid var(--hair)",
-                        background: "var(--surface-2)",
-                        color: "var(--ink-3)",
-                        whiteSpace: "nowrap",
-                        flexShrink: 0,
-                      }}
-                    >
-                      {s.cycle}付
-                    </span>
-                    <span
-                      style={{
+                        display: "flex",
+                        justifyContent: "flex-end",
                         fontFamily: "var(--mono)",
-                        width: 52,
-                        textAlign: "right",
                         fontSize: 13,
                         fontWeight: 500,
                         letterSpacing: "-0.01em",
                         flexShrink: 0,
                       }}
                     >
-                      {s.raw ?? `¥${fmt(s.amt)}`}
+                      <MoneyAmount amount={s.amt} currency={s.cur} base={base} />
                     </span>
                   </Button>
                 </div>
@@ -626,7 +623,7 @@ export function SubscriptionsPage() {
                               letterSpacing: "-0.02em",
                             }}
                           >
-                            {s.raw ?? `¥${fmt(s.amt)}`}
+                            <MoneyAmount amount={s.amt} currency={s.cur} base={base} decimals={0} />
                           </span>
                           <span
                             style={{

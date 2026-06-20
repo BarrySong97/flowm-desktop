@@ -30,6 +30,8 @@ interface LoanScheduleBarProps {
   termTotal: number
   monthly: number
   height?: number
+  /** Currency symbol for the loan's own currency. */
+  symbol?: string
 }
 
 /**
@@ -46,6 +48,7 @@ export function LoanScheduleBar({
   termTotal,
   monthly,
   height = 42,
+  symbol = "¥",
 }: LoanScheduleBarProps) {
   const [tip, setTip] = useState<TipState | null>(null)
 
@@ -156,7 +159,8 @@ export function LoanScheduleBar({
                     <div key={label} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                       <span style={{ fontSize: 9, fontWeight: 500, opacity: 0.6 }}>{label}</span>
                       <span style={{ fontFamily: "var(--mono)", fontSize: 12, fontWeight: 600 }}>
-                        ¥{fmt(val)}
+                        {symbol}
+                        {fmt(val)}
                       </span>
                     </div>
                   ))}

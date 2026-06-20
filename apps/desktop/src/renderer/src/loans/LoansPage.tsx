@@ -443,6 +443,7 @@ export function LoansPage() {
                     paid={l.paid}
                     termTotal={l.termTotal}
                     monthly={l.monthly}
+                    symbol={currencySymbol(l.cur)}
                   />
 
                   {/* Pct label */}
@@ -500,7 +501,10 @@ export function LoansPage() {
                       }}
                     />
                     <span style={{ color: "var(--ink-4)" }}>剩 {l.termLeft} 期 · 余本金</span>
-                    <b style={{ fontFamily: "var(--mono)", fontWeight: 600 }}>¥{fmt(l.remain)}</b>
+                    <b style={{ fontFamily: "var(--mono)", fontWeight: 600 }}>
+                      {currencySymbol(l.cur)}
+                      {fmt(l.remain)}
+                    </b>
                   </span>
                   <span
                     style={{
