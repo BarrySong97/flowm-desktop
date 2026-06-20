@@ -11,6 +11,7 @@ import { useNavigate } from "@tanstack/react-router"
 import { Button, Input, Modal } from "@heroui/react"
 import { Controller, useForm } from "react-hook-form"
 import { CurrencySelect } from "../components/ui/CurrencySelect"
+import { BackButton } from "../components/ui/BackButton"
 import { currencySymbol } from "@flowm/shared"
 import { Dock } from "../components/layout/Dock"
 import { ScrollArea } from "../components/ui/ScrollArea"
@@ -141,31 +142,7 @@ export function LoanDetailPage() {
       <ScrollArea className="h-full" style={{ flex: 1, minHeight: 0 }}>
         <div style={{ padding: "28px 32px 112px" }}>
           {/* Back button */}
-          <button
-            onClick={() => navigate({ to: "/loans" })}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 4,
-              fontSize: 12,
-              color: "var(--ink-4)",
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              padding: 0,
-            }}
-          >
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <path
-                d="M9 2L4 7L9 12"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-            返回负债
-          </button>
+          <BackButton label="返回负债" onBack={() => navigate({ to: "/loans" })} />
 
           {/* Centered content */}
           <div style={{ maxWidth: 680, margin: "20px auto 0" }}>

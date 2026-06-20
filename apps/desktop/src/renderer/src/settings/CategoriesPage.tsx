@@ -8,7 +8,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { useNavigate } from "@tanstack/react-router"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Button, Chip, Input, Modal } from "@heroui/react"
+import { Button, Input, Modal } from "@heroui/react"
 import { Controller, useForm } from "react-hook-form"
 import type { CashflowEventSummary, CategorySummary } from "@flowm/api"
 import { trpc } from "@/lib/trpc"
@@ -16,6 +16,7 @@ import { usePagePerf } from "@/lib/debug/perf"
 import { useMoney } from "@/lib/useMoney"
 import { Dock } from "../components/layout/Dock"
 import { ScrollArea } from "../components/ui/ScrollArea"
+import { BackButton } from "../components/ui/BackButton"
 import { useConfirm } from "../components/ui/ConfirmModal"
 import { ColorPickerField } from "../components/ui/ColorPickerField"
 import { ColorDot } from "../components/ui/ColorDot"
@@ -113,7 +114,18 @@ function GroupLabel({ children }: { children: string }) {
 
 function KindBadge({ kind, archived }: { kind: string; archived?: boolean }) {
   const meta = KIND_META[kind] ?? { label: kind, tone: "var(--ink-3)" }
-  return <Chip size="sm">{archived ? "已归档" : meta.label}</Chip>
+  return (
+    <span
+      style={{
+        fontSize: 11.5,
+        fontWeight: 500,
+        color: archived ? "var(--ink-4)" : meta.tone,
+        whiteSpace: "nowrap",
+      }}
+    >
+      {archived ? "已归档" : meta.label}
+    </span>
+  )
 }
 
 function CategoryModal({
@@ -262,7 +274,7 @@ function CategoryRow({
     <div
       style={{
         display: "grid",
-        gridTemplateColumns: "minmax(160px, 1fr) 88px 116px 86px 110px",
+        gridTemplateColumns: "minmax(160px, 1fr) 104px 104px 104px 124px",
         alignItems: "center",
         gap: 12,
         minHeight: 50,
@@ -304,11 +316,16 @@ function CategoryRow({
         ¥{fmt(stats.monthAmount)}
       </span>
       {!category.archived ? (
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 6 }}>
-          <Button size="sm" variant="outline" onPress={() => onEdit(category)}>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 2 }}>
+          <Button size="sm" variant="ghost" onPress={() => onEdit(category)}>
             编辑
           </Button>
-          <Button size="sm" variant="danger" onPress={() => onArchive(category)}>
+          <Button
+            size="sm"
+            variant="ghost"
+            onPress={() => onArchive(category)}
+            style={{ color: "var(--red)" }}
+          >
             归档
           </Button>
         </div>
@@ -348,7 +365,7 @@ function CategorySection({
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "minmax(160px, 1fr) 88px 116px 86px 110px",
+          gridTemplateColumns: "minmax(160px, 1fr) 104px 104px 104px 124px",
           gap: 12,
           padding: "4px 0 7px",
           borderTop: "1px solid var(--hair-2)",
@@ -493,25 +510,9 @@ export function CategoriesPage() {
         }}
       >
         <div style={{ width: 720, maxWidth: "100%", margin: "0 auto" }}>
-          <button
-            type="button"
-            onClick={() => void navigate({ to: "/settings" })}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 6,
-              border: "none",
-              background: "none",
-              padding: 0,
-              marginBottom: 14,
-              cursor: "pointer",
-              color: "var(--ink-3)",
-              fontSize: 12.5,
-              fontWeight: 500,
-            }}
-          >
-            ‹ 返回设置
-          </button>
+          <div style={{ marginBottom: 14 }}>
+            <BackButton label="返回设置" onBack={() => void navigate({ to: "/settings" })} />
+          </div>
           <div style={{ display: "flex", alignItems: "flex-end", gap: 18 }}>
             <div style={{ minWidth: 0 }}>
               <div

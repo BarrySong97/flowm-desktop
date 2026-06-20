@@ -14,6 +14,7 @@ import { CYCLE_LABELS } from "@/lib/domainDisplay"
 import { dateKey } from "@/lib/dates"
 import { useMoney } from "@/lib/useMoney"
 import { useConfirm } from "../components/ui/ConfirmModal"
+import { BackButton } from "../components/ui/BackButton"
 import type { SubscriptionOccurrenceSummary } from "@flowm/api"
 import { FormField } from "../components/ui/FormField"
 import { CurrencySelect } from "../components/ui/CurrencySelect"
@@ -146,37 +147,7 @@ export function SubscriptionDetailPanel({ id, onBack }: Props) {
 
   return (
     <div style={{ padding: "20px 24px 112px" }}>
-      {/* Back button — HeroUI v3 Button has no startContent prop, so the icon
-          is the leading child (sits at the start). marginLeft offsets the
-          button's own padding so it lines up with the left list header. */}
-      <Button
-        variant="ghost"
-        size="sm"
-        onPress={onBack}
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          gap: 4,
-          fontSize: 12,
-          color: "var(--ink-4)",
-          height: "auto",
-          padding: "3px 8px",
-          borderRadius: 6,
-          minWidth: 0,
-          marginLeft: -8,
-        }}
-      >
-        <svg width="15" height="15" viewBox="0 0 14 14" fill="none" style={{ flexShrink: 0 }}>
-          <path
-            d="M9 2L4 7L9 12"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-        返回订阅
-      </Button>
+      <BackButton label="返回订阅" onBack={onBack} />
 
       {/* Content fills the panel width */}
       <div style={{ marginTop: 10 }}>

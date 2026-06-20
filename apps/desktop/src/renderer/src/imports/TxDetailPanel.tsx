@@ -8,6 +8,7 @@
 import React from "react"
 import { Button } from "@heroui/react"
 import { useConfirm } from "../components/ui/ConfirmModal"
+import { BackButton } from "../components/ui/BackButton"
 import { CATEGORY_COLORS } from "@/lib/domainDisplay"
 import { useMoney } from "@/lib/useMoney"
 import { Dim } from "../components/ui/Dim"
@@ -90,23 +91,7 @@ export function TxDetailPanel({ tx, allTxs, onBack, onEdit, onDelete }: Props) {
     <div style={{ padding: "20px 24px 112px" }}>
       {/* Back + kicker */}
       <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 12 }}>
-        <Button
-          isIconOnly
-          size="sm"
-          variant="ghost"
-          onPress={onBack}
-          style={{ width: 24, height: 24, minWidth: 24, borderRadius: 5, marginLeft: -4 }}
-        >
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-            <path
-              d="M9 2L4 7L9 12"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </Button>
+        <BackButton onBack={onBack} />
         <div
           style={{
             display: "inline-flex",
