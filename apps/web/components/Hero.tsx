@@ -5,6 +5,7 @@
  */
 
 import { AppMock } from "./overview/AppMock"
+import { CopyCommand } from "./CopyCommand"
 
 export function Hero() {
   return (
@@ -33,6 +34,11 @@ export function Hero() {
           >
             看看怎么用
           </a>
+        </div>
+        {/* 复制这句话，发给任意 AI Agent 即可开始 */}
+        <div className="mt-6 flex flex-col items-center gap-2">
+          <span className="text-[12.5px] text-ink-3">或，把这句话复制给你常用的 AI Agent：</span>
+          <CopyCommand text="阅读 github.com/flowm/flowm，帮我开始用 Flowm 记账" />
         </div>
       </div>
 
