@@ -203,25 +203,38 @@ function SourcesRainViz() {
 
   useEffect(() => {
     if (!inView || reduced) return
+    const GRAV = "cubic-bezier(0.4, 0, 0.78, 0.45)" // 自由下落：越落越快 ≈ 重力
+    const UP = "cubic-bezier(0.33, 0.66, 0.68, 1)" // 弹起上升：减速
+    const DOWN = "cubic-bezier(0.5, 0, 0.85, 0.4)" // 回落：加速
     const anims = SOURCE_ICONS.map((ic, i) => {
       const el = refs.current[i]
       if (!el) return null
       const r = ic.rot
+      const dir = i % 2 === 0 ? 1 : -1
+      const spin = 34 + ((i * 37) % 4) * 16 // 下落时的翻滚角度（按序号变化，错落感）
+      const fromY = 300 + ((i * 53) % 5) * 36 // 起始高度（卡片上方，越高落得越久）
+      const b = 18 + ((i * 29) % 4) * 5 // 第一次弹起高度
+      const dur = 1060 + ((i * 41) % 4) * 130
+      const startRot = r - dir * spin
+      const kick = dir * 3 // 落地瞬间顺势的小过冲，再回正
       return el.animate(
         [
           {
-            transform: `translateY(-340px) rotate(${r - 40}deg)`,
+            offset: 0,
             opacity: 0,
-            easing: "cubic-bezier(0.5, 0, 1, 0.55)", // 加速下落 ≈ 重力
+            transform: `translateY(${-fromY}px) rotate(${startRot}deg)`,
+            easing: GRAV,
           },
-          { opacity: 1, offset: 0.14 },
-          { transform: `translateY(0) rotate(${r}deg)`, offset: 0.6, easing: "ease-out" }, // 落地
-          { transform: `translateY(-14px) rotate(${r}deg)`, offset: 0.74, easing: "ease-in" }, // 弹起
-          { transform: `translateY(0) rotate(${r}deg)`, offset: 0.86, easing: "ease-out" },
-          { transform: `translateY(-5px) rotate(${r}deg)`, offset: 0.94, easing: "ease-in" },
-          { transform: `translateY(0) rotate(${r}deg)`, opacity: 1, offset: 1 },
+          { offset: 0.07, opacity: 1, easing: GRAV },
+          { offset: 0.46, transform: `translateY(0) rotate(${r + kick}deg)`, easing: UP }, // 第一次落地
+          { offset: 0.6, transform: `translateY(${-b}px) rotate(${r}deg)`, easing: DOWN }, // 弹起
+          { offset: 0.72, transform: `translateY(0) rotate(${r}deg)`, easing: UP }, // 第二次落地
+          { offset: 0.82, transform: `translateY(${-b * 0.42}px) rotate(${r}deg)`, easing: DOWN },
+          { offset: 0.9, transform: `translateY(0) rotate(${r}deg)`, easing: UP }, // 第三次
+          { offset: 0.96, transform: `translateY(${-b * 0.14}px) rotate(${r}deg)`, easing: DOWN },
+          { offset: 1, opacity: 1, transform: `translateY(0) rotate(${r}deg)` }, // 落定
         ],
-        { duration: 1000, delay: i * 120, fill: "both", easing: "linear" },
+        { duration: dur, delay: i * 85, fill: "both", easing: "linear" },
       )
     })
     return () => anims.forEach((a) => a?.cancel())
