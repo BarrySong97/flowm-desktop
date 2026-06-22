@@ -2,14 +2,14 @@
  * @purpose Problem section: the two pains of personal finance, shown as animated痛点.
  * @role    Landing section after the hero; two cards, each with a problem and an
  *          animated difficulty diagram. No answer here — the solution lives in 「怎么用」.
- * @gotcha  Client component: card ① rains app icons on first scroll-in (IntersectionObserver),
- *          card ② endlessly streams new entries in from the top-right (interval + transitions).
- *          Both honor prefers-reduced-motion.
+ * @gotcha  Client component: card ① is a static grid of source logos with hairline grid lines;
+ *          card ② endlessly streams new entries in from the top-right (interval + transitions,
+ *          honors prefers-reduced-motion).
  */
 
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useState } from "react"
 import type { ReactNode } from "react"
 import { Wrap } from "./primitives"
 import { SectionHead } from "./SectionHead"
@@ -23,29 +23,7 @@ function useReducedMotion() {
   return reduced
 }
 
-/** 首次滚入视口时触发一次。 */
-function useInViewOnce<T extends HTMLElement>(threshold = 0.35) {
-  const ref = useRef<T>(null)
-  const [inView, setInView] = useState(false)
-  useEffect(() => {
-    const el = ref.current
-    if (!el) return
-    const ob = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setInView(true)
-          ob.disconnect()
-        }
-      },
-      { threshold },
-    )
-    ob.observe(el)
-    return () => ob.disconnect()
-  }, [threshold])
-  return { ref, inView }
-}
-
-// ── 卡片①「汇总」：来源各异的 app 图标，滚入时像丢东西一样带重力坠落、翻滚、堆到卡片底部。 ──
+// ── 卡片①「汇总」：来源各异的 app 图标，排成带网格线分割的静态宫格，体现「来源一大堆」。 ──
 const ALIPAY_D =
   "M19.695 15.07c3.426 1.158 4.203 1.22 4.203 1.22V3.846c0-2.124-1.705-3.845-3.81-3.845H3.914C1.808.001.102 1.722.102 3.846v16.31c0 2.123 1.706 3.845 3.813 3.845h16.173c2.105 0 3.81-1.722 3.81-3.845v-.157s-6.19-2.602-9.315-4.119c-2.096 2.602-4.8 4.181-7.607 4.181-4.75 0-6.361-4.19-4.112-6.949.49-.602 1.324-1.175 2.617-1.497 2.025-.502 5.247.313 8.266 1.317a16.796 16.796 0 0 0 1.341-3.302H5.781v-.952h4.799V6.975H4.77v-.953h5.81V3.591s0-.409.411-.409h2.347v2.84h5.744v.951h-5.744v1.704h4.69a19.453 19.453 0 0 1-1.986 5.06c1.424.52 2.702 1.011 3.654 1.333m-13.81-2.032c-.596.06-1.71.325-2.321.869-1.83 1.608-.735 4.55 2.968 4.55 2.151 0 4.301-1.388 5.99-3.61-2.403-1.182-4.438-2.028-6.637-1.809"
 const WECHAT_D =
@@ -58,7 +36,7 @@ const PAYPAL_D =
 function IconTile({ bg, size, children }: { bg: string; size: number; children: ReactNode }) {
   return (
     <div
-      className="grid place-items-center overflow-hidden rounded-[26%] shadow-[0_12px_24px_-10px_rgba(20,40,30,0.6)] ring-1 ring-black/5"
+      className="grid place-items-center overflow-hidden rounded-[24%] shadow-[0_4px_10px_-6px_rgba(20,40,30,0.45)] ring-1 ring-black/5"
       style={{ width: size, height: size, background: bg }}
     >
       {children}
@@ -66,17 +44,16 @@ function IconTile({ bg, size, children }: { bg: string; size: number; children: 
   )
 }
 
-type DropIcon = { key: string; node: ReactNode; left: string; bottom: number; rot: number }
+type SourceIcon = { key: string; label: string; node: ReactNode }
 
-const SOURCE_ICONS: DropIcon[] = [
-  // 后排
+const ICON_SIZE = 44
+
+const SOURCE_ICONS: SourceIcon[] = [
   {
     key: "alipay",
-    left: "20%",
-    bottom: 64,
-    rot: -12,
+    label: "支付宝",
     node: (
-      <IconTile bg="#ffffff" size={56}>
+      <IconTile bg="#ffffff" size={ICON_SIZE}>
         <svg viewBox="0 0 24 24" className="h-full w-full">
           <path fill="#1677FF" d={ALIPAY_D} />
         </svg>
@@ -85,11 +62,9 @@ const SOURCE_ICONS: DropIcon[] = [
   },
   {
     key: "wechat",
-    left: "44%",
-    bottom: 72,
-    rot: 8,
+    label: "微信",
     node: (
-      <IconTile bg="#07C160" size={54}>
+      <IconTile bg="#07C160" size={ICON_SIZE}>
         <svg viewBox="0 0 24 24" width="60%" height="60%">
           <path fill="#ffffff" d={WECHAT_D} />
         </svg>
@@ -98,11 +73,9 @@ const SOURCE_ICONS: DropIcon[] = [
   },
   {
     key: "bank",
-    left: "66%",
-    bottom: 64,
-    rot: -7,
+    label: "银行",
     node: (
-      <IconTile bg="#C8102E" size={50}>
+      <IconTile bg="#C8102E" size={ICON_SIZE}>
         <svg
           viewBox="0 0 24 24"
           width="58%"
@@ -119,11 +92,9 @@ const SOURCE_ICONS: DropIcon[] = [
   },
   {
     key: "broker",
-    left: "85%",
-    bottom: 58,
-    rot: 14,
+    label: "券商",
     node: (
-      <IconTile bg="#15233B" size={50}>
+      <IconTile bg="#15233B" size={ICON_SIZE}>
         <svg viewBox="0 0 24 24" width="62%" height="62%" strokeLinecap="round">
           <line x1="8" y1="5" x2="8" y2="19" stroke="#ef4444" strokeWidth="1.6" />
           <rect x="6.6" y="8" width="2.8" height="6" fill="#ef4444" />
@@ -133,14 +104,11 @@ const SOURCE_ICONS: DropIcon[] = [
       </IconTile>
     ),
   },
-  // 前排
   {
     key: "excel",
-    left: "13%",
-    bottom: 10,
-    rot: -9,
+    label: "账单",
     node: (
-      <IconTile bg="#1E7145" size={58}>
+      <IconTile bg="#1E7145" size={ICON_SIZE}>
         <svg viewBox="0 0 24 24" width="56%" height="56%" fill="none">
           <rect x="4" y="3.5" width="16" height="17" rx="2" fill="#ffffff" />
           <path
@@ -155,11 +123,9 @@ const SOURCE_ICONS: DropIcon[] = [
   },
   {
     key: "mastercard",
-    left: "35%",
-    bottom: 6,
-    rot: 11,
+    label: "信用卡",
     node: (
-      <IconTile bg="#ffffff" size={58}>
+      <IconTile bg="#ffffff" size={ICON_SIZE}>
         <svg viewBox="0 0 40 24" width="68%" height="68%">
           <circle cx="16" cy="12" r="9.5" fill="#EB001B" />
           <circle cx="24" cy="12" r="9.5" fill="#F79E1B" />
@@ -170,11 +136,9 @@ const SOURCE_ICONS: DropIcon[] = [
   },
   {
     key: "visa",
-    left: "57%",
-    bottom: 10,
-    rot: -13,
+    label: "Visa",
     node: (
-      <IconTile bg="#1A1F71" size={56}>
+      <IconTile bg="#1A1F71" size={ICON_SIZE}>
         <svg viewBox="0 0 24 24" width="74%" height="74%">
           <path fill="#ffffff" d={VISA_D} />
         </svg>
@@ -183,11 +147,9 @@ const SOURCE_ICONS: DropIcon[] = [
   },
   {
     key: "paypal",
-    left: "78%",
-    bottom: 8,
-    rot: 6,
+    label: "PayPal",
     node: (
-      <IconTile bg="#ffffff" size={52}>
+      <IconTile bg="#ffffff" size={ICON_SIZE}>
         <svg viewBox="0 0 24 24" width="58%" height="58%">
           <path fill="#002991" d={PAYPAL_D} />
         </svg>
@@ -196,66 +158,13 @@ const SOURCE_ICONS: DropIcon[] = [
   },
 ]
 
-function SourcesRainViz() {
-  const reduced = useReducedMotion()
-  const { ref, inView } = useInViewOnce<HTMLDivElement>(0.4)
-  const refs = useRef<Array<HTMLDivElement | null>>([])
-
-  useEffect(() => {
-    if (!inView || reduced) return
-    const GRAV = "cubic-bezier(0.4, 0, 0.78, 0.45)" // 自由下落：越落越快 ≈ 重力
-    const UP = "cubic-bezier(0.33, 0.66, 0.68, 1)" // 弹起上升：减速
-    const DOWN = "cubic-bezier(0.5, 0, 0.85, 0.4)" // 回落：加速
-    const anims = SOURCE_ICONS.map((ic, i) => {
-      const el = refs.current[i]
-      if (!el) return null
-      const r = ic.rot
-      const dir = i % 2 === 0 ? 1 : -1
-      const spin = 34 + ((i * 37) % 4) * 16 // 下落时的翻滚角度（按序号变化，错落感）
-      const fromY = 300 + ((i * 53) % 5) * 36 // 起始高度（卡片上方，越高落得越久）
-      const b = 18 + ((i * 29) % 4) * 5 // 第一次弹起高度
-      const dur = 1060 + ((i * 41) % 4) * 130
-      const startRot = r - dir * spin
-      const kick = dir * 3 // 落地瞬间顺势的小过冲，再回正
-      return el.animate(
-        [
-          {
-            offset: 0,
-            opacity: 0,
-            transform: `translateY(${-fromY}px) rotate(${startRot}deg)`,
-            easing: GRAV,
-          },
-          { offset: 0.07, opacity: 1, easing: GRAV },
-          { offset: 0.46, transform: `translateY(0) rotate(${r + kick}deg)`, easing: UP }, // 第一次落地
-          { offset: 0.6, transform: `translateY(${-b}px) rotate(${r}deg)`, easing: DOWN }, // 弹起
-          { offset: 0.72, transform: `translateY(0) rotate(${r}deg)`, easing: UP }, // 第二次落地
-          { offset: 0.82, transform: `translateY(${-b * 0.42}px) rotate(${r}deg)`, easing: DOWN },
-          { offset: 0.9, transform: `translateY(0) rotate(${r}deg)`, easing: UP }, // 第三次
-          { offset: 0.96, transform: `translateY(${-b * 0.14}px) rotate(${r}deg)`, easing: DOWN },
-          { offset: 1, opacity: 1, transform: `translateY(0) rotate(${r}deg)` }, // 落定
-        ],
-        { duration: dur, delay: i * 85, fill: "both", easing: "linear" },
-      )
-    })
-    return () => anims.forEach((a) => a?.cancel())
-  }, [inView, reduced])
-
+function SourcesGridViz() {
   return (
-    <div ref={ref} className="relative h-[260px] overflow-hidden rounded-[12px] bg-surface-2 p-5">
-      {SOURCE_ICONS.map((ic, i) => (
-        <div
-          key={ic.key}
-          className="absolute"
-          style={{ left: ic.left, bottom: ic.bottom, transform: "translateX(-50%)" }}
-        >
-          <div
-            ref={(el) => {
-              refs.current[i] = el
-            }}
-            style={{ transform: `rotate(${ic.rot}deg)`, opacity: reduced ? 1 : 0 }}
-          >
-            {ic.node}
-          </div>
+    <div className="grid h-[260px] grid-cols-4 grid-rows-2 gap-px overflow-hidden rounded-[12px] bg-hair">
+      {SOURCE_ICONS.map((s) => (
+        <div key={s.key} className="flex flex-col items-center justify-center gap-2 bg-surface-2">
+          {s.node}
+          <span className="text-[10.5px] text-ink-4">{s.label}</span>
         </div>
       ))}
     </div>
@@ -357,7 +266,7 @@ const CARDS: { tag: string; problem: string; viz: ReactNode }[] = [
   {
     tag: "问题一 · 汇总",
     problem: "钱散落在银行、支付宝、微信、券商……来源一大堆，格式还各不相同。",
-    viz: <SourcesRainViz />,
+    viz: <SourcesGridViz />,
   },
   {
     tag: "问题二 · 录入",
