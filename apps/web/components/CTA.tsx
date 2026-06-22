@@ -1,5 +1,5 @@
 /**
- * @purpose Closing download call-to-action card.
+ * @purpose Closing download call-to-action.
  * @role    Landing section: macOS / iOS download buttons and platform notes.
  */
 
@@ -15,67 +15,31 @@ export function CTA() {
   return (
     <section id="download" className="pb-24 pt-8">
       <Wrap>
-        <div className="relative overflow-hidden rounded-[24px] border border-hair bg-surface px-6 py-[72px] text-center shadow-[0_24px_60px_-40px_rgba(20,40,30,0.3)]">
-          {/* 背景：顶部柔和绿色辉光 + 底部淡淡的上扬曲线 */}
-          <div aria-hidden className="pointer-events-none absolute inset-0">
-            <div
-              className="absolute left-1/2 top-[-34%] h-[440px] w-[860px] max-w-none -translate-x-1/2"
-              style={{
-                background:
-                  "radial-gradient(ellipse at center, rgba(20,121,74,0.18), rgba(20,121,74,0) 68%)",
-              }}
-            />
-            <svg
-              className="absolute left-1/2 top-1/2 h-[820px] w-[820px] max-w-none -translate-x-1/2 -translate-y-1/2"
-              viewBox="0 0 100 100"
-              fill="none"
-              style={{
-                maskImage: "radial-gradient(circle, #000 26%, transparent 68%)",
-                WebkitMaskImage: "radial-gradient(circle, #000 26%, transparent 68%)",
-              }}
+        <div className="text-center">
+          <h2 className="text-[clamp(26px,3.4vw,38px)] font-bold -tracking-[0.025em]">
+            今天就开始看清
+          </h2>
+          <p className="mx-auto mt-4 max-w-[440px] text-[15px] leading-[1.65] text-ink-2">
+            免费、本地、无需注册。导入一份账单，几分钟就能看到你钱的全貌。
+          </p>
+          <div className="mt-8 flex flex-wrap justify-center gap-[13px]">
+            <a
+              href="#"
+              className="inline-flex items-center gap-[7px] rounded-[12px] bg-green px-6 py-[13px] text-[15px] font-semibold text-white shadow-[0_1px_2px_rgba(20,121,74,0.25)] transition-all hover:-translate-y-px hover:bg-green-deep hover:shadow-[0_6px_16px_-6px_rgba(20,121,74,0.5)]"
             >
-              {[8, 16, 24, 32, 40, 48, 56, 64].map((r) => (
-                <circle
-                  key={r}
-                  cx="50"
-                  cy="50"
-                  r={r}
-                  stroke="#14794a"
-                  strokeOpacity="0.18"
-                  strokeWidth="1"
-                  vectorEffect="non-scaling-stroke"
-                />
-              ))}
-            </svg>
+              下载 macOS 版
+            </a>
+            <a
+              href="#"
+              className="inline-flex items-center gap-[7px] rounded-[12px] border border-hair bg-surface px-6 py-[13px] text-[15px] font-semibold text-ink transition-colors hover:border-ink-5 hover:bg-surface-2"
+            >
+              下载 iOS 版
+            </a>
           </div>
-
-          {/* 内容 */}
-          <div className="relative z-10">
-            <h2 className="text-[clamp(26px,3.4vw,38px)] font-bold -tracking-[0.025em]">
-              今天就开始看清
-            </h2>
-            <p className="mx-auto mt-4 max-w-[440px] text-[15px] leading-[1.65] text-ink-2">
-              免费、本地、无需注册。导入一份账单，几分钟就能看到你钱的全貌。
-            </p>
-            <div className="mt-8 flex flex-wrap justify-center gap-[13px]">
-              <a
-                href="#"
-                className="inline-flex items-center gap-[7px] rounded-[12px] bg-green px-6 py-[13px] text-[15px] font-semibold text-white shadow-[0_1px_2px_rgba(20,121,74,0.25)] transition-all hover:-translate-y-px hover:bg-green-deep hover:shadow-[0_6px_16px_-6px_rgba(20,121,74,0.5)]"
-              >
-                下载 macOS 版
-              </a>
-              <a
-                href="#"
-                className="inline-flex items-center gap-[7px] rounded-[12px] border border-hair bg-surface px-6 py-[13px] text-[15px] font-semibold text-ink transition-colors hover:border-ink-5 hover:bg-surface-2"
-              >
-                下载 iOS 版
-              </a>
-            </div>
-            <div className="mt-7 flex justify-center gap-[22px] text-[12px] text-ink-4">
-              <span className="inline-flex items-center gap-[6px]">{APPLE}macOS 12+</span>
-              <span className="inline-flex items-center gap-[6px]">{APPLE}iOS 16+</span>
-              <span>· 简体中文</span>
-            </div>
+          <div className="mt-7 flex justify-center gap-[22px] text-[12px] text-ink-4">
+            <span className="inline-flex items-center gap-[6px]">{APPLE}macOS 12+</span>
+            <span className="inline-flex items-center gap-[6px]">{APPLE}iOS 16+</span>
+            <span>· 简体中文</span>
           </div>
         </div>
       </Wrap>
