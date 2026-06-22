@@ -1,10 +1,10 @@
 /**
- * @purpose Problem section: the two pains of personal finance, shown as animated痛点.
- * @role    Landing section after the hero; two cards, each with a problem and an
- *          animated difficulty diagram. No answer here — the solution lives in 「怎么用」.
+ * @purpose Problem section: the three pains of personal finance (汇总 / 录入 / 对账).
+ * @role    Landing section after the hero; three cards, each with a problem and a
+ *          difficulty diagram. No answer here — the solution lives in 「怎么用」.
  * @gotcha  Client component: card ① is a static 4×2 grid of source logos on a grey panel;
  *          card ② endlessly streams new entries in from the top-right (interval + transitions,
- *          honors prefers-reduced-motion).
+ *          honors prefers-reduced-motion); card ③ is a static never-balancing formula.
  */
 
 "use client"
@@ -262,6 +262,26 @@ function EntryStreamViz() {
   )
 }
 
+// ── 卡片③「对账」：一条永远对不平的对账公式，差额怎么也抹不掉。 ──────────────
+function ReconcileViz() {
+  return (
+    <div className="flex h-[260px] flex-col items-center justify-center gap-3 rounded-[12px] bg-surface-2 p-5 text-center">
+      <div>
+        <div className="text-[11px] text-ink-4">期初 + 收入 − 支出</div>
+        <div className="mt-1 font-mono text-[15px] font-semibold tnum text-ink">¥128,692</div>
+      </div>
+      <div className="font-mono text-[26px] font-bold leading-none text-red">≠</div>
+      <div>
+        <div className="text-[11px] text-ink-4">账户实际余额</div>
+        <div className="mt-1 font-mono text-[15px] font-semibold tnum text-ink">¥132,552</div>
+      </div>
+      <div className="mt-1 rounded-full bg-red/10 px-3 py-1 font-mono text-[11.5px] font-medium text-red">
+        差 ¥3,860 · 永远对不平
+      </div>
+    </div>
+  )
+}
+
 const CARDS: { tag: string; problem: string; viz: ReactNode }[] = [
   {
     tag: "问题一 · 汇总",
@@ -273,6 +293,11 @@ const CARDS: { tag: string; problem: string; viz: ReactNode }[] = [
     problem: "每天一笔笔手动记流水，又累又琐碎，没几天就坚持不下去。",
     viz: <EntryStreamViz />,
   },
+  {
+    tag: "问题三 · 对账",
+    problem: "余额、流水、各种推算凑到一起，怎么算都对不平——越对越乱。",
+    viz: <ReconcileViz />,
+  },
 ]
 
 export function Problem() {
@@ -280,9 +305,9 @@ export function Problem() {
     <section id="problem" className="py-[84px]">
       <Wrap>
         <SectionHead tag="问题" title="记账，到底难在哪？">
-          钱散落各处难汇总，流水还得天天记——记账真正难的，就是这两件事。
+          钱散落各处难汇总，流水还得天天记，账还老是对不平——记账真正难的，就是这三件事。
         </SectionHead>
-        <div className="mt-12 grid items-stretch gap-6 md:grid-cols-2">
+        <div className="mt-12 grid items-stretch gap-6 md:grid-cols-3">
           {CARDS.map((c) => (
             <div
               key={c.tag}
