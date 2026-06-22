@@ -47,7 +47,7 @@ export function CopyCommand({ text }: { text: string }) {
         type="button"
         onClick={copy}
         aria-label="复制命令"
-        className="flex flex-none items-center gap-1.5 border-l border-hair px-3.5 text-[13px] font-medium text-ink-2 transition-colors hover:bg-surface-2"
+        className="flex flex-none cursor-pointer items-center gap-1.5 border-l border-hair px-3.5 text-[13px] font-medium text-ink-2 transition-colors hover:bg-surface-2"
       >
         {copied ? (
           <>

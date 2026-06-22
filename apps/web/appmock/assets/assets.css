@@ -1,0 +1,8 @@
+/* Remove focus ring from recharts SVG elements (asset treemap). */
+.recharts-wrapper,
+.recharts-wrapper svg,
+.recharts-surface,
+.recharts-wrapper *:focus,
+.recharts-wrapper *:focus-visible {
+  outline: none !important;
+}

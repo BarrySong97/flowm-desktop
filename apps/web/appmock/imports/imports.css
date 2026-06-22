@@ -1,0 +1,31 @@
+/* Custom scrollbar for virtual table — matches Radix ScrollArea exactly.
+   Copied verbatim from apps/desktop/src/renderer/src/index.css (.flowm-scroller). */
+.flowm-scroller {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+.flowm-scroller:hover {
+  scrollbar-color: var(--ink-5) transparent;
+}
+.flowm-scroller::-webkit-scrollbar {
+  width: 8px !important;
+  background: transparent !important;
+}
+.flowm-scroller::-webkit-scrollbar-track {
+  background: transparent !important;
+  border-left: 1px solid transparent !important;
+}
+.flowm-scroller::-webkit-scrollbar-thumb {
+  background: transparent !important;
+  border-radius: 9999px !important;
+  border: 1px solid transparent !important;
+  background-clip: padding-box !important;
+}
+.flowm-scroller:hover::-webkit-scrollbar-thumb {
+  background: var(--ink-5) !important;
+  background-clip: padding-box !important;
+}
+.flowm-scroller:hover::-webkit-scrollbar-thumb:hover {
+  background: var(--ink-4) !important;
+  background-clip: padding-box !important;
+}

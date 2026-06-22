@@ -1,0 +1,37 @@
+{
+  "name": "web",
+  "version": "0.1.0",
+  "description": "Flowm marketing site (Next.js)",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "check-types": "tsc --noEmit",
+    "typecheck": "pnpm check-types"
+  },
+  "dependencies": {
+    "@flowm/api": "workspace:*",
+    "@flowm/shared": "workspace:*",
+    "@radix-ui/react-scroll-area": "^1.2.11",
+    "@heroui/react": "catalog:",
+    "@heroui/styles": "catalog:",
+    "@tanstack/react-query": "^5.101.0",
+    "@tanstack/react-table": "^8.21.3",
+    "@tanstack/react-virtual": "^3.14.2",
+    "jotai": "^2.20.1",
+    "next": "^15.5.4",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "recharts": "^3.8.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "catalog:",
+    "@types/node": "^24.10.1",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "tailwindcss": "catalog:",
+    "typescript": "catalog:"
+  }
+}

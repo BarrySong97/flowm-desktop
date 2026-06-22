@@ -1,0 +1,9 @@
+/*
+ * Page-scoped CSS tokens the verbatim-copied LoansPage / LoanScheduleBar reference
+ * via var(--mono) and var(--surface). The web app's globals.css mirrors most desktop
+ * tokens but omits these two, so we re-declare them here without touching globals.css.
+ */
+:root {
+  --mono: "IBM Plex Mono", ui-monospace, monospace;
+  --surface: #ffffff;
+}
