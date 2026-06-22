@@ -5,7 +5,7 @@
  *          录入/对账 are all handled. The detailed step flow lives later in 「怎么用」.
  */
 
-import { OpenAiIcon } from "./BrandIcons"
+import { AgentIcon } from "./BrandIcons"
 import { Wrap } from "./primitives"
 import { SectionHead } from "./SectionHead"
 
@@ -104,8 +104,8 @@ function PromptStep() {
           帮我把 <span className="font-mono text-[12px] text-ink-2">~/账单</span> 里的都记进账本
         </div>
         <div className="flex items-start gap-2.5">
-          <div className="grid h-8 w-8 flex-none place-items-center rounded-full border border-hair bg-surface text-ink">
-            <OpenAiIcon />
+          <div className="grid h-8 w-8 flex-none place-items-center rounded-full bg-green-soft text-green">
+            <AgentIcon />
           </div>
           <div className="min-w-0 flex-1 rounded-[14px] rounded-tl-[4px] border border-hair bg-surface px-3.5 py-3">
             <div className="mb-2 text-[12.5px] text-ink-2">好，都办好了：</div>
@@ -119,6 +119,9 @@ function PromptStep() {
             </div>
           </div>
         </div>
+      </div>
+      <div className="mt-3 text-center text-[11px] text-ink-4">
+        你常用的 Codex、Claude Code 等任意 AI Agent 都行
       </div>
     </div>
   )

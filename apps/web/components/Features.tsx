@@ -3,7 +3,7 @@
  * @role    Landing section showing how data gets into Flowm — via an AI Agent, no commands.
  */
 
-import { OpenAiIcon } from "./BrandIcons"
+import { AgentIcon } from "./BrandIcons"
 import { Wrap } from "./primitives"
 import { SectionHead } from "./SectionHead"
 
@@ -78,10 +78,10 @@ function HowToChat() {
           </span>
         </div>
       </div>
-      {/* Agent：OpenAI 头像，口语化回复 */}
+      {/* Agent：中立 AI Agent 头像，口语化回复 */}
       <div className="flex items-start gap-2.5">
-        <div className="grid h-8 w-8 flex-none place-items-center rounded-full border border-hair bg-surface text-ink">
-          <OpenAiIcon />
+        <div className="grid h-8 w-8 flex-none place-items-center rounded-full bg-green-soft text-green">
+          <AgentIcon />
         </div>
         <div className="min-w-0 flex-1 rounded-[14px] rounded-tl-[4px] border border-hair bg-surface px-3.5 py-2.5 text-[13px] leading-[1.6] text-ink">
           好，6 月的 142 笔都记进账本了 👍 顺手把
