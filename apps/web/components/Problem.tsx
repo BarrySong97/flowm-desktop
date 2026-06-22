@@ -162,7 +162,7 @@ function SourcesGridViz() {
   return (
     <div className="grid h-[260px] grid-cols-4 grid-rows-2 gap-px overflow-hidden rounded-[12px] bg-hair">
       {SOURCE_ICONS.map((s) => (
-        <div key={s.key} className="flex flex-col items-center justify-center gap-2 bg-surface-2">
+        <div key={s.key} className="flex flex-col items-center justify-center gap-2 bg-surface">
           {s.node}
           <span className="text-[10.5px] text-ink-4">{s.label}</span>
         </div>
