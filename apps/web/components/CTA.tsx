@@ -26,28 +26,26 @@ export function CTA() {
               }}
             />
             <svg
-              className="absolute inset-x-0 bottom-0 h-[150px] w-full"
-              viewBox="0 0 1200 150"
-              preserveAspectRatio="none"
+              className="absolute left-1/2 top-1/2 h-[820px] w-[820px] max-w-none -translate-x-1/2 -translate-y-1/2"
+              viewBox="0 0 100 100"
+              fill="none"
+              style={{
+                maskImage: "radial-gradient(circle, #000 26%, transparent 68%)",
+                WebkitMaskImage: "radial-gradient(circle, #000 26%, transparent 68%)",
+              }}
             >
-              <defs>
-                <linearGradient id="cta-area" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0" stopColor="#14794a" stopOpacity="0.12" />
-                  <stop offset="1" stopColor="#14794a" stopOpacity="0" />
-                </linearGradient>
-              </defs>
-              <path
-                d="M0 122 C 220 116, 360 96, 560 96 S 940 46, 1200 18 L 1200 150 L 0 150 Z"
-                fill="url(#cta-area)"
-              />
-              <path
-                d="M0 122 C 220 116, 360 96, 560 96 S 940 46, 1200 18"
-                fill="none"
-                stroke="#14794a"
-                strokeOpacity="0.32"
-                strokeWidth="2"
-                vectorEffect="non-scaling-stroke"
-              />
+              {[8, 16, 24, 32, 40, 48, 56, 64].map((r) => (
+                <circle
+                  key={r}
+                  cx="50"
+                  cy="50"
+                  r={r}
+                  stroke="#14794a"
+                  strokeOpacity="0.18"
+                  strokeWidth="1"
+                  vectorEffect="non-scaling-stroke"
+                />
+              ))}
             </svg>
           </div>
 
