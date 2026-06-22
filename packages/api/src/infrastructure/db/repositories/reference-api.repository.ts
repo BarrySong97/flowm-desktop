@@ -44,6 +44,10 @@ import {
   toSqlId,
 } from "../../../shared/api-helpers"
 
+// Pre-warmed on every daily refresh (even when not yet held) so adding a foreign-currency
+// item later is instant rather than waiting on a first-time network fetch.
+const WARM_CURRENCIES = ["USD", "EUR", "HKD", "JPY", "GBP", "TWD"]
+
 export abstract class ReferenceApiRepository extends FlowmApiBase {
   async getCurrencySettings(): Promise<Result<CurrencySettingsSummary>> {
     try {
@@ -114,77 +118,33 @@ export abstract class ReferenceApiRepository extends FlowmApiBase {
   ): Promise<Result<RefreshExchangeRatesResult>> {
     try {
       const base = await this.resolveBaseCurrency()
-      const provider = this.options.fxProvider
       const today = todayKey()
+      // Held currencies plus the common warm set, so newly added foreign items are instant.
+      const currencies = new Set<string>([
+        ...this.activeCurrencies(),
+        ...WARM_CURRENCIES.map(normalizeCurrency),
+      ])
       let requested = 0
       let fetched = 0
       let skipped = 0
       let failed = 0
       let unsupported = 0
 
-      for (const currency of this.activeCurrencies()) {
+      for (const currency of currencies) {
         if (currency === base) continue
         requested += 1
-        if (provider == null) {
+        if (this.options.fxProvider == null) {
           unsupported += 1
           continue
         }
         // Skip pairs already refreshed today unless a forced refresh was requested.
-        if (!input.force) {
-          const fresh = this.db
-            .select({ id: exchangeRates.id })
-            .from(exchangeRates)
-            .where(
-              and(
-                eq(exchangeRates.fromCurrency, currency),
-                eq(exchangeRates.toCurrency, base),
-                eq(exchangeRates.rateDate, today),
-              ),
-            )
-            .get()
-          if (fresh != null) {
-            skipped += 1
-            continue
-          }
-        }
-        const result = await provider.fetchRate({
-          fromCurrency: currency,
-          toCurrency: base,
-          date: today,
-        })
-        if (result == null) {
-          failed += 1
+        if (!input.force && this.hasRateForDate(currency, base, today)) {
+          skipped += 1
           continue
         }
-        this.db
-          .insert(exchangeRates)
-          .values({
-            id: newId("fx"),
-            fromCurrency: normalizeCurrency(result.fromCurrency),
-            toCurrency: normalizeCurrency(result.toCurrency),
-            rateDate: result.rateDate,
-            rate: result.rate,
-            provider: result.provider,
-            fetchedAt: nowIso(),
-            sourceDate: result.sourceDate ?? result.rateDate,
-            meta: result.meta ?? null,
-          })
-          .onConflictDoUpdate({
-            target: [
-              exchangeRates.fromCurrency,
-              exchangeRates.toCurrency,
-              exchangeRates.rateDate,
-              exchangeRates.provider,
-            ],
-            set: {
-              rate: result.rate,
-              fetchedAt: nowIso(),
-              sourceDate: result.sourceDate ?? result.rateDate,
-              meta: result.meta ?? null,
-            },
-          })
-          .run()
-        fetched += 1
+        const rate = await this.fetchAndCacheRate(currency, base, today)
+        if (rate == null) failed += 1
+        else fetched += 1
       }
       return ok({ requested, fetched, skipped, failed, unsupported })
     } catch (error) {
@@ -195,26 +155,94 @@ export abstract class ReferenceApiRepository extends FlowmApiBase {
   async getCurrentRates(): Promise<Result<CurrentRates>> {
     try {
       const base = await this.resolveBaseCurrency()
+      const today = todayKey()
       const rates: Record<string, string> = { [base]: "1" }
       let asOf: string | null = null
       for (const currency of this.activeCurrencies()) {
         if (currency === base) continue
-        const row = this.db
-          .select({ rate: exchangeRates.rate, fetchedAt: exchangeRates.fetchedAt })
-          .from(exchangeRates)
-          .where(and(eq(exchangeRates.fromCurrency, currency), eq(exchangeRates.toCurrency, base)))
-          .orderBy(desc(exchangeRates.rateDate), desc(exchangeRates.fetchedAt))
-          .limit(1)
-          .get()
+        let row = this.latestRateRow(currency, base)
+        // Self-heal: a held currency with no cached rate gets fetched on demand, so totals
+        // never silently drop it while waiting on the daily refresh.
+        if (row?.rate == null) {
+          await this.fetchAndCacheRate(currency, base, today)
+          row = this.latestRateRow(currency, base)
+        }
         if (row?.rate != null) {
           rates[currency] = row.rate
-          if (asOf == null || row.fetchedAt > asOf) asOf = row.fetchedAt
+          if (asOf == null || (row.fetchedAt != null && row.fetchedAt > asOf)) asOf = row.fetchedAt
         }
       }
       return ok({ base, asOf, rates })
     } catch (error) {
       return fail(error)
     }
+  }
+
+  private hasRateForDate(currency: string, base: string, date: string): boolean {
+    return (
+      this.db
+        .select({ id: exchangeRates.id })
+        .from(exchangeRates)
+        .where(
+          and(
+            eq(exchangeRates.fromCurrency, currency),
+            eq(exchangeRates.toCurrency, base),
+            eq(exchangeRates.rateDate, date),
+          ),
+        )
+        .get() != null
+    )
+  }
+
+  private latestRateRow(currency: string, base: string) {
+    return this.db
+      .select({ rate: exchangeRates.rate, fetchedAt: exchangeRates.fetchedAt })
+      .from(exchangeRates)
+      .where(and(eq(exchangeRates.fromCurrency, currency), eq(exchangeRates.toCurrency, base)))
+      .orderBy(desc(exchangeRates.rateDate), desc(exchangeRates.fetchedAt))
+      .limit(1)
+      .get()
+  }
+
+  // Fetch a single currency->base rate from the provider and cache it; returns the rate or null.
+  private async fetchAndCacheRate(
+    currency: string,
+    base: string,
+    date: string,
+  ): Promise<string | null> {
+    const provider = this.options.fxProvider
+    if (provider == null) return null
+    const result = await provider.fetchRate({ fromCurrency: currency, toCurrency: base, date })
+    if (result == null) return null
+    this.db
+      .insert(exchangeRates)
+      .values({
+        id: newId("fx"),
+        fromCurrency: normalizeCurrency(result.fromCurrency),
+        toCurrency: normalizeCurrency(result.toCurrency),
+        rateDate: result.rateDate,
+        rate: result.rate,
+        provider: result.provider,
+        fetchedAt: nowIso(),
+        sourceDate: result.sourceDate ?? result.rateDate,
+        meta: result.meta ?? null,
+      })
+      .onConflictDoUpdate({
+        target: [
+          exchangeRates.fromCurrency,
+          exchangeRates.toCurrency,
+          exchangeRates.rateDate,
+          exchangeRates.provider,
+        ],
+        set: {
+          rate: result.rate,
+          fetchedAt: nowIso(),
+          sourceDate: result.sourceDate ?? result.rateDate,
+          meta: result.meta ?? null,
+        },
+      })
+      .run()
+    return result.rate
   }
 
   private async resolveBaseCurrency(): Promise<string> {

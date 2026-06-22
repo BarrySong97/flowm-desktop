@@ -88,6 +88,7 @@ export function SubscriptionDetailPanel({ id, onBack }: Props) {
     await queryClient.invalidateQueries(trpc.subscriptions.list.queryFilter())
     await queryClient.invalidateQueries(trpc.subscriptions.occurrences.queryFilter())
     await queryClient.invalidateQueries(trpc.loans.futurePressure.queryFilter())
+    await queryClient.invalidateQueries(trpc.reference.currentRates.queryFilter())
   }
 
   const {
@@ -147,10 +148,11 @@ export function SubscriptionDetailPanel({ id, onBack }: Props) {
 
   return (
     <div style={{ padding: "20px 24px 112px" }}>
-      <BackButton label="返回订阅" onBack={onBack} />
-
-      {/* Content fills the panel width */}
-      <div style={{ marginTop: 10 }}>
+      {/* Content fills the panel width, with the back button at its top */}
+      <div>
+        <div style={{ marginBottom: 12 }}>
+          <BackButton label="返回订阅" onBack={onBack} />
+        </div>
         {subscriptionsQuery.isPending && (
           <div style={{ fontSize: 13, color: "var(--ink-4)" }}>加载中…</div>
         )}

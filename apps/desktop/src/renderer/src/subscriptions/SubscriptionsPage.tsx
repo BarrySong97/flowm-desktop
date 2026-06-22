@@ -51,7 +51,7 @@ function AddSubModal({
 }: {
   open: boolean
   onClose: () => void
-  onSave: (form: SubForm) => void
+  onSave: (form: SubForm) => void | Promise<void>
 }) {
   const {
     formState: { errors, isSubmitting },
@@ -86,8 +86,8 @@ function AddSubModal({
               id="subscription-form"
               onSubmit={(event) => {
                 event.preventDefault()
-                void handleSubmit((values) => {
-                  onSave(values)
+                void handleSubmit(async (values) => {
+                  await onSave(values)
                   handleClose()
                 })()
               }}
@@ -201,13 +201,13 @@ function AddSubModal({
               style={{ borderRadius: 5 }}
               isDisabled={isSubmitting}
               onPress={() =>
-                void handleSubmit((values) => {
-                  onSave(values)
+                void handleSubmit(async (values) => {
+                  await onSave(values)
                   handleClose()
                 })()
               }
             >
-              {isSubmitting ? "保存中…" : "保存"}
+              {isSubmitting ? "汇率加载中…" : "保存"}
             </Button>
             <Button variant="outline" style={{ borderRadius: 5 }} slot="close">
               取消
@@ -245,6 +245,9 @@ export function SubscriptionsPage() {
         await queryClient.invalidateQueries(trpc.subscriptions.list.queryFilter())
         await queryClient.invalidateQueries(trpc.subscriptions.occurrences.queryFilter())
         await queryClient.invalidateQueries(trpc.loans.futurePressure.queryFilter())
+        // Awaited so a brand-new foreign currency's rate is fetched before the save
+        // resolves — the total is correct the moment the modal closes.
+        await queryClient.invalidateQueries(trpc.reference.currentRates.queryFilter())
       },
     }),
   )
@@ -303,8 +306,8 @@ export function SubscriptionsPage() {
   }, 0)
   const cells = monthCells(year, mon)
 
-  function handleSave(form: SubForm) {
-    createSubscription.mutate({
+  async function handleSave(form: SubForm) {
+    await createSubscription.mutateAsync({
       name: form.name.trim(),
       amount: Math.abs(Number(form.amt) || 0).toFixed(2),
       billingCycle: form.cycle === "年" ? "yearly" : "monthly",

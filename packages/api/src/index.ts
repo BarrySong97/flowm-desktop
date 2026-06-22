@@ -876,6 +876,8 @@ export interface UpdateBudgetItemInput {
   plannedAmount?: string
   currency?: string
   color?: string | null
+  /** When provided, replaces the item's scopes (the budget's bound categories). */
+  scopes?: BudgetScopeInput[]
 }
 
 export interface BudgetScopeInput {
@@ -902,6 +904,8 @@ export interface BudgetReferenceProgressRow {
   remaining: string
   currency: string
   color: string | null
+  /** Category ids this budget is bound to (empty = overall budget over all expenses). */
+  categoryIds: string[]
 }
 
 export interface ObjectLinkSummary {

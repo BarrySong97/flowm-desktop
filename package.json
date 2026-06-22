@@ -9,6 +9,8 @@
   ],
   "scripts": {
     "dev": "turbo -F desktop dev",
+    "dev:web": "pnpm --filter web dev",
+    "dev:desktop": "pnpm --filter desktop dev",
     "build": "turbo build",
     "check-types": "turbo check-types",
     "check-architecture": "node scripts/check-architecture.mjs",

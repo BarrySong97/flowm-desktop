@@ -30,7 +30,7 @@ export function BudgetBar({ color, spent, limit, label, scaleMax }: Props) {
     <div
       style={{
         display: "grid",
-        gridTemplateColumns: "56px 1fr 120px",
+        gridTemplateColumns: "100px 1fr 120px",
         gap: 11,
         alignItems: "center",
       }}

@@ -1040,6 +1040,20 @@ describe("@flowm/api — clean-slate data model", () => {
   it("treats budgets as planned boundaries with optional cashflow reference progress", async () => {
     const { api } = await createApi("budget-golden")
     const fixture = await createGoldenFixture(api)
+    const foodCategoryId = String(fixture.cashflow.foodExpense.categoryId ?? "")
+    const shoppingCategoryId = String(fixture.cashflow.shoppingExpense.categoryId ?? "")
+    if (!foodCategoryId || !shoppingCategoryId) throw new Error("Fixture category ids missing")
+    const dailyBudget = expectOk(
+      await api.createBudgetItem({
+        budgetPeriodId: fixture.budget.period.id,
+        name: "生活预算",
+        plannedAmount: "3000.00",
+        scopes: [
+          { scopeKind: "category", scopeValue: foodCategoryId },
+          { scopeKind: "category", scopeValue: shoppingCategoryId },
+        ],
+      }),
+    )
     const progress = expectOk(
       await api.getBudgetReferenceProgress({ budgetPeriodId: fixture.budget.period.id }),
     )
@@ -1053,6 +1067,24 @@ describe("@flowm/api — clean-slate data model", () => {
     expect(empty?.budgeted).toBe("500.00")
     expect(empty?.referenceUsed).toBe("0.00")
     expect(empty?.remaining).toBe("500.00")
+
+    const daily = progress.find((row) => row.budgetName === "生活预算")
+    expect(daily?.budgetItemId).toBe(dailyBudget.id)
+    expect(daily?.referenceUsed).toBe("2000.00")
+    expect(daily?.categoryIds).toEqual([foodCategoryId, shoppingCategoryId])
+
+    expectOk(
+      await api.updateBudgetItem({
+        id: dailyBudget.id,
+        scopes: [{ scopeKind: "category", scopeValue: shoppingCategoryId }],
+      }),
+    )
+    const updatedProgress = expectOk(
+      await api.getBudgetReferenceProgress({ budgetPeriodId: fixture.budget.period.id }),
+    )
+    const updatedDaily = updatedProgress.find((row) => row.budgetName === "生活预算")
+    expect(updatedDaily?.referenceUsed).toBe("800.00")
+    expect(updatedDaily?.categoryIds).toEqual([shoppingCategoryId])
   }, 30_000)
 
   it("object links explain relationships without changing core aggregates", async () => {

@@ -414,6 +414,7 @@ export function AssetsPage() {
       await queryClient.invalidateQueries(trpc.assets.items.queryFilter())
       await queryClient.invalidateQueries(trpc.assets.sparklines.queryFilter())
       await queryClient.invalidateQueries(trpc.assets.netWorth.queryFilter())
+      await queryClient.invalidateQueries(trpc.reference.currentRates.queryFilter())
       setShowForm(false)
       setForm(EMPTY)
     } finally {

@@ -27,7 +27,7 @@
 
 - `assets/assets-api.ts` - asset item archive/restore, asset snapshot CRUD,
   net worth inputs, and asset detail data.
-- `budgets/budgets-api.ts` - budget definitions and budget-related cashflow summaries.
+- `budgets/budgets-api.ts` - budget definitions, category/source/tag scopes, and budget-related cashflow summaries.
 - `cashflow/cashflow-api.ts` - past cashflow event queries, mutations, and monthly income/expense/net trend summaries.
 - `dashboard/dashboard-api.ts` - cross-layer dashboard composition without requiring reconciliation.
 - `imports/imports-api.ts` - legacy imported statement records and transaction review
@@ -51,6 +51,11 @@ The package exports the facade consumed by `apps/desktop/src/main/trpc/router.ts
 Cashflow analysis surfaces use `getMonthlyCashflowTrend` for monthly income,
 expense, and net cashflow rows. The trend summarizes past active analytics
 cashflow only; it does not infer asset balances or materialize future plans.
+
+Budget progress summarizes past active analytics expense cashflow for the budget
+period. Multiple scope values of the same kind are ORed together, while
+different scope kinds are ANDed together; a budget with no explicit scopes is
+treated as an overall expense budget.
 
 ## Seed Data
 

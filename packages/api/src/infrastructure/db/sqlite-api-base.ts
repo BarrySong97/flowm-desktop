@@ -311,7 +311,13 @@ export abstract class FlowmApiBase {
       gte(cashflowEvents.eventDate, period.periodStart),
       lte(cashflowEvents.eventDate, period.periodEnd),
     ]
-    if (item.categoryId != null) conds.push(eq(cashflowEvents.categoryId, item.categoryId))
+    // Gather scope values by kind so multiple values of one kind OR together (a budget can
+    // cover several categories), while different kinds AND together.
+    const categoryIds = new Set<string>()
+    if (item.categoryId != null) categoryIds.add(item.categoryId)
+    const sources = new Set<string>()
+    const flowKinds = new Set<CashflowEventRow["flowKind"]>()
+    const tagIds = new Set<string>()
     const scopes = this.db
       .select()
       .from(budgetItemScopes)
@@ -319,26 +325,34 @@ export abstract class FlowmApiBase {
       .all()
     for (const scope of scopes) {
       const value = scope.scopeValue ?? ""
-      if (scope.scopeKind === "category" || scope.scopeKind === "category_tree") {
-        conds.push(eq(cashflowEvents.categoryId, value))
-      } else if (scope.scopeKind === "source") {
-        conds.push(eq(cashflowEvents.sourceName, value))
-      } else if (scope.scopeKind === "flow_kind") {
-        conds.push(eq(cashflowEvents.flowKind, value as CashflowEventRow["flowKind"]))
-      } else if (scope.scopeKind === "tag") {
-        conds.push(
-          inArray(
-            cashflowEvents.id,
-            this.db
-              .select({ id: cashflowEventTags.cashflowEventId })
-              .from(cashflowEventTags)
-              .where(eq(cashflowEventTags.tagId, value)),
-          ),
-        )
-      }
+      if (!value) continue
+      if (scope.scopeKind === "category" || scope.scopeKind === "category_tree")
+        categoryIds.add(value)
+      else if (scope.scopeKind === "source") sources.add(value)
+      else if (scope.scopeKind === "flow_kind") flowKinds.add(value as CashflowEventRow["flowKind"])
+      else if (scope.scopeKind === "tag") tagIds.add(value)
     }
-    if (item.categoryId == null && scopes.length === 0) {
+    const kindConds: SQL[] = []
+    if (categoryIds.size > 0)
+      kindConds.push(inArray(cashflowEvents.categoryId, Array.from(categoryIds)))
+    if (sources.size > 0) kindConds.push(inArray(cashflowEvents.sourceName, Array.from(sources)))
+    if (flowKinds.size > 0) kindConds.push(inArray(cashflowEvents.flowKind, Array.from(flowKinds)))
+    if (tagIds.size > 0) {
+      kindConds.push(
+        inArray(
+          cashflowEvents.id,
+          this.db
+            .select({ id: cashflowEventTags.cashflowEventId })
+            .from(cashflowEventTags)
+            .where(inArray(cashflowEventTags.tagId, Array.from(tagIds))),
+        ),
+      )
+    }
+    if (kindConds.length === 0) {
+      // No explicit scope → an overall budget tracking all expense spending in the period.
       conds.push(eq(cashflowEvents.flowKind, "expense"))
+    } else {
+      conds.push(and(...kindConds)!)
     }
     return and(...conds)!
   }

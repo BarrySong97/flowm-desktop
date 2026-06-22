@@ -23,7 +23,7 @@
 
 - `assets/` - present asset snapshot list, detail, edit, and archived-account workflows.
 - `analysis/` - long-range cashflow analysis for monthly income, expense, and net savings trends.
-- `budget/` - budget list/detail workflows and budget query invalidation helpers.
+- `budget/` - budget list/detail workflows, expense-category scope editing, and budget query invalidation helpers.
 - `dashboard/` - cross-layer overview that composes cashflow, assets, and obligations.
 - `imports/` - imported statement and cashflow event views.
 - `loans/` - future loan obligation views and schedule calculations.
@@ -89,6 +89,10 @@ Update `apps/desktop/src/preload/index.d.ts` whenever the preload contract chang
 - Dashboard cashflow range selection is a renderer preference persisted in
   `localStorage`; it does not change the active ledger or database state.
 - Budget creation must work on an empty personal ledger by lazily creating the default budget set and current monthly period before inserting the first item.
+- Budget create/edit forms bind optional expense-category scopes through HeroUI
+  multi-select controls. Leaving the selection empty means an overall expense
+  budget; detail-page transaction lists must use the bound category ids returned
+  by budget progress so they match the backend used amount.
 - Desktop tests and development depend on the Electron ABI for `better-sqlite3`.
 - UI copy and flows must preserve the separation between cashflow, assets, and obligations.
 - Multi-currency: single items render in their original currency symbol via `currencySymbol(entity.currency)` — this applies to list rows, detail panels (subscription/loan/asset detail), and per-loan widgets (e.g. the schedule bar). Aggregated totals (net worth, asset totals/treemap, subscription/loan summaries, future pressure) render in the base currency after conversion via `useCurrentRates().toDisplay`. The base currency is editable in settings, and opening a ledger triggers a background daily FX refresh. Past cashflow, imports, and budgets stay in native amounts and are not converted.

@@ -226,6 +226,7 @@ export function LoansPage() {
         await queryClient.invalidateQueries(trpc.loans.list.queryFilter())
         await queryClient.invalidateQueries(trpc.loans.occurrences.queryFilter())
         await queryClient.invalidateQueries(trpc.loans.futurePressure.queryFilter())
+        await queryClient.invalidateQueries(trpc.reference.currentRates.queryFilter())
       },
     }),
   )

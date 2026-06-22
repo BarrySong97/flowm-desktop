@@ -41,6 +41,13 @@ export function BudgetDetailPage() {
     ...trpc.budgets.progress.queryOptions({ budgetPeriodId: currentPeriod?.id ?? "" }),
     enabled: Boolean(currentPeriod),
   })
+  const categoriesQuery = useQuery(
+    trpc.reference.categories.queryOptions({ categoryKind: "expense" }),
+  )
+  const budgetCategories = (categoriesQuery.data ?? []).map((c) => ({
+    id: String(c.id),
+    name: c.name,
+  }))
   const row = progressQuery.data?.find((r) => r.budgetItemId === id)
   const budgetName = row?.budgetName ?? "预算"
   const budgetColor = row?.color ?? "var(--accent)"
@@ -64,6 +71,10 @@ export function BudgetDetailPage() {
         plannedAmount: Number(form.plannedAmount).toFixed(2),
         currency: "CNY",
         color: form.color || null,
+        scopes: form.categoryIds.map((cid) => ({
+          scopeKind: "category" as const,
+          scopeValue: cid,
+        })),
       })
       setShowEdit(false)
       await invalidateBudgetQueries(queryClient)
@@ -102,15 +113,18 @@ export function BudgetDetailPage() {
     trpc.cashflow.list.queryOptions({ dateFrom: sixMonthsAgo, dateTo: today }),
   )
 
-  const baseName = budgetName.replace(/预算$/, "")
+  // Match the same scope the progress sum uses: the budget's bound categories.
+  // An empty set means an overall budget tracking all expenses.
+  const budgetCategoryIds = row?.categoryIds
 
   const monthlySpend = useMemo(() => {
     const events = cashflowQuery.data ?? []
+    const catSet = new Set((budgetCategoryIds ?? []).map(String))
     const filtered = events.filter(
       (e) =>
         e.direction === "out" &&
         e.includeInAnalytics &&
-        (row?.budgetItemId ? e.categoryName?.includes(baseName) || baseName === "" : true),
+        (catSet.size === 0 || catSet.has(String(e.categoryId))),
     )
     const byMonth: Record<string, number> = {}
     for (const e of filtered) {
@@ -118,21 +132,22 @@ export function BudgetDetailPage() {
       byMonth[ym] = (byMonth[ym] ?? 0) + parseFloat(e.amount)
     }
     return byMonth
-  }, [cashflowQuery.data, baseName, row?.budgetItemId])
+  }, [cashflowQuery.data, budgetCategoryIds])
 
   const recentTx = useMemo(() => {
     const events = cashflowQuery.data ?? []
+    const catSet = new Set((budgetCategoryIds ?? []).map(String))
     return events
       .filter(
         (e) =>
           e.direction === "out" &&
           e.includeInAnalytics &&
           e.eventDate >= currentMonth + "-01" &&
-          (row?.budgetItemId ? e.categoryName?.includes(baseName) || baseName === "" : true),
+          (catSet.size === 0 || catSet.has(String(e.categoryId))),
       )
       .sort((a, b) => b.eventDate.localeCompare(a.eventDate))
       .slice(0, 5)
-  }, [cashflowQuery.data, currentMonth, baseName, row?.budgetItemId])
+  }, [cashflowQuery.data, currentMonth, budgetCategoryIds])
 
   const overMonthCount = months.filter((m) => (monthlySpend[m.yearMonth] ?? 0) > limit).length
   const chartMax = Math.max(limit, ...months.map((m) => monthlySpend[m.yearMonth] ?? 0), 1)
@@ -497,12 +512,14 @@ export function BudgetDetailPage() {
       <AddBudgetModal
         open={showEdit}
         saving={saving}
+        categories={budgetCategories}
         title="编辑预算"
-        subtitle="修改预算名称、额度与颜色"
+        subtitle="修改预算名称、额度、覆盖分类与颜色"
         initial={{
           name: budgetName,
           plannedAmount: limit ? String(limit) : "",
           color: row?.color ?? "#e07b3a",
+          categoryIds: row?.categoryIds ?? [],
         }}
         onSave={handleEditSave}
         onClose={() => setShowEdit(false)}

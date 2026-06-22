@@ -170,6 +170,22 @@ export abstract class BudgetsApiRepository extends LoansApiRepository {
           .where(eq(budgetItems.id, toSqlId(input.id)))
           .run()
       }
+      // Replace the item's scopes wholesale when provided (the budget's bound categories).
+      if (input.scopes !== undefined) {
+        const itemId = toSqlId(input.id)
+        this.db.delete(budgetItemScopes).where(eq(budgetItemScopes.budgetItemId, itemId)).run()
+        for (const scope of input.scopes) {
+          const scopeKind = (
+            scope.scopeKind === "all_consumption" ? "flow_kind" : scope.scopeKind
+          ) as BudgetItemScopeRow["scopeKind"]
+          const scopeValue =
+            scope.scopeKind === "all_consumption" ? "expense" : (scope.scopeValue ?? null)
+          this.db
+            .insert(budgetItemScopes)
+            .values({ id: newId("bscope"), budgetItemId: itemId, scopeKind, scopeValue })
+            .run()
+        }
+      }
       const row = this.db
         .select()
         .from(budgetItems)
@@ -221,6 +237,20 @@ export abstract class BudgetsApiRepository extends LoansApiRepository {
         const where = await this.budgetUsageWhere(item, period)
         const budgeted = Number(item.plannedAmount ?? 0)
         const referenceUsed = this.sumCashflowAmount(where)
+        const categoryIds = new Set<string>()
+        if (item.categoryId != null) categoryIds.add(item.categoryId)
+        for (const scope of this.db
+          .select()
+          .from(budgetItemScopes)
+          .where(eq(budgetItemScopes.budgetItemId, item.id))
+          .all()) {
+          if (
+            (scope.scopeKind === "category" || scope.scopeKind === "category_tree") &&
+            scope.scopeValue
+          ) {
+            categoryIds.add(scope.scopeValue)
+          }
+        }
         rows.push({
           budgetItemId: item.id,
           budgetName: item.name,
@@ -229,6 +259,7 @@ export abstract class BudgetsApiRepository extends LoansApiRepository {
           remaining: (budgeted - referenceUsed).toFixed(2),
           currency: item.currency,
           color: item.color ?? null,
+          categoryIds: Array.from(categoryIds),
         })
       }
       return ok(rows)

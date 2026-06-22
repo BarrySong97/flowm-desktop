@@ -8,9 +8,13 @@
 
 import { existsSync, readFileSync, readdirSync } from "node:fs"
 import { execSync } from "node:child_process"
+import { fileURLToPath } from "node:url"
 import { dirname, join, relative, resolve, sep } from "node:path"
 
-const ROOT = process.cwd()
+// Resolve the repo root from this script's location (scripts/ lives at the root)
+// rather than process.cwd(), so the sensor works no matter where it is invoked
+// from — e.g. a Stop hook firing while the shell sits in apps/web.
+const ROOT = dirname(dirname(fileURLToPath(import.meta.url)))
 const rawArgs = process.argv.slice(2)
 const STRICT = rawArgs.includes("--strict")
 const HOOK = rawArgs.includes("--hook")

@@ -3,12 +3,22 @@
     "PreToolUse": [
       {
         "matcher": "Bash",
-        "hooks": [{ "type": "command", "command": "node scripts/hooks/guard.mjs", "timeout": 10 }]
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/scripts/hooks/guard.mjs\"",
+            "timeout": 10
+          }
+        ]
       },
       {
         "matcher": "Write|Edit",
         "hooks": [
-          { "type": "command", "command": "node scripts/hooks/guard-files.mjs", "timeout": 10 }
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/scripts/hooks/guard-files.mjs\"",
+            "timeout": 10
+          }
         ]
       }
     ],
@@ -16,14 +26,22 @@
       {
         "matcher": "Write|Edit",
         "hooks": [
-          { "type": "command", "command": "node scripts/hooks/format-lint.mjs", "timeout": 60 }
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/scripts/hooks/format-lint.mjs\"",
+            "timeout": 60
+          }
         ]
       }
     ],
     "Stop": [
       {
         "hooks": [
-          { "type": "command", "command": "node scripts/check-docs.mjs --hook", "timeout": 60 }
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/scripts/check-docs.mjs\" --hook",
+            "timeout": 60
+          }
         ]
       }
     ]

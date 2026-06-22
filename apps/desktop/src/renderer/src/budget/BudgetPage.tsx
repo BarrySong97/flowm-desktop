@@ -52,10 +52,18 @@ export function BudgetPage() {
     ...trpc.budgets.progress.queryOptions({ budgetPeriodId: currentPeriod?.id ?? "" }),
     enabled: Boolean(currentPeriod),
   })
+  const categoriesQuery = useQuery(
+    trpc.reference.categories.queryOptions({ categoryKind: "expense" }),
+  )
+  const budgetCategories = (categoriesQuery.data ?? []).map((c) => ({
+    id: String(c.id),
+    name: c.name,
+  }))
   usePagePerf("budget", [
     { name: "budgets.sets", query: setsQuery },
     { name: "budgets.periods", query: periodsQuery },
     { name: "budgets.progress", query: progressQuery },
+    { name: "reference.categories", query: categoriesQuery },
   ])
   const createBudgetItem = useMutation(trpc.budgets.createItem.mutationOptions())
   const createBudgetSet = useMutation(trpc.budgets.createSet.mutationOptions())
@@ -87,6 +95,7 @@ export function BudgetPage() {
         plannedAmount: Number(form.plannedAmount).toFixed(2),
         currency: "CNY",
         color: form.color || null,
+        scopes: form.categoryIds.map((id) => ({ scopeKind: "category" as const, scopeValue: id })),
       })
       setShowAdd(false)
       await invalidateBudgetQueries(queryClient)
@@ -280,6 +289,7 @@ export function BudgetPage() {
       <AddBudgetModal
         open={showAdd}
         saving={saving}
+        categories={budgetCategories}
         onSave={handleAddBudget}
         onClose={() => setShowAdd(false)}
       />

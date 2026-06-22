@@ -3,9 +3,7 @@
     "PreToolUse": [
       {
         "matcher": "^Bash$",
-        "hooks": [
-          { "type": "command", "command": "node scripts/hooks/guard.mjs", "timeout": 10 }
-        ]
+        "hooks": [{ "type": "command", "command": "node scripts/hooks/guard.mjs", "timeout": 10 }]
       },
       {
         "matcher": "Edit|Write",

@@ -127,6 +127,7 @@ export function LoanDetailPage() {
     await queryClient.invalidateQueries(trpc.loans.list.queryFilter())
     await queryClient.invalidateQueries(trpc.loans.occurrences.queryFilter())
     await queryClient.invalidateQueries(trpc.loans.futurePressure.queryFilter())
+    await queryClient.invalidateQueries(trpc.reference.currentRates.queryFilter())
   }
 
   return (
@@ -141,11 +142,11 @@ export function LoanDetailPage() {
     >
       <ScrollArea className="h-full" style={{ flex: 1, minHeight: 0 }}>
         <div style={{ padding: "28px 32px 112px" }}>
-          {/* Back button */}
-          <BackButton label="返回负债" onBack={() => navigate({ to: "/loans" })} />
-
-          {/* Centered content */}
-          <div style={{ maxWidth: 680, margin: "20px auto 0" }}>
+          {/* Centered content, with the back button at its top so it lines up with it */}
+          <div style={{ maxWidth: 680, margin: "0 auto" }}>
+            <div style={{ marginBottom: 14 }}>
+              <BackButton label="返回负债" onBack={() => navigate({ to: "/loans" })} />
+            </div>
             {loanQuery.isPending && (
               <div style={{ fontSize: 13, color: "var(--ink-4)" }}>加载中…</div>
             )}
