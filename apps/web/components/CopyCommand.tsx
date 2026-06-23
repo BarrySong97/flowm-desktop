@@ -1,6 +1,6 @@
 /**
- * @purpose A copy-to-clipboard command pill: shows a one-line prompt + a 复制 button.
- * @role    Used in the hero — the prompt users paste into any AI Agent to get started.
+ * @purpose A copy-to-clipboard pill: shows a short label and copies a longer prompt.
+ * @role    Used in the hero — users paste the copied Markdown into any AI Agent.
  */
 
 "use client"
@@ -8,7 +8,7 @@
 import { useState } from "react"
 import { AgentIcon } from "./BrandIcons"
 
-export function CopyCommand({ text }: { text: string }) {
+export function CopyCommand({ text, displayText = text }: { text: string; displayText?: string }) {
   const [copied, setCopied] = useState(false)
 
   const copy = async () => {
@@ -40,7 +40,7 @@ export function CopyCommand({ text }: { text: string }) {
           <AgentIcon size={12} />
         </span>
         <span className="overflow-x-auto whitespace-nowrap font-mono text-[13px] text-ink-2">
-          {text}
+          {displayText}
         </span>
       </div>
       <button

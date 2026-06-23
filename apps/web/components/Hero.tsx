@@ -6,6 +6,7 @@
 
 import { AppMock } from "./overview/AppMock"
 import { CopyCommand } from "./CopyCommand"
+import { AGENT_LEDGER_MARKDOWN } from "@/lib/agent-prompt"
 import { DOWNLOAD_URL } from "@/lib/seo"
 
 export function Hero() {
@@ -30,16 +31,18 @@ export function Hero() {
             免费开始
           </a>
           <a
-            href="#model"
+            href="#solution"
             className="inline-flex items-center gap-[7px] rounded-[12px] border border-hair bg-surface px-6 py-[12px] text-[15px] font-semibold text-ink transition-colors hover:border-ink-5 hover:bg-surface-2"
           >
             看看怎么用
           </a>
         </div>
-        {/* 复制这句话，发给任意 AI Agent 即可开始 */}
+        {/* 复制 Markdown，发给任意 AI Agent 即可开始 */}
         <div className="mt-6 flex flex-col items-center gap-2">
-          <span className="text-[12.5px] text-ink-3">或，把这句话复制给你常用的 AI Agent：</span>
-          <CopyCommand text="阅读 github.com/flowm/flowm，帮我开始用 Flowm 记账" />
+          <span className="text-[12.5px] text-ink-3">
+            或，把这份 Markdown 复制给你常用的 AI Agent：
+          </span>
+          <CopyCommand text={AGENT_LEDGER_MARKDOWN} displayText="Flowm Agent 操作指南.md" />
         </div>
       </div>
 
