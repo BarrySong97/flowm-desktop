@@ -16,10 +16,12 @@ import { appRouter } from "./trpc/router"
 import { LedgerStore } from "./ledgers"
 import { appDisplayName, appUserModelId } from "./bootstrap/app-info"
 import { isDevRuntime } from "./bootstrap/runtime-env"
+import { initAutoUpdate } from "./bootstrap/auto-update"
 import { startLocalLedgerChangeServer } from "./local-ledger-change-server"
 
 const ledgerStore = new LedgerStore()
 let ledgerChangeServer: Awaited<ReturnType<typeof startLocalLedgerChangeServer>> = null
+let mainWindow: BrowserWindow | null = null
 
 type TRPCRequest = {
   type: "query" | "mutation" | "subscription"
@@ -101,6 +103,7 @@ function registerAppHandlers(): void {
     const path = ledgerStore.getActiveFilePath()
     return path != null && existsSync(path)
   })
+  ipcMain.handle("flowm:app-version", () => app.getVersion())
 }
 
 function registerTrpcHandler(): void {
@@ -142,6 +145,9 @@ function registerTrpcHandler(): void {
 }
 
 function createWindow(): BrowserWindow {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    return mainWindow
+  }
   const devIcon = isDevRuntime() ? getDevIcon() : undefined
   const macWindowOptions =
     process.platform === "darwin"
@@ -154,7 +160,7 @@ function createWindow(): BrowserWindow {
         } as const)
       : {}
 
-  const mainWindow = new BrowserWindow({
+  const window = new BrowserWindow({
     width: 1440,
     height: 900,
     minWidth: 860,
@@ -172,27 +178,34 @@ function createWindow(): BrowserWindow {
     },
   })
 
-  mainWindow.on("ready-to-show", () => {
-    mainWindow.show()
+  window.on("ready-to-show", () => {
+    window.show()
     configureDevDockIcon()
     if (isDevRuntime()) {
-      mainWindow.webContents.openDevTools({ mode: "detach" })
+      window.webContents.openDevTools({ mode: "detach" })
     }
   })
 
-  mainWindow.webContents.setWindowOpenHandler((details) => {
+  window.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)
     return { action: "deny" }
   })
 
   if (isDevRuntime() && process.env.ELECTRON_RENDERER_URL) {
-    mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL)
+    window.loadURL(process.env.ELECTRON_RENDERER_URL)
   } else {
     const indexUrl = pathToFileURL(join(__dirname, "../renderer/index.html")).toString()
-    mainWindow.loadURL(`${indexUrl}#/`)
+    window.loadURL(`${indexUrl}#/`)
   }
 
-  return mainWindow
+  window.on("closed", () => {
+    if (mainWindow === window) {
+      mainWindow = null
+    }
+  })
+
+  mainWindow = window
+  return window
 }
 
 configureUserDataPath()
@@ -217,6 +230,7 @@ app.whenReady().then(async () => {
   })
   registerTrpcHandler()
   createWindow()
+  initAutoUpdate(() => mainWindow)
 })
 
 app.on("before-quit", () => {

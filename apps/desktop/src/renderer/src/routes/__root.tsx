@@ -12,6 +12,7 @@ import { NuqsAdapter } from "nuqs/adapters/tanstack-router"
 import { TitleBar } from "../components/layout/TitleBar"
 import { DemoLedgerBanner } from "../components/layout/DemoLedgerBanner"
 import { GlobalConfirmModal } from "../components/ui/ConfirmModal"
+import { AutoUpdateController } from "../providers/auto-update"
 import { flowmPerfLog, roundMs } from "../lib/debug/perf"
 
 export const Route = createRootRoute({
@@ -45,6 +46,7 @@ function RootLayout() {
       </div>
       <Toaster />
       <GlobalConfirmModal />
+      <AutoUpdateController />
     </div>
   )
 }

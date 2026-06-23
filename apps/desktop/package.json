@@ -43,6 +43,7 @@
     "@trpc/tanstack-react-query": "^11.17.0",
     "better-sqlite3": "^12.4.1",
     "drizzle-orm": "^0.37.0",
+    "electron-updater": "^6.8.9",
     "i18next": "^26.2.0",
     "jotai": "^2.20.1",
     "nuqs": "^2.8.9",

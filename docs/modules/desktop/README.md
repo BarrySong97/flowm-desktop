@@ -9,6 +9,9 @@
 - `apps/desktop/src/main/index.ts` - Electron app bootstrap, user data path, SQLite connection, migrations, and main process lifecycle.
 - `apps/desktop/src/main/ledgers.ts` - ledger path switching between the user's app data database and packaged demo database.
 - `apps/desktop/src/main/local-ledger-change-server.ts` - local socket listener for CLI commit refresh hints.
+- `apps/desktop/src/main/bootstrap/auto-update.ts` - electron-updater wiring against the public GitHub Releases feed: launch + manual checks, download-on-click, and quit-to-install; relays lifecycle as `flowm:updater:status` events and no-ops in dev.
+- `apps/desktop/src/renderer/src/providers/auto-update.tsx` - renderer controller that mirrors update status into `updateStatusAtom` and drives the bottom-right update toast.
+- `.github/workflows/release.yml` - tag-triggered (`v*`) CI that builds + signs + publishes installers to GitHub Releases (macOS arm64 dmg/zip, Windows nsis).
 - `apps/desktop/src/main/trpc/router.ts` - tRPC IPC router exposed to the renderer.
 - `apps/desktop/src/main/trpc/trpc.ts` - tRPC helpers for the Electron main process.
 - `apps/desktop/src/preload/index.ts` - typed preload bridge exposed as `window.flowm`.
@@ -58,6 +61,8 @@ Ledger switching changes the active SQLite connection in the Electron main proce
 - `window.flowm.getDatabasePath()`
 - `window.flowm.databaseExists()`
 - `window.flowm.onLedgerChanged(callback)` - renderer event hook used to invalidate cached queries after an external CLI commit against the active ledger.
+- `window.flowm.getAppVersion()` - resolves the running `app.getVersion()` for the settings "关于" version row.
+- `window.flowm.updater.check()` / `.download()` / `.onStatus(callback)` - trigger an update check, start the download, and subscribe to `flowm:updater:status` lifecycle events.
 
 Developer and agent scripts can call the `@flowm/cli` workspace package through
 `pnpm flowm-cli ...` to inspect a ledger or apply a guarded agent ledger patch

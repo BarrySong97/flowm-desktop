@@ -13,13 +13,38 @@ extraResources:
   - from: ../../packages/db/migrations
     to: migrations
 npmRebuild: true
+# In-app auto-update feed. The repo must be public (or its releases public) so
+# the packaged client needs no embedded credentials.
+publish:
+  provider: github
+  owner: BarrySong97
+  repo: flowm-desktop
 mac:
   icon: resources/icons/flowm.icns
+  # zip is required by Squirrel.Mac for auto-update; dmg is the human installer.
+  # arm64 only — better-sqlite3 is a native module and cross-compiling x64 from an
+  # Apple-Silicon runner is unreliable. Add an Intel (macos-13) job later for x64.
   target:
-    - dmg
+    - target: dmg
+      arch:
+        - arm64
+    - target: zip
+      arch:
+        - arm64
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: resources/entitlements.mac.plist
+  entitlementsInherit: resources/entitlements.mac.plist
+  # Notarization runs when APPLE_ID/APPLE_APP_SPECIFIC_PASSWORD/APPLE_TEAM_ID
+  # (or APPLE_API_KEY) are present in the environment; signing uses CSC_LINK/CSC_KEY_PASSWORD.
+  notarize: true
 win:
   target:
     - nsis
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
 linux:
   target:
     - AppImage

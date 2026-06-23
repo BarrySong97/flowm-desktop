@@ -16,7 +16,7 @@
 - `command.tsx` - command palette primitives based on `cmdk`.
 - `kbd.tsx` - keyboard hint display.
 - `scroll-area.tsx` - shared scroll area primitive.
-- `simple-toast.tsx` - lightweight toast surface.
+- `simple-toast.tsx` - lightweight toast surface (Sonner, bottom-right). `notify` exposes `success`/`error`/`message`/`loading`/`dismiss` plus `action(title, { id, actionLabel, onAction })` for persistent toasts with a button, e.g. the update prompt.
 - `lib/utils.ts` - class-name merging helper.
 - `styles/globals.css` - shared tokens and base CSS imported by the renderer.
 

@@ -7,12 +7,20 @@
 
 import { atom } from "jotai"
 import { atomWithStorage } from "jotai/utils"
+import type { UpdateStatusEvent } from "@flowm/shared/ipc"
 
 interface CommandLogEntry {
   time: string
   who: "USR" | "SYS" | "AI"
   message: string
 }
+
+/**
+ * Latest auto-update lifecycle event from the main process. Shared so the
+ * bottom-right popup and the settings "检查更新" row stay in sync. `null` means
+ * no check has run yet this session.
+ */
+export const updateStatusAtom = atom<UpdateStatusEvent | null>(null)
 
 export const activeDashboardViewIdAtom = atomWithStorage<string | null>(
   "flowm.activeDashboardViewId",

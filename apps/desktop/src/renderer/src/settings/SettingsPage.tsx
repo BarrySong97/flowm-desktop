@@ -5,7 +5,8 @@
  * @gotcha  Settings changes can affect user data paths and categories; keep destructive actions explicit.
  */
 
-import { useAtom } from "jotai"
+import { useEffect, useState } from "react"
+import { useAtom, useAtomValue } from "jotai"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 import { Dock } from "../components/layout/Dock"
@@ -15,7 +16,27 @@ import { LedgerSection } from "./LedgerSection"
 import { GroupLabel, LinkRow, Row, Toggle } from "./components"
 import { trpc } from "@/lib/trpc"
 import { usePagePerf } from "@/lib/debug/perf"
-import { amountsHiddenAtom } from "@/lib/state/uiAtoms"
+import { amountsHiddenAtom, updateStatusAtom } from "@/lib/state/uiAtoms"
+import type { UpdateStatusEvent } from "@flowm/shared/ipc"
+
+function updateStatusNote(status: UpdateStatusEvent | null): string | undefined {
+  switch (status?.state) {
+    case "checking":
+      return "检查中…"
+    case "available":
+      return `发现新版本 ${status.version ?? ""}`.trim()
+    case "downloading":
+      return `下载中 ${status.percent ?? 0}%`
+    case "downloaded":
+      return "已就绪，重启中…"
+    case "not-available":
+      return "已是最新"
+    case "error":
+      return "检查失败"
+    default:
+      return undefined
+  }
+}
 
 export function SettingsPage() {
   const navigate = useNavigate()
@@ -54,6 +75,13 @@ export function SettingsPage() {
   )
   const asOf = ratesQuery.data?.asOf
   const ratesUpdatedLabel = asOf ? new Date(asOf).toLocaleString("zh-CN") : "尚未更新"
+
+  const [appVersion, setAppVersion] = useState("")
+  useEffect(() => {
+    void window.flowm.getAppVersion().then(setAppVersion)
+  }, [])
+  const updateStatus = useAtomValue(updateStatusAtom)
+  const updateNote = updateStatusNote(updateStatus)
 
   return (
     <div
@@ -144,9 +172,12 @@ export function SettingsPage() {
                   whiteSpace: "nowrap",
                 }}
               >
-                v1.4.0 · 2026.06
+                {appVersion ? `v${appVersion}` : "—"}
               </span>
             </Row>
+            <LinkRow note={updateNote} onClick={() => void window.flowm.updater.check()}>
+              检查更新
+            </LinkRow>
             <LinkRow>服务条款</LinkRow>
             <LinkRow>隐私政策</LinkRow>
             <LinkRow>开源许可</LinkRow>

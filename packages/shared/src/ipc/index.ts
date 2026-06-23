@@ -17,6 +17,29 @@ export interface LedgerChangeEvent {
   changedAt: string
 }
 
+/**
+ * Lifecycle of an in-app auto-update, broadcast from the main process to the
+ * renderer. The renderer drives the bottom-right popup and the settings row
+ * from these states; the main process owns the actual electron-updater flow.
+ */
+export type UpdateState =
+  | "checking"
+  | "available"
+  | "not-available"
+  | "downloading"
+  | "downloaded"
+  | "error"
+
+export interface UpdateStatusEvent {
+  state: UpdateState
+  /** Target version once known (available/downloading/downloaded). */
+  version?: string
+  /** Download progress 0-100 while state is "downloading". */
+  percent?: number
+  /** Human-readable detail, primarily for the "error" state. */
+  message?: string
+}
+
 function trimTrailingSeparators(path: string): string {
   return path.replace(/[\\/]+$/, "")
 }

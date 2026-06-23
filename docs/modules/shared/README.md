@@ -19,7 +19,7 @@
 - `contracts/common/flowm-primitives.contract.ts` - common Flowm IDs, money, direction, cashflow kind, and status primitives.
 - `contracts/assets/asset.contract.ts` - asset item/archive state, asset snapshot,
   net worth, and asset change contracts shared by renderer and API.
-- `ipc/index.ts` - local ledger-change event and socket path helper used for CLI commit refresh notifications.
+- `ipc/index.ts` - local ledger-change event and socket path helper used for CLI commit refresh notifications, plus the `UpdateStatusEvent` auto-update lifecycle contract relayed from the desktop main process to the renderer.
 - `utils/account.ts` - account hierarchy and display helpers.
 - `utils/currency.ts` - curated common-currency registry (code, localized name, display symbol) with `currencySymbol` and `formatMoney` helpers used by renderer pickers and money formatting.
 - `utils/platform.ts` - cross-package platform helpers that do not import Electron.

@@ -7,7 +7,7 @@
 
 import { contextBridge, ipcRenderer } from "electron"
 import { electronAPI } from "@electron-toolkit/preload"
-import type { LedgerChangeEvent } from "@flowm/shared/ipc"
+import type { LedgerChangeEvent, UpdateStatusEvent } from "@flowm/shared/ipc"
 
 type RendererLedgerChangeEvent = LedgerChangeEvent & { receivedAt: string }
 
@@ -30,6 +30,20 @@ const flowm = {
     return () => {
       ipcRenderer.removeListener("flowm:ledger-changed", listener)
     }
+  },
+  getAppVersion: () => ipcRenderer.invoke("flowm:app-version") as Promise<string>,
+  updater: {
+    check: () => ipcRenderer.invoke("flowm:updater:check") as Promise<void>,
+    download: () => ipcRenderer.invoke("flowm:updater:download") as Promise<void>,
+    onStatus: (callback: (event: UpdateStatusEvent) => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, payload: UpdateStatusEvent) => {
+        callback(payload)
+      }
+      ipcRenderer.on("flowm:updater:status", listener)
+      return () => {
+        ipcRenderer.removeListener("flowm:updater:status", listener)
+      }
+    },
   },
 }
 
