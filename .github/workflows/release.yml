@@ -76,7 +76,7 @@ jobs:
 
           append_env "CSC_LINK" "$APPLE_CERTIFICATE"
           append_env "CSC_KEY_PASSWORD" "$APPLE_CERTIFICATE_PASSWORD"
-          append_env "CSC_NAME" "$APPLE_SIGNING_IDENTITY"
+          append_env "CSC_NAME" "${APPLE_SIGNING_IDENTITY#Developer ID Application: }"
           append_env "APPLE_API_KEY" "$KEY_PATH"
           append_env "APPLE_API_KEY_ID" "$APPLE_API_KEY"
           append_env "APPLE_API_ISSUER" "$APPLE_API_ISSUER"
