@@ -44,13 +44,35 @@ jobs:
       - name: Build renderer/main/preload
         run: pnpm -F desktop build
 
+      - name: Configure Apple signing (optional)
+        if: runner.os == 'macOS'
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+        run: |
+          if [ -z "$APPLE_CERTIFICATE" ]; then
+            echo "::warning::No APPLE_CERTIFICATE secret - building unsigned and un-notarized."
+            echo "CSC_IDENTITY_AUTO_DISCOVERY=false" >> "$GITHUB_ENV"
+            echo "ELECTRON_BUILDER_EXTRA_ARGS=-c.mac.notarize=false" >> "$GITHUB_ENV"
+            exit 0
+          fi
+
+          KEY_PATH="$RUNNER_TEMP/AuthKey_${APPLE_API_KEY}.p8"
+          printf '%s' "$APPLE_API_KEY_P8" > "$KEY_PATH"
+          {
+            echo "CSC_LINK=$APPLE_CERTIFICATE"
+            echo "CSC_KEY_PASSWORD=$APPLE_CERTIFICATE_PASSWORD"
+            echo "CSC_NAME=$APPLE_SIGNING_IDENTITY"
+            echo "APPLE_API_KEY=$KEY_PATH"
+            echo "APPLE_API_KEY_ID=$APPLE_API_KEY"
+            echo "APPLE_API_ISSUER=$APPLE_API_ISSUER"
+          } >> "$GITHUB_ENV"
+
       - name: Build and publish
-        run: pnpm -F desktop exec electron-builder --publish always
+        run: pnpm -F desktop exec electron-builder --publish always $ELECTRON_BUILDER_EXTRA_ARGS
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # macOS code signing + notarization (only present/used on the macOS runner).
-          CSC_LINK: ${{ secrets.CSC_LINK }}
-          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
