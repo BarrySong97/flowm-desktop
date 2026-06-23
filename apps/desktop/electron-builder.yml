@@ -19,6 +19,7 @@ publish:
   provider: github
   owner: BarrySong97
   repo: flowm-desktop
+  releaseType: draft
 mac:
   icon: resources/icons/flowm.icns
   # zip is required by Squirrel.Mac for auto-update; dmg is the human installer.
