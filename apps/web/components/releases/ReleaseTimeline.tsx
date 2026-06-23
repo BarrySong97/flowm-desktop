@@ -19,10 +19,28 @@ export type ReleaseNote = {
 
 export const RELEASES: ReleaseNote[] = [
   {
+    version: "0.1.1",
+    date: "2026-06-23",
+    head: "修复桌面更新检查，并打磨预算、流水和订阅详情里的关键操作。",
+    badge: "latest",
+    groups: [
+      {
+        title: "桌面应用",
+        items: [
+          "预算详情可直接跳转到带筛选参数的流水页",
+          "优化编辑流水的分类按钮、来源/日期对齐和订阅日期选择器",
+        ],
+      },
+      {
+        title: "更新",
+        items: ["本地 dir 安装包缺少更新元数据时不再报错", "保留正式安装包的自动更新检查能力"],
+      },
+    ],
+  },
+  {
     version: "0.1.0",
     date: "2026-06-23",
     head: "FlowM 桌面端和本地优先财务模型的第一版公开发布。",
-    badge: "latest",
     groups: [
       {
         title: "桌面应用",
