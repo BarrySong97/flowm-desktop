@@ -49,7 +49,6 @@ jobs:
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
           APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
@@ -76,7 +75,6 @@ jobs:
 
           append_env "CSC_LINK" "$APPLE_CERTIFICATE"
           append_env "CSC_KEY_PASSWORD" "$APPLE_CERTIFICATE_PASSWORD"
-          append_env "CSC_NAME" "${APPLE_SIGNING_IDENTITY#Developer ID Application: }"
           append_env "APPLE_API_KEY" "$KEY_PATH"
           append_env "APPLE_API_KEY_ID" "$APPLE_API_KEY"
           append_env "APPLE_API_ISSUER" "$APPLE_API_ISSUER"
