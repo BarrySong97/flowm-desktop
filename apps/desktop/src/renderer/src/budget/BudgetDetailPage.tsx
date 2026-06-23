@@ -151,6 +151,21 @@ export function BudgetDetailPage() {
 
   const overMonthCount = months.filter((m) => (monthlySpend[m.yearMonth] ?? 0) > limit).length
   const chartMax = Math.max(limit, ...months.map((m) => monthlySpend[m.yearMonth] ?? 0), 1)
+  const importsCategoryFilter =
+    budgetCategoryIds && budgetCategoryIds.length > 0
+      ? budgetCategoryIds.map(String).join(",")
+      : "all"
+
+  function openBudgetCashflow() {
+    navigate({
+      to: "/imports",
+      search: {
+        period: "this_month",
+        type: "expense",
+        category: importsCategoryFilter,
+      },
+    })
+  }
 
   return (
     <div
@@ -386,7 +401,7 @@ export function BudgetDetailPage() {
                   本月消费别 · 近几笔
                 </span>
                 <button
-                  onClick={() => navigate({ to: "/imports" })}
+                  onClick={openBudgetCashflow}
                   style={{
                     fontSize: 11,
                     color: "var(--accent)",
@@ -478,7 +493,12 @@ export function BudgetDetailPage() {
               >
                 编辑预算
               </Button>
-              <Button variant="outline" size="sm" style={{ borderRadius: 5 }}>
+              <Button
+                variant="outline"
+                size="sm"
+                style={{ borderRadius: 5 }}
+                onPress={openBudgetCashflow}
+              >
                 查看该类别流水
               </Button>
               <div style={{ flex: 1 }} />

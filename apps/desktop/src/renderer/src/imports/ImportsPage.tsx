@@ -97,6 +97,15 @@ const IMPORTS_FILTER_URL_KEYS = {
 
 const FILTER_LABEL_CLASS = "mb-1 block text-[10.5px] leading-[1.2] text-[var(--ink-3)]"
 
+function categoryFilterSet(value: string): Set<string> | null {
+  if (value === "all") return null
+  const ids = value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean)
+  return ids.length > 0 ? new Set(ids) : null
+}
+
 function addMonths(date: Date, months: number): Date {
   const next = new Date(date)
   next.setMonth(next.getMonth() + months)
@@ -520,17 +529,29 @@ export function ImportsPage() {
         .sort((a, b) => a.displayOrder - b.displayOrder || a.name.localeCompare(b.name)),
     [analysisKind, categoriesQuery.data],
   )
-  const categoryFilterOptions = useMemo(
-    () => [
+  const categoryFilterOptions = useMemo(() => {
+    const options = [
       { key: "all", label: "全部分类" },
       ...categoryOptions.map((category) => ({ key: String(category.id), label: category.name })),
-    ],
-    [categoryOptions],
-  )
+    ]
+    const selectedCategories = categoryFilterSet(categoryFilter)
+    if (selectedCategories != null && selectedCategories.size > 1) {
+      options.push({ key: categoryFilter, label: `${selectedCategories.size} 个分类` })
+    }
+    return options
+  }, [categoryFilter, categoryOptions])
   useEffect(() => {
     if (categoriesQuery.data == null) return
     if (categoryFilter === "all") return
-    if (categoryOptions.some((category) => String(category.id) === categoryFilter)) return
+    const selectedCategories = categoryFilterSet(categoryFilter)
+    if (
+      selectedCategories != null &&
+      [...selectedCategories].every((id) =>
+        categoryOptions.some((category) => String(category.id) === id),
+      )
+    ) {
+      return
+    }
     setValue("categoryFilter", "all")
     updateUrlFilters({ categoryFilter: "all" })
   }, [categoriesQuery.data, categoryFilter, categoryOptions, setValue, updateUrlFilters])
@@ -544,11 +565,14 @@ export function ImportsPage() {
   const filteredTxs = useMemo(() => {
     const bounds = timeFilterBounds(timeFilter, refDate)
     const term = normalizedKeyword.toLowerCase()
+    const selectedCategories = categoryFilterSet(categoryFilter)
     return txs.filter((tx) => {
       if (bounds.from && tx.date < bounds.from) return false
       if (bounds.to && tx.date > bounds.to) return false
       if (sourceFilter !== "all" && tx.source !== sourceFilter) return false
-      if (categoryFilter !== "all" && String(tx.categoryId ?? "") !== categoryFilter) return false
+      if (selectedCategories != null && !selectedCategories.has(String(tx.categoryId ?? ""))) {
+        return false
+      }
       if (kindFilter !== "all" && tx.flowKind !== kindFilter) return false
       if (term) {
         const haystack = [

@@ -87,27 +87,32 @@ function CatChip({
 }) {
   const color = category.color ?? "var(--c-other)"
   return (
-    <button
+    <Button
       type="button"
-      onClick={onPress}
+      size="sm"
+      variant="outline"
+      onPress={onPress}
+      className="h-[28px] min-w-0 px-3 text-[12px]"
       style={{
-        display: "inline-flex",
-        alignItems: "center",
         gap: 5,
-        padding: "4px 10px",
         borderRadius: 6,
-        fontSize: 12,
-        cursor: "pointer",
-        border: active ? "none" : "1px solid var(--hair-2)",
-        background: active ? `${color}22` : "white",
+        borderColor: active ? color : "var(--hair-2)",
+        background: active ? `${color}1f` : "white",
         color: active ? color : "var(--ink-3)",
-        fontWeight: active ? 600 : 400,
-        transition: "all 0.12s",
+        fontWeight: active ? 650 : 500,
       }}
     >
-      <span style={{ width: 6, height: 6, borderRadius: 2, background: color, flexShrink: 0 }} />
+      <span
+        style={{
+          width: 6,
+          height: 6,
+          borderRadius: 2,
+          background: color,
+          flexShrink: 0,
+        }}
+      />
       {category.name}
-    </button>
+    </Button>
   )
 }
 
@@ -307,20 +312,10 @@ export function AddTxModal({
 
               {/* 来源 + 日期 */}
               <div style={{ display: "flex", gap: 12 }}>
-                <div style={{ flex: 1 }}>
-                  <Label
-                    style={{
-                      fontSize: 12,
-                      color: "var(--ink-3)",
-                      marginBottom: 8,
-                      display: "block",
-                    }}
-                  >
-                    来源
-                  </Label>
+                <FormField label="来源" className="flex-1">
                   <Input variant="secondary" placeholder="例如：现金" {...register("source")} />
-                </div>
-                <div style={{ flex: 1 }}>
+                </FormField>
+                <FormField label="日期" required error={errors.date?.message} className="flex-1">
                   <Controller
                     control={control}
                     name="date"
@@ -332,16 +327,6 @@ export function AddTxModal({
                           if (v) field.onChange(v.toString())
                         }}
                       >
-                        <Label
-                          style={{
-                            fontSize: 12,
-                            color: "var(--ink-3)",
-                            marginBottom: 8,
-                            display: "block",
-                          }}
-                        >
-                          日期
-                        </Label>
                         <DateField.Group fullWidth variant="secondary">
                           <DateField.Input>
                             {(segment) => <DateField.Segment segment={segment} />}
@@ -375,7 +360,7 @@ export function AddTxModal({
                       </DatePicker>
                     )}
                   />
-                </div>
+                </FormField>
               </div>
               <FormField label="备注">
                 <Input variant="secondary" placeholder="可选" {...register("note")} />

@@ -9,7 +9,7 @@ import { useMemo, useState } from "react"
 import { Button, Input, Label, Modal } from "@heroui/react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Outlet, useRouterState } from "@tanstack/react-router"
-import { useForm } from "react-hook-form"
+import { Controller, useForm } from "react-hook-form"
 import { Dock } from "../components/layout/Dock"
 import { ScrollArea } from "../components/ui/ScrollArea"
 import { trpc } from "@/lib/trpc"
@@ -20,6 +20,7 @@ import { useMoney } from "@/lib/useMoney"
 import { SubscriptionDetailPanel } from "./SubscriptionDetailPanel"
 import { FormField } from "../components/ui/FormField"
 import { CurrencySelect } from "../components/ui/CurrencySelect"
+import { DateInput } from "../components/ui/DateInput"
 import { MoneyAmount } from "../components/ui/MoneyAmount"
 import { useCurrentRates } from "@/lib/useCurrentRates"
 
@@ -60,6 +61,7 @@ function AddSubModal({
     reset,
     setValue,
     watch,
+    control,
   } = useForm<SubForm>({ defaultValues: EMPTY })
   const form = watch()
   function handleClose() {
@@ -153,11 +155,17 @@ function AddSubModal({
                 </div>
               </div>
               <FormField label="下次扣费日期" required error={errors.next?.message}>
-                <Input
-                  variant="secondary"
-                  type="date"
-                  aria-invalid={Boolean(errors.next)}
-                  {...register("next", { required: "请选择扣费日期" })}
+                <Controller
+                  control={control}
+                  name="next"
+                  rules={{ required: "请选择扣费日期" }}
+                  render={({ field }) => (
+                    <DateInput
+                      value={field.value}
+                      onChange={field.onChange}
+                      isInvalid={Boolean(errors.next)}
+                    />
+                  )}
                 />
               </FormField>
               <div

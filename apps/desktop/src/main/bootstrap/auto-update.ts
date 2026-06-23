@@ -2,11 +2,13 @@
  * @purpose Wire electron-updater to a GitHub Releases feed and relay update lifecycle to the renderer.
  * @role    Main-process auto-update controller: launch check, manual check, download, and quit-to-install.
  * @deps    electron-updater autoUpdater, Electron ipcMain/BrowserWindow, and shared UpdateStatusEvent.
- * @gotcha  No-ops in dev (no GitHub feed); macOS auto-install requires a signed + notarized build and a zip artifact.
+ * @gotcha  No-ops in dev/local dir installs without app-update.yml; macOS auto-install requires signed + notarized zip.
  */
 
 import { ipcMain, type BrowserWindow } from "electron"
 import electronUpdater from "electron-updater"
+import { existsSync } from "node:fs"
+import { join } from "node:path"
 import type { UpdateStatusEvent } from "@flowm/shared/ipc"
 
 import { isDevRuntime } from "./runtime-env"
@@ -39,6 +41,15 @@ function registerHandlers(): void {
   })
 }
 
+function registerInertHandlers(getWindow: GetWindow): void {
+  ipcMain.handle("flowm:updater:check", () => emit(getWindow, { state: "not-available" }))
+  ipcMain.handle("flowm:updater:download", () => {})
+}
+
+function hasPackagedUpdateMetadata(): boolean {
+  return existsSync(join(process.resourcesPath, "app-update.yml"))
+}
+
 /**
  * Initialise auto-update once the main window exists. Safe to call exactly once
  * from app.whenReady(); subsequent calls are ignored.
@@ -50,9 +61,8 @@ export function initAutoUpdate(getWindow: GetWindow): void {
   // Dev runs must never hit the GitHub release feed (an unpackaged app has no
   // update metadata, so autoUpdater would throw). Expose inert handlers so the
   // renderer's check/download calls still resolve, and report "not-available".
-  if (isDevRuntime()) {
-    ipcMain.handle("flowm:updater:check", () => emit(getWindow, { state: "not-available" }))
-    ipcMain.handle("flowm:updater:download", () => {})
+  if (isDevRuntime() || !hasPackagedUpdateMetadata()) {
+    registerInertHandlers(getWindow)
     return
   }
 

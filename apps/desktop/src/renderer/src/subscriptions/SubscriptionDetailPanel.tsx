@@ -18,6 +18,7 @@ import { BackButton } from "../components/ui/BackButton"
 import type { SubscriptionOccurrenceSummary } from "@flowm/api"
 import { FormField } from "../components/ui/FormField"
 import { CurrencySelect } from "../components/ui/CurrencySelect"
+import { DateInput } from "../components/ui/DateInput"
 import { currencySymbol } from "@flowm/shared"
 
 function InfoRow({ label, children }: { label: string; children: React.ReactNode }) {
@@ -482,10 +483,17 @@ export function SubscriptionDetailPanel({ id, onBack }: Props) {
                   required
                   error={editForm.formState.errors.nextChargeDate?.message}
                 >
-                  <Input
-                    variant="secondary"
-                    type="date"
-                    {...editForm.register("nextChargeDate", { required: "请选择扣费日期" })}
+                  <Controller
+                    control={editForm.control}
+                    name="nextChargeDate"
+                    rules={{ required: "请选择扣费日期" }}
+                    render={({ field }) => (
+                      <DateInput
+                        value={field.value}
+                        onChange={field.onChange}
+                        isInvalid={Boolean(editForm.formState.errors.nextChargeDate)}
+                      />
+                    )}
                   />
                 </FormField>
                 <FormField label="备注">
