@@ -1,6 +1,6 @@
 /**
  * @purpose Interactive app-window mock for the hero section.
- * @role    Holds the active-page state; the dock swaps between verbatim-ported pages.
+ * @role    Holds the active-page state, window chrome, and swappable mock pages.
  * @gotcha  Client component. Each page is the REAL renderer page driven by static mock
  *          data via its own <MockProvider> (fresh QueryClient + page pathname).
  */
@@ -10,6 +10,7 @@
 import { useState } from "react"
 import type { ReactNode } from "react"
 import { DockMock } from "./DockMock"
+import { TrafficLights } from "./TrafficLights"
 import { AssetsPage } from "@mock/assets/AssetsPage"
 import { assetsData } from "@mock/assets/assetsData"
 import { BudgetPage } from "@mock/budget/BudgetPage"
@@ -55,6 +56,7 @@ export function AppMock() {
     <div className="flex h-full w-full flex-col overflow-hidden rounded-[16px] border border-hair bg-surface text-left shadow-[0_30px_70px_-34px_rgba(20,40,30,0.34)]">
       {/* 无窗口外框：内容从顶部开始，Dock 悬浮固定 */}
       <div className="relative min-h-0 flex-1 bg-white">
+        <TrafficLights />
         <div key={page} className="h-full">
           {current.render()}
         </div>

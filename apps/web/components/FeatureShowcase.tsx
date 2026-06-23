@@ -11,6 +11,7 @@
 import type { ReactNode } from "react"
 import { Wrap } from "./primitives"
 import { SectionHead } from "./SectionHead"
+import { TrafficLights } from "./overview/TrafficLights"
 import { MockProvider } from "@mock/lib/trpc"
 import { OverviewPage } from "@mock/dashboard/OverviewPage"
 import { overviewData } from "@mock/dashboard/overviewData"
@@ -24,7 +25,7 @@ import { LoansPage } from "@mock/loans/LoansPage"
 import { loansData } from "@mock/loans/loansData"
 
 const FRAME =
-  "overflow-hidden rounded-[14px] border border-hair bg-surface shadow-[0_40px_90px_-44px_rgba(20,40,30,0.45)]"
+  "relative overflow-hidden rounded-[14px] border border-hair bg-surface shadow-[0_40px_90px_-44px_rgba(20,40,30,0.45)]"
 
 type Row = {
   title: string
@@ -110,6 +111,7 @@ export function FeatureShowcase() {
                     <Copy title={r.title} desc={r.desc} />
                   </div>
                   <div className={`mt-10 h-[620px] w-full ${FRAME}`}>
+                    <TrafficLights />
                     <MockProvider data={r.data} path={r.path}>
                       {r.page}
                     </MockProvider>
@@ -138,6 +140,7 @@ export function FeatureShowcase() {
                     className={`absolute top-[clamp(40px,5vw,56px)] ${flip ? "right-0" : "left-0"}`}
                   >
                     <div className={`h-[600px] w-[940px] max-w-none ${FRAME}`}>
+                      {flip ? null : <TrafficLights />}
                       <MockProvider data={r.data} path={r.path}>
                         {r.page}
                       </MockProvider>
