@@ -4,6 +4,7 @@
  */
 
 import { Wrap } from "./primitives"
+import { DOWNLOAD_URL, GITHUB_URL } from "@/lib/seo"
 
 const APPLE = (
   <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor">
@@ -24,16 +25,16 @@ export function CTA() {
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-[13px]">
             <a
-              href="#"
+              href={DOWNLOAD_URL}
               className="inline-flex items-center gap-[7px] rounded-[12px] bg-green px-6 py-[13px] text-[15px] font-semibold text-white shadow-[0_1px_2px_rgba(20,121,74,0.25)] transition-all hover:-translate-y-px hover:bg-green-deep hover:shadow-[0_6px_16px_-6px_rgba(20,121,74,0.5)]"
             >
               下载 macOS 版
             </a>
             <a
-              href="#"
+              href={GITHUB_URL}
               className="inline-flex items-center gap-[7px] rounded-[12px] border border-hair bg-surface px-6 py-[13px] text-[15px] font-semibold text-ink transition-colors hover:border-ink-5 hover:bg-surface-2"
             >
-              下载 iOS 版
+              查看开源项目
             </a>
           </div>
           <div className="mt-7 flex justify-center gap-[22px] text-[12px] text-ink-4">

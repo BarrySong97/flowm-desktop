@@ -9,6 +9,7 @@
 
 import { useEffect, useState } from "react"
 import { Logo } from "./primitives"
+import { DOWNLOAD_URL } from "@/lib/seo"
 
 export function Nav() {
   const [scrolled, setScrolled] = useState(false)
@@ -35,9 +36,10 @@ export function Nav() {
         </div>
         <div className="ml-2 hidden gap-7 md:flex">
           {[
-            ["理念", "#model"],
-            ["能力", "#features-detail"],
-            ["隐私", "#privacy"],
+            ["理念", "/#model"],
+            ["能力", "/#features-detail"],
+            ["隐私", "/#privacy"],
+            ["更新日志", "/releases"],
           ].map(([t, h]) => (
             <a
               key={h}
@@ -50,7 +52,7 @@ export function Nav() {
         </div>
         <div className="ml-auto flex items-center gap-[14px]">
           <a
-            href="#download"
+            href={DOWNLOAD_URL}
             className="inline-flex items-center gap-[7px] rounded-[10px] border border-transparent bg-green px-[17px] py-[9px] text-[13.5px] font-semibold text-white shadow-[0_1px_2px_rgba(20,121,74,0.25)] transition-all hover:-translate-y-px hover:bg-green-deep hover:shadow-[0_6px_16px_-6px_rgba(20,121,74,0.5)]"
           >
             下载

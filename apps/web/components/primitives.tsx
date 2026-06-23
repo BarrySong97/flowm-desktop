@@ -7,26 +7,17 @@ import type { ReactNode } from "react"
 
 type LogoProps = { size?: number; className?: string }
 
-/** Flowm 三层错位标记 */
+/** Flowm app icon, shared by the marketing header and footer. */
 export function Logo({ size = 26, className }: LogoProps) {
   return (
-    <svg width={size} height={size} viewBox="0 0 100 100" aria-hidden="true" className={className}>
-      <rect width="100" height="100" rx="23" fill="#f4f6f2" />
-      <path
-        d="M6 23 h52 a6 6 0 0 1 6 6 v0 a6 6 0 0 1 -6 6 h-52 a6 6 0 0 1 -6 -6 v0 a6 6 0 0 1 6 -6 z"
-        fill="#1b9e8e"
-        fillOpacity="0.5"
-      />
-      <path
-        d="M42 59 h52 a6 6 0 0 1 6 6 v0 a6 6 0 0 1 -6 6 h-52 a6 6 0 0 1 -6 -6 v0 a6 6 0 0 1 6 -6 z"
-        fill="#c98a2a"
-        fillOpacity="0.45"
-      />
-      <path
-        d="M24 41 h52 a6 6 0 0 1 6 6 v0 a6 6 0 0 1 -6 6 h-52 a6 6 0 0 1 -6 -6 v0 a6 6 0 0 1 6 -6 z"
-        fill="#14794a"
-      />
-    </svg>
+    <img
+      src="/app-icon.png"
+      width={size}
+      height={size}
+      alt=""
+      aria-hidden="true"
+      className={className}
+    />
   )
 }
 

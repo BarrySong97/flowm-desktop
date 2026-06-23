@@ -4,11 +4,34 @@
  */
 
 import { Logo, Wrap } from "./primitives"
+import { DOWNLOAD_URL, GITHUB_URL } from "@/lib/seo"
 
-const COLS: { h: string; links: string[] }[] = [
-  { h: "产品", links: ["理念", "能力", "隐私", "下载"] },
-  { h: "资源", links: ["使用指南", "命令行工具 · flowm CLI", "更新日志"] },
-  { h: "关于", links: ["服务条款", "隐私政策", "联系我们"] },
+const COLS: { h: string; links: { label: string; href: string }[] }[] = [
+  {
+    h: "产品",
+    links: [
+      { label: "理念", href: "/#model" },
+      { label: "能力", href: "/#features-detail" },
+      { label: "隐私", href: "/#privacy" },
+      { label: "下载", href: DOWNLOAD_URL },
+    ],
+  },
+  {
+    h: "资源",
+    links: [
+      { label: "使用指南", href: GITHUB_URL },
+      { label: "命令行工具 · flowm CLI", href: GITHUB_URL },
+      { label: "更新日志", href: "/releases" },
+    ],
+  },
+  {
+    h: "关于",
+    links: [
+      { label: "服务条款", href: GITHUB_URL },
+      { label: "隐私政策", href: "/#privacy" },
+      { label: "联系我们", href: `${GITHUB_URL}/issues` },
+    ],
+  },
 ]
 
 export function Footer() {
@@ -32,11 +55,11 @@ export function Footer() {
               </h4>
               {c.links.map((l) => (
                 <a
-                  key={l}
-                  href="#"
+                  key={l.label}
+                  href={l.href}
                   className="block py-[5px] text-[13px] text-ink-2 transition-colors hover:text-ink"
                 >
-                  {l}
+                  {l.label}
                 </a>
               ))}
             </div>

@@ -10,6 +10,7 @@ import { join } from "node:path"
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  output: "export",
   // Pin file tracing to the monorepo root so the stray home-dir lockfile is ignored.
   outputFileTracingRoot: join(import.meta.dirname, "..", ".."),
   // @flowm/shared ships TypeScript source; let Next transpile it.

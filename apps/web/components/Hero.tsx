@@ -6,6 +6,7 @@
 
 import { AppMock } from "./overview/AppMock"
 import { CopyCommand } from "./CopyCommand"
+import { DOWNLOAD_URL } from "@/lib/seo"
 
 export function Hero() {
   return (
@@ -23,7 +24,7 @@ export function Hero() {
         </p>
         <div className="mt-6 flex flex-wrap items-center justify-center gap-[13px]">
           <a
-            href="#download"
+            href={DOWNLOAD_URL}
             className="inline-flex items-center gap-[7px] rounded-[12px] bg-green px-6 py-[12px] text-[15px] font-semibold text-white shadow-[0_1px_2px_rgba(20,121,74,0.25)] transition-all hover:-translate-y-px hover:bg-green-deep hover:shadow-[0_6px_16px_-6px_rgba(20,121,74,0.5)]"
           >
             免费开始
