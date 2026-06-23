@@ -1,6 +1,8 @@
 {
-  "name": "@flowm/cli",
+  "name": "@barrysongdev4real/flowm-cli",
   "version": "0.1.0",
+  "description": "Safe local Flowm ledger CLI for agents and developers.",
+  "license": "UNLICENSED",
   "private": true,
   "type": "module",
   "main": "./src/index.ts",
@@ -13,8 +15,9 @@
     }
   },
   "scripts": {
-    "build": "tsc --noEmit",
+    "build": "node ./scripts/build.mjs",
     "check-types": "tsc --noEmit",
+    "pack:dry": "pnpm build && npm pack --dry-run ./npm",
     "typecheck": "tsc --noEmit",
     "flowm-cli": "node ./src/launcher.cjs"
   },
@@ -29,6 +32,7 @@
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^24.10.1",
+    "esbuild": "^0.28.1",
     "tsx": "^4.22.3",
     "typescript": "~5.8.3"
   }

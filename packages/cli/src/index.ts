@@ -47,9 +47,22 @@ type ResolvedLedgerPath = {
 }
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-const migrationsFolder = resolve(__dirname, "../../db/migrations")
+const migrationsFolder = resolveMigrationsFolder()
 const registryFileName = "flowm-ledgers.json"
 const defaultDatabaseFileName = "flowm.sqlite3"
+
+function resolveMigrationsFolder(): string {
+  const candidates = [
+    resolve(__dirname, "migrations"),
+    resolve(__dirname, "../migrations"),
+    resolve(__dirname, "../../db/migrations"),
+  ]
+  const found = candidates.find((candidate) => existsSync(candidate))
+  if (!found) {
+    throw new Error(`Flowm migrations folder not found. Checked: ${candidates.join(", ")}`)
+  }
+  return found
+}
 
 function printJson(value: unknown): void {
   console.log(JSON.stringify(value, null, 2))

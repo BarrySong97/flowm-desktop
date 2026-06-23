@@ -58,6 +58,25 @@ Create distribution artifacts:
 pnpm dist
 ```
 
+## Release
+
+Before running a release, add the new first entry in
+`apps/web/components/releases/ReleaseTimeline.tsx` and move `badge: "latest"` to
+that entry. Then run the release command from `main`:
+
+```bash
+pnpm release 0.2.2
+```
+
+The release script validates the release note, bumps the root/desktop/web/CLI
+package versions, commits the release, pushes `main`, pushes tag `v<version>`,
+waits for the tag-triggered GitHub Actions build, publishes the draft GitHub
+Release as latest, and publishes `@barrysongdev4real/flowm-cli` to npm from
+`packages/cli/npm`. Before committing, it runs `pnpm check-docs`,
+`pnpm format:check`, `pnpm lint`, and `pnpm build`. Use `--dry-run`,
+`--no-publish`, `--no-npm`, `--no-cask`, `--no-wait`, or `--no-checks` while
+testing.
+
 ## Typecheck
 
 ```bash

@@ -11,16 +11,36 @@ developers use to inspect Flowm ledgers and submit guarded business patches.
   inspection and patch application.
 - `packages/cli/src/launcher.cjs` - cross-platform launcher that runs the CLI
   through Electron's Node runtime so `better-sqlite3` stays on the Electron ABI.
+- `packages/cli/scripts/build.mjs` - npm packaging build: bundles workspace
+  Flowm code, copies DB migrations, and writes a sanitized publish directory.
 - `packages/cli/package.json` - package scripts, workspace dependencies, and
   CLI package metadata.
+- `packages/cli/npm/` - generated publish directory for
+  `@barrysongdev4real/flowm-cli`; do not
+  edit by hand.
 
 ## Data Flow
 
-Agent or developer -> `pnpm flowm-cli` -> `@flowm/cli` -> `@flowm/api` ->
-`@flowm/db` -> SQLite.
+Agent or developer -> `pnpm flowm-cli` -> `@barrysongdev4real/flowm-cli` ->
+`@flowm/api` -> `@flowm/db` -> SQLite.
 
 The CLI opens the selected SQLite file, runs migrations, creates the Flowm API
 facade, and delegates all business behavior to the API layer.
+
+## npm Distribution
+
+`@barrysongdev4real/flowm-cli` is published from the generated
+`packages/cli/npm` directory, not directly from the workspace package root. The
+build bundles the local `@flowm/api`, `@flowm/db`, and `@flowm/shared` source
+into `dist/index.mjs`, copies `packages/db/migrations` into `dist/migrations`,
+and keeps `better-sqlite3`, `commander`, and `drizzle-orm` as normal npm
+runtime dependencies.
+
+The workspace command still uses `packages/cli/src/launcher.cjs` and Electron's
+Node runtime to preserve the desktop app's native dependency ABI. The npm
+package installs its own `better-sqlite3` for the user's Node runtime, so it can
+be executed as `npx @barrysongdev4real/flowm-cli ...` or through the installed
+`flowm-cli` binary.
 
 ## Interfaces
 
@@ -86,4 +106,7 @@ The CLI resolves a ledger path in this order:
   source files into patch operations before calling this CLI.
 - Preserve the Electron ABI for `better-sqlite3`; do not replace the launcher
   with a plain Node runtime command.
+- Keep npm publish output generated. If package metadata changes, update
+  `packages/cli/scripts/build.mjs` and verify with
+  `pnpm -F @barrysongdev4real/flowm-cli pack:dry`.
 - CLI output should remain JSON by default so agents can parse it reliably.

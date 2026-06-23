@@ -17,6 +17,7 @@ release
 apps/desktop/out
 apps/desktop/release
 apps/desktop/.electron-dev
+packages/cli/npm
 *.local
 
 # Turborepo

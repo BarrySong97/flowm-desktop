@@ -11,7 +11,7 @@
 - `apps/desktop/src/main/local-ledger-change-server.ts` - local socket listener for CLI commit refresh hints.
 - `apps/desktop/src/main/bootstrap/auto-update.ts` - electron-updater wiring against the public GitHub Releases feed: launch + manual checks, download-on-click, and quit-to-install; relays lifecycle as `flowm:updater:status` events and no-ops in dev.
 - `apps/desktop/src/renderer/src/providers/auto-update.tsx` - renderer controller that mirrors update status into `updateStatusAtom` and drives the bottom-right update toast.
-- `.github/workflows/release.yml` - tag-triggered (`v*`) CI that builds + signs + publishes installers to GitHub Releases (macOS arm64 dmg/zip, Windows nsis).
+- `.github/workflows/release.yml` - tag-triggered (`v*`) CI that builds, signs, notarizes, and uploads installers to a draft GitHub Release (macOS arm64 dmg/zip, Windows nsis); `scripts/release.mjs` publishes the draft after the workflow succeeds.
 - `apps/desktop/src/main/trpc/router.ts` - tRPC IPC router exposed to the renderer.
 - `apps/desktop/src/main/trpc/trpc.ts` - tRPC helpers for the Electron main process.
 - `apps/desktop/src/preload/index.ts` - typed preload bridge exposed as `window.flowm`.
@@ -20,6 +20,7 @@
 - `apps/desktop/scripts/seed-demo.ts` - developer script for seeding local demo data.
 - `apps/desktop/scripts/build-demo-ledger.ts` - script for building the packaged demo ledger resource.
 - `apps/desktop/electron-builder.yml` - desktop packaging configuration.
+- `scripts/release.mjs` - release automation entrypoint behind `pnpm release <version>`; validates the web release note, bumps package versions, commits, pushes `main`, tags, waits for CI, publishes the draft release, and publishes `@barrysongdev4real/flowm-cli` to npm.
 - `scripts/prepare-electron-dev-app.mjs` - prepares the macOS branded `FlowM.app` used by the desktop dev command.
 
 ## Renderer Feature Map
@@ -99,6 +100,10 @@ Update `apps/desktop/src/preload/index.d.ts` whenever the preload contract chang
   budget; detail-page transaction lists must use the bound category ids returned
   by budget progress so they match the backend used amount.
 - Desktop tests and development depend on the Electron ABI for `better-sqlite3`.
+- Releases start with a human/AI-authored note in
+  `apps/web/components/releases/ReleaseTimeline.tsx`; the release script refuses
+  to continue unless the first note and the single `latest` badge match the
+  target version.
 - UI copy and flows must preserve the separation between cashflow, assets, and obligations.
 - Multi-currency: single items render in their original currency symbol via `currencySymbol(entity.currency)` — this applies to list rows, detail panels (subscription/loan/asset detail), and per-loan widgets (e.g. the schedule bar). Aggregated totals (net worth, asset totals/treemap, subscription/loan summaries, future pressure) render in the base currency after conversion via `useCurrentRates().toDisplay`. The base currency is editable in settings, and opening a ledger triggers a background daily FX refresh. Past cashflow, imports, and budgets stay in native amounts and are not converted.
 - Hide amounts: a global, persisted preference (`amountsHiddenAtom`) masks every money amount to `⋯⋯` (currency symbols/signs stay) for demos, screenshots, or onlookers. Components must format money through the `useMoney` / `useSignedMoney` / `useCurrencyMoney` hooks (in `@/lib/useMoney`), never the pure `@/lib/format` functions, so toggling re-renders them. Toggle it from settings or the dock eye button.
