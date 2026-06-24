@@ -19,10 +19,29 @@ export type ReleaseNote = {
 
 export const RELEASES: ReleaseNote[] = [
   {
+    version: "0.1.2",
+    date: "2026-06-24",
+    head: "强化首页和流水页的消费柱交互，并统一流水表格与日期筛选体验。",
+    badge: "latest",
+    groups: [
+      {
+        title: "桌面应用",
+        items: ["首页消费柱可打开对应日期的消费流水抽屉", "首页流水表格列名和流水页保持一致"],
+      },
+      {
+        title: "流水",
+        items: [
+          "流水页支持日期范围筛选和 URL 参数联动",
+          "点击流水页日柱会切换当前筛选时间范围",
+          "编辑流水时保留原类别并补齐无颜色分类的默认色块",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.1.1",
     date: "2026-06-23",
     head: "修复桌面更新检查，并打磨预算、流水和订阅详情里的关键操作。",
-    badge: "latest",
     groups: [
       {
         title: "桌面应用",
