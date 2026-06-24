@@ -161,6 +161,8 @@ export function BudgetDetailPage() {
       to: "/imports",
       search: {
         period: "this_month",
+        from: currentMonth + "-01",
+        to: today,
         type: "expense",
         category: importsCategoryFilter,
       },

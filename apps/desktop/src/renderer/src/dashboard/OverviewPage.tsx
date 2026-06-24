@@ -5,8 +5,8 @@
  * @gotcha  Show layers together without implying they reconcile into one ledger.
  */
 
-import { useMemo, useState } from "react"
-import { Dropdown } from "@heroui/react"
+import { useEffect, useMemo, useState } from "react"
+import { Drawer, Dropdown } from "@heroui/react"
 import { useQuery } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 import { Dock } from "../components/layout/Dock"
@@ -47,6 +47,13 @@ const CASHFLOW_RANGE_OPTIONS: Array<{ key: CashflowRangeKey; label: string }> = 
   { key: "year", label: "今年" },
   { key: "all", label: "全部" },
 ]
+
+interface DailyExpenseBucket {
+  dateFrom: string
+  dateTo: string
+  amount: number
+  label: string
+}
 
 function isCashflowRangeKey(value: string | null): value is CashflowRangeKey {
   return CASHFLOW_RANGE_OPTIONS.some((option) => option.key === value)
@@ -162,24 +169,68 @@ function useCashflowStats(events: CashflowEventSummary[]) {
   }, [events])
 }
 
-function useDailyBars(
+function dateKeyToUtc(value: string): Date {
+  return new Date(`${value}T00:00:00.000Z`)
+}
+
+function addDateKeyDays(value: string, days: number): string {
+  const next = dateKeyToUtc(value)
+  next.setUTCDate(next.getUTCDate() + days)
+  return next.toISOString().slice(0, 10)
+}
+
+function dateKeyDiff(from: string, to: string): number {
+  return Math.round((dateKeyToUtc(to).getTime() - dateKeyToUtc(from).getTime()) / 86400000)
+}
+
+function bucketLabel(dateFrom: string, dateTo: string, range: ReturnType<typeof cashflowRange>) {
+  if (dateFrom === dateTo) return dateTo === range.dateTo ? range.axisEnd : dateFrom.slice(5)
+  return `${dateFrom.slice(5)} 至 ${dateTo.slice(5)}`
+}
+
+function useDailyExpenseBuckets(
   events: CashflowEventSummary[],
   range: ReturnType<typeof cashflowRange>,
-): number[] {
+): DailyExpenseBucket[] {
   return useMemo(() => {
-    const bars = new Array<number>(30).fill(0)
-    const from = range.dateFrom ? new Date(range.dateFrom).getTime() : null
-    const to = new Date(range.dateTo).getTime()
-    const span = Math.max(1, Math.ceil(((from ?? to) === to ? 29 : to - (from ?? to)) / 86400000))
+    const expenseEvents = events.filter(
+      (e) => e.flowKind === "expense" && e.status === "active" && e.includeInAnalytics,
+    )
+    const firstExpenseDate = expenseEvents.reduce<string | null>(
+      (earliest, event) => (earliest == null || event.date < earliest ? event.date : earliest),
+      null,
+    )
+    const dateTo = range.dateTo
+    let dateFrom = range.dateFrom ?? firstExpenseDate ?? addDateKeyDays(dateTo, -29)
+    if (dateFrom > dateTo) dateFrom = dateTo
+    const totalDays = Math.max(1, dateKeyDiff(dateFrom, dateTo) + 1)
+    const bucketCount = totalDays <= 31 ? totalDays : 30
+    const buckets = Array.from({ length: bucketCount }, (_, index) => {
+      const startOffset = Math.floor((index * totalDays) / bucketCount)
+      const endOffset = Math.max(
+        startOffset,
+        Math.floor(((index + 1) * totalDays) / bucketCount) - 1,
+      )
+      const bucketFrom = addDateKeyDays(dateFrom, startOffset)
+      const bucketTo = addDateKeyDays(dateFrom, endOffset)
+      return {
+        dateFrom: bucketFrom,
+        dateTo: bucketTo,
+        amount: 0,
+        label: bucketLabel(bucketFrom, bucketTo, range),
+      }
+    })
     for (const e of events) {
       if (e.flowKind !== "expense" || e.status !== "active" || !e.includeInAnalytics) continue
-      const time = new Date(e.date).getTime()
-      if (time > to || (from != null && time < from)) continue
-      const offset = from == null ? 29 : Math.floor(((time - from) / (span * 86400000)) * 30)
-      const index = Math.max(0, Math.min(29, offset))
-      bars[index] += Math.abs(Number(e.amount) || 0)
+      if (e.date < dateFrom || e.date > dateTo) continue
+      const offset = dateKeyDiff(dateFrom, e.date)
+      const index = Math.max(
+        0,
+        Math.min(bucketCount - 1, Math.floor((offset / totalDays) * bucketCount)),
+      )
+      buckets[index].amount += Math.abs(Number(e.amount) || 0)
     }
-    return bars
+    return buckets
   }, [events, range])
 }
 
@@ -253,10 +304,25 @@ function useUpcoming(
   }, [loans, loanOccurrences, subscriptions, subscriptionOccurrences])
 }
 
+function toTransactionRow(t: CashflowEventSummary) {
+  return {
+    date: t.date,
+    description: t.description ?? undefined,
+    counterparty: t.counterparty ?? t.title ?? undefined,
+    flowKind: t.flowKind,
+    amount: t.amount,
+    currency: t.currency,
+    categoryName: t.categoryName ?? undefined,
+    tag: t.tags[0]?.name,
+    source: t.sourceName ?? t.source ?? "手动",
+  }
+}
+
 export function OverviewPage() {
   const fmt = useMoney()
   const signed = useSignedMoney()
   const [cashflowRangeKey, setCashflowRangeKey] = useState<CashflowRangeKey>(readCashflowRangeKey)
+  const [selectedBucketIndex, setSelectedBucketIndex] = useState<number | null>(null)
   const today = dateKey(new Date())
   const range = cashflowRange(cashflowRangeKey)
   const futureThrough = dateKey(addDays(new Date(), 60))
@@ -325,7 +391,42 @@ export function OverviewPage() {
   const monthOut = _monthOut
   const monthNet = _monthNet
 
-  const dailyBars = useDailyBars(events, range)
+  const dailyExpenseBuckets = useDailyExpenseBuckets(events, range)
+  const dailyBars = dailyExpenseBuckets.map((bucket) => bucket.amount)
+  const dailyBarLabels = dailyExpenseBuckets.map((bucket) => bucket.label)
+  const selectedBucket =
+    selectedBucketIndex == null ? null : (dailyExpenseBuckets[selectedBucketIndex] ?? null)
+  const selectedBucketEvents = useMemo(
+    () =>
+      selectedBucket == null
+        ? []
+        : events
+            .filter(
+              (event) =>
+                event.flowKind === "expense" &&
+                event.status === "active" &&
+                event.includeInAnalytics &&
+                event.date >= selectedBucket.dateFrom &&
+                event.date <= selectedBucket.dateTo,
+            )
+            .sort((a, b) => b.date.localeCompare(a.date)),
+    [events, selectedBucket],
+  )
+  const selectedBucketRows = selectedBucketEvents.map(toTransactionRow)
+  const selectedBucketTotal = selectedBucketEvents.reduce(
+    (sum, event) => sum + Math.abs(Number(event.amount) || 0),
+    0,
+  )
+  const selectedBucketTitle =
+    selectedBucket == null
+      ? "消费流水"
+      : selectedBucket.dateFrom === selectedBucket.dateTo
+        ? `${selectedBucket.dateFrom} 消费`
+        : `${selectedBucket.dateFrom} 至 ${selectedBucket.dateTo} 消费`
+
+  useEffect(() => {
+    setSelectedBucketIndex(null)
+  }, [cashflowRangeKey])
 
   const budgets = (budgetProgressQuery.data ?? []).map((row) => ({
     cat: row.budgetName,
@@ -355,14 +456,7 @@ export function OverviewPage() {
     [events],
   )
   const recentTx = _recentTx
-  const transactionRows = recentTx.map((t) => ({
-    date: t.date,
-    description: t.description ?? undefined,
-    counterparty: t.counterparty ?? undefined,
-    flowKind: t.flowKind,
-    amount: t.amount,
-    categoryName: t.categoryName ?? undefined,
-  }))
+  const transactionRows = recentTx.map(toTransactionRow)
 
   return (
     <div className="relative flex flex-col h-full overflow-hidden bg-white">
@@ -457,7 +551,12 @@ export function OverviewPage() {
                 </Link>
               </Dim>
             </div>
-            <DailyBars data={dailyBars} />
+            <DailyBars
+              data={dailyBars}
+              labels={dailyBarLabels}
+              selectedIndex={selectedBucketIndex}
+              onBarClick={(index) => setSelectedBucketIndex(index)}
+            />
             <div className="flex justify-between mt-1.5">
               <Dim className="text-[10px]">{range.axisStart}</Dim>
               <span className="text-[10px] font-semibold text-[var(--accent)]">
@@ -572,6 +671,35 @@ export function OverviewPage() {
           </div>
         </div>
       </ScrollArea>
+      <Drawer.Backdrop
+        isOpen={selectedBucket != null}
+        onOpenChange={(open) => {
+          if (!open) setSelectedBucketIndex(null)
+        }}
+      >
+        <Drawer.Content placement="right">
+          <Drawer.Dialog style={{ width: 720, maxWidth: "90vw", touchAction: "none" }}>
+            <Drawer.CloseTrigger />
+            <Drawer.Header>
+              <Drawer.Heading style={{ fontSize: 14 }}>{selectedBucketTitle}</Drawer.Heading>
+              <Dim style={{ fontSize: 11, marginTop: 2 }}>
+                {selectedBucketEvents.length} 笔 · 消费 ¥{fmt(selectedBucketTotal, 2)}
+              </Dim>
+            </Drawer.Header>
+            <Drawer.Body>
+              {selectedBucketRows.length === 0 ? (
+                <div className="py-8 text-center">
+                  <Dim className="block text-[12px]">这一天暂无消费流水</Dim>
+                </div>
+              ) : (
+                <div className="overflow-hidden">
+                  <TransactionTable rows={selectedBucketRows} />
+                </div>
+              )}
+            </Drawer.Body>
+          </Drawer.Dialog>
+        </Drawer.Content>
+      </Drawer.Backdrop>
       <Dock />
     </div>
   )

@@ -28,7 +28,8 @@
 - `assets/` - present asset snapshot list, detail, edit, and archived-account workflows.
 - `analysis/` - long-range cashflow analysis for monthly income, expense, and net savings trends.
 - `budget/` - budget list/detail workflows, expense-category scope editing, and budget query invalidation helpers.
-- `dashboard/` - cross-layer overview that composes cashflow, assets, and obligations.
+- `dashboard/` - cross-layer overview that composes cashflow, assets, and obligations,
+  including clickable daily expense bars that open same-period cashflow detail drawers.
 - `imports/` - imported statement and cashflow event views.
 - `loans/` - future loan obligation views and schedule calculations.
 - `settings/` - ledger, category, and app configuration surfaces.

@@ -136,13 +136,24 @@ export function AddTxModal({
   } = useForm<TxForm>({ defaultValues: initial ?? emptyTxForm() })
   const form = watch()
 
+  const selectedCategory = useMemo(
+    () => categories.find((category) => String(category.id) === String(form.categoryId)),
+    [categories, form.categoryId],
+  )
   const categoryOptions = useMemo(() => {
     const active = categories.filter((category) => !category.archived)
     const preferred = active.filter(
       (category) => category.categoryKind === form.flowKind || category.kind === form.flowKind,
     )
-    return preferred.length > 0 ? preferred : active
-  }, [categories, form.flowKind])
+    const options = preferred.length > 0 ? preferred : active
+    if (
+      selectedCategory &&
+      !options.some((category) => String(category.id) === String(selectedCategory.id))
+    ) {
+      return [selectedCategory, ...options]
+    }
+    return options
+  }, [categories, form.flowKind, selectedCategory])
 
   useEffect(() => {
     if (!open) return
@@ -155,10 +166,16 @@ export function AddTxModal({
       if (form.categoryId != null) setValue("categoryId", null)
       return
     }
-    if (!categoryOptions.some((category) => String(category.id) === String(form.categoryId))) {
+    if (form.categoryId == null) {
       setValue("categoryId", categoryOptions[0]?.id ?? null)
     }
   }, [categoryOptions, form.categoryId, open, setValue])
+
+  function setFlowKind(flowKind: TxForm["flowKind"]) {
+    if (form.flowKind === flowKind) return
+    setValue("flowKind", flowKind)
+    setValue("categoryId", null)
+  }
 
   const amtNum = parseFloat(form.amount) || 0
   const amtDisplay =
@@ -206,13 +223,13 @@ export function AddTxModal({
                 <div style={{ display: "flex", gap: 8 }}>
                   <TypeButton
                     active={form.flowKind === "expense"}
-                    onPress={() => setValue("flowKind", "expense")}
+                    onPress={() => setFlowKind("expense")}
                   >
                     支出
                   </TypeButton>
                   <TypeButton
                     active={form.flowKind === "income"}
-                    onPress={() => setValue("flowKind", "income")}
+                    onPress={() => setFlowKind("income")}
                   >
                     收入
                   </TypeButton>

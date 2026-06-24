@@ -6,8 +6,18 @@
  */
 
 import { useCallback, useEffect, useRef, useMemo, useState } from "react"
-import { Button, Input, ListBox, Select } from "@heroui/react"
+import {
+  Button,
+  DateField,
+  DateRangePicker,
+  Input,
+  ListBox,
+  RangeCalendar,
+  Select,
+} from "@heroui/react"
 import { Controller, useForm, useWatch } from "react-hook-form"
+import type { DateValue } from "@internationalized/date"
+import { parseDate } from "@internationalized/date"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 import {
@@ -39,20 +49,33 @@ import { Dim } from "../components/ui/Dim"
 import { DailyBars } from "../components/charts/DailyBars"
 import { FormField } from "../components/ui/FormField"
 
-const TIME_FILTER_KEYS = ["this_month", "last_month", "last_30", "last_90", "year", "all"] as const
+const TIME_FILTER_KEYS = [
+  "this_month",
+  "last_month",
+  "last_30",
+  "last_90",
+  "year",
+  "all",
+  "custom",
+] as const
 const KIND_FILTER_KEYS = ["all", "expense", "income"] as const
 type TimeFilterKey = (typeof TIME_FILTER_KEYS)[number]
 type KindFilterKey = (typeof KIND_FILTER_KEYS)[number]
 interface TxFilterForm {
   timeFilter: TimeFilterKey
+  dateFrom: string
+  dateTo: string
   sourceFilter: string
   categoryFilter: string
   kindFilter: KindFilterKey
   keyword: string
 }
 
+const DEFAULT_TIME_BOUNDS = timeFilterBounds("this_month")
 const DEFAULT_FILTERS: TxFilterForm = {
   timeFilter: "this_month",
+  dateFrom: DEFAULT_TIME_BOUNDS.from,
+  dateTo: DEFAULT_TIME_BOUNDS.to,
   sourceFilter: "all",
   categoryFilter: "all",
   kindFilter: "all",
@@ -66,6 +89,7 @@ const TIME_FILTERS: Array<{ key: TimeFilterKey; label: string }> = [
   { key: "last_90", label: "最近 90 天" },
   { key: "year", label: "今年" },
   { key: "all", label: "全部" },
+  { key: "custom", label: "自定义" },
 ]
 
 const KIND_FILTERS: Array<{ key: KindFilterKey; label: string }> = [
@@ -81,6 +105,8 @@ const parseAsTrimmedString = createParser({
 
 const IMPORTS_FILTER_PARSERS = {
   timeFilter: parseAsStringLiteral(TIME_FILTER_KEYS).withDefault(DEFAULT_FILTERS.timeFilter),
+  dateFrom: parseAsTrimmedString.withDefault(DEFAULT_FILTERS.dateFrom),
+  dateTo: parseAsTrimmedString.withDefault(DEFAULT_FILTERS.dateTo),
   sourceFilter: parseAsString.withDefault(DEFAULT_FILTERS.sourceFilter),
   categoryFilter: parseAsString.withDefault(DEFAULT_FILTERS.categoryFilter),
   kindFilter: parseAsStringLiteral(KIND_FILTER_KEYS).withDefault(DEFAULT_FILTERS.kindFilter),
@@ -89,6 +115,8 @@ const IMPORTS_FILTER_PARSERS = {
 
 const IMPORTS_FILTER_URL_KEYS = {
   timeFilter: "period",
+  dateFrom: "from",
+  dateTo: "to",
   sourceFilter: "source",
   categoryFilter: "category",
   kindFilter: "type",
@@ -116,16 +144,46 @@ function monthEnd(date: Date): string {
   return dateKey(new Date(date.getFullYear(), date.getMonth() + 1, 0))
 }
 
-function timeFilterBounds(key: TimeFilterKey, now = new Date()): { from?: string; to?: string } {
-  if (key === "this_month") return { from: monthStart(now), to: dateKey(now) }
+function timeFilterBounds(key: TimeFilterKey, now = new Date()): { from: string; to: string } {
+  if (key === "this_month") return { from: monthStart(now), to: monthEnd(now) }
   if (key === "last_month") {
     const previous = addMonths(now, -1)
     return { from: monthStart(previous), to: monthEnd(previous) }
   }
   if (key === "last_30") return { from: dateKey(addDays(now, -29)), to: dateKey(now) }
   if (key === "last_90") return { from: dateKey(addDays(now, -89)), to: dateKey(now) }
-  if (key === "year") return { from: `${now.getFullYear()}-01-01`, to: dateKey(now) }
-  return {}
+  if (key === "year")
+    return { from: `${now.getFullYear()}-01-01`, to: `${now.getFullYear()}-12-31` }
+  return { from: "", to: "" }
+}
+
+function dateKeyToUtc(value: string): Date {
+  return new Date(`${value}T00:00:00.000Z`)
+}
+
+function addDateKeyDays(value: string, days: number): string {
+  const next = dateKeyToUtc(value)
+  next.setUTCDate(next.getUTCDate() + days)
+  return next.toISOString().slice(0, 10)
+}
+
+function dateKeyDiff(from: string, to: string): number {
+  return Math.round((dateKeyToUtc(to).getTime() - dateKeyToUtc(from).getTime()) / 86400000)
+}
+
+function compactDateRange(
+  txs: Tx[],
+  dateFrom: string,
+  dateTo: string,
+  fallbackTo: string,
+): { from: string; to: string } {
+  if (dateFrom && dateTo)
+    return dateFrom <= dateTo ? { from: dateFrom, to: dateTo } : { from: dateTo, to: dateFrom }
+  if (dateFrom) return { from: dateFrom, to: fallbackTo }
+  if (dateTo) return { from: addDateKeyDays(dateTo, -29), to: dateTo }
+  const dates = txs.map((tx) => tx.date).sort((a, b) => a.localeCompare(b))
+  const to = dates[dates.length - 1] ?? fallbackTo
+  return { from: addDateKeyDays(to, -29), to }
 }
 
 function FilterSelectField({
@@ -170,6 +228,73 @@ function FilterSelectField({
         </Select>
       </FormField>
     </div>
+  )
+}
+
+type DateRangeValue = { start: DateValue; end: DateValue }
+
+function DateRangeFilter({
+  value,
+  onChange,
+}: {
+  value: { from: string; to: string }
+  onChange: (next: { from: string; to: string }) => void
+}) {
+  const rangeValue: DateRangeValue | null =
+    value.from && value.to ? { start: parseDate(value.from), end: parseDate(value.to) } : null
+
+  return (
+    <DateRangePicker
+      className="w-full"
+      value={rangeValue}
+      onChange={(next: DateRangeValue | null) => {
+        onChange({
+          from: next?.start.toString() ?? "",
+          to: next?.end.toString() ?? "",
+        })
+      }}
+    >
+      <DateField.Group
+        fullWidth
+        variant="secondary"
+        className="h-[30px] min-h-[30px] px-2 text-[11.5px]"
+      >
+        <DateField.Input slot="start">
+          {(segment) => <DateField.Segment segment={segment} />}
+        </DateField.Input>
+        <DateRangePicker.RangeSeparator className="px-1 text-[var(--ink-4)]">
+          至
+        </DateRangePicker.RangeSeparator>
+        <DateField.Input slot="end">
+          {(segment) => <DateField.Segment segment={segment} />}
+        </DateField.Input>
+        <DateField.Suffix>
+          <DateRangePicker.Trigger>
+            <DateRangePicker.TriggerIndicator />
+          </DateRangePicker.Trigger>
+        </DateField.Suffix>
+      </DateField.Group>
+      <DateRangePicker.Popover placement="bottom" style={{ maxWidth: "none" }}>
+        <RangeCalendar>
+          <RangeCalendar.Header>
+            <RangeCalendar.YearPickerTrigger>
+              <RangeCalendar.YearPickerTriggerHeading />
+              <RangeCalendar.YearPickerTriggerIndicator />
+            </RangeCalendar.YearPickerTrigger>
+            <RangeCalendar.NavButton slot="previous" />
+            <RangeCalendar.NavButton slot="next" />
+          </RangeCalendar.Header>
+          <RangeCalendar.Grid>
+            <RangeCalendar.GridHeader>
+              {(day) => <RangeCalendar.HeaderCell>{day}</RangeCalendar.HeaderCell>}
+            </RangeCalendar.GridHeader>
+            <RangeCalendar.GridBody>
+              {(date) => <RangeCalendar.Cell date={date} />}
+            </RangeCalendar.GridBody>
+          </RangeCalendar.Grid>
+        </RangeCalendar>
+      </DateRangePicker.Popover>
+    </DateRangePicker>
   )
 }
 
@@ -433,6 +558,8 @@ export function ImportsPage() {
     defaultValues: urlFilters,
   })
   const timeFilter = useWatch({ control, name: "timeFilter" }) ?? DEFAULT_FILTERS.timeFilter
+  const dateFrom = useWatch({ control, name: "dateFrom" }) ?? DEFAULT_FILTERS.dateFrom
+  const dateTo = useWatch({ control, name: "dateTo" }) ?? DEFAULT_FILTERS.dateTo
   const sourceFilter = useWatch({ control, name: "sourceFilter" }) ?? DEFAULT_FILTERS.sourceFilter
   const categoryFilter =
     useWatch({ control, name: "categoryFilter" }) ?? DEFAULT_FILTERS.categoryFilter
@@ -455,6 +582,8 @@ export function ImportsPage() {
   }, [
     reset,
     urlFilters.categoryFilter,
+    urlFilters.dateFrom,
+    urlFilters.dateTo,
     urlFilters.kindFilter,
     urlFilters.keyword,
     urlFilters.sourceFilter,
@@ -563,12 +692,11 @@ export function ImportsPage() {
     updateUrlFilters({ sourceFilter: "all" })
   }, [cashflowQuery.data, setValue, sourceFilter, sourceOptions, updateUrlFilters])
   const filteredTxs = useMemo(() => {
-    const bounds = timeFilterBounds(timeFilter, refDate)
     const term = normalizedKeyword.toLowerCase()
     const selectedCategories = categoryFilterSet(categoryFilter)
     return txs.filter((tx) => {
-      if (bounds.from && tx.date < bounds.from) return false
-      if (bounds.to && tx.date > bounds.to) return false
+      if (dateFrom && tx.date < dateFrom) return false
+      if (dateTo && tx.date > dateTo) return false
       if (sourceFilter !== "all" && tx.source !== sourceFilter) return false
       if (selectedCategories != null && !selectedCategories.has(String(tx.categoryId ?? ""))) {
         return false
@@ -590,7 +718,7 @@ export function ImportsPage() {
       }
       return true
     })
-  }, [categoryFilter, kindFilter, normalizedKeyword, refDate, sourceFilter, timeFilter, txs])
+  }, [categoryFilter, dateFrom, dateTo, kindFilter, normalizedKeyword, sourceFilter, txs])
   const rangeOut = filteredTxs
     .filter((t) => t.flowKind === "expense")
     .reduce((s, t) => s + t.amount, 0)
@@ -599,15 +727,44 @@ export function ImportsPage() {
     .reduce((s, t) => s + t.amount, 0)
   const rangeNet = rangeIn - rangeOut
 
-  const dailyBars = useMemo(() => {
-    const bars = new Array<number>(30).fill(0)
+  const dailyBuckets = useMemo(() => {
+    const { from, to } = compactDateRange(filteredTxs, dateFrom, dateTo, dateKey(refDate))
+    const totalDays = Math.max(1, dateKeyDiff(from, to) + 1)
+    const bucketCount = totalDays <= 31 ? totalDays : 30
+    const buckets = Array.from({ length: bucketCount }, (_, index) => {
+      const startOffset = Math.floor((index * totalDays) / bucketCount)
+      const endOffset = Math.max(
+        startOffset,
+        Math.floor(((index + 1) * totalDays) / bucketCount) - 1,
+      )
+      const bucketFrom = addDateKeyDays(from, startOffset)
+      const bucketTo = addDateKeyDays(from, endOffset)
+      return {
+        from: bucketFrom,
+        to: bucketTo,
+        amount: 0,
+        label:
+          bucketFrom === bucketTo
+            ? bucketTo.slice(5)
+            : `${bucketFrom.slice(5)} 至 ${bucketTo.slice(5)}`,
+      }
+    })
     for (const t of filteredTxs) {
       if (t.flowKind !== analysisKind) continue
-      const daysAgo = Math.round((refDate.getTime() - new Date(t.date).getTime()) / 86400000)
-      if (daysAgo >= 0 && daysAgo < 30) bars[29 - daysAgo] += t.amount
+      if (t.date < from || t.date > to) continue
+      const offset = dateKeyDiff(from, t.date)
+      const index = Math.max(
+        0,
+        Math.min(bucketCount - 1, Math.floor((offset / totalDays) * bucketCount)),
+      )
+      buckets[index].amount += t.amount
     }
-    return bars
-  }, [analysisKind, filteredTxs, refDate])
+    return buckets
+  }, [analysisKind, dateFrom, dateTo, filteredTxs, refDate])
+  const dailyBars = dailyBuckets.map((bucket) => bucket.amount)
+  const dailyBarLabels = dailyBuckets.map((bucket) => bucket.label)
+  const dailyAxisStart = dailyBuckets[0]?.from.slice(5) ?? "开始"
+  const dailyAxisEnd = dailyBuckets[dailyBuckets.length - 1]?.to.slice(5) ?? "结束"
 
   const flowBreakdown = useMemo(() => {
     const map = new Map<string, { name: string; amt: number; color: string }>()
@@ -637,6 +794,8 @@ export function ImportsPage() {
   const analysisCount = sorted.filter((t) => t.flowKind === analysisKind).length
   const hasFilters =
     timeFilter !== DEFAULT_FILTERS.timeFilter ||
+    dateFrom !== DEFAULT_FILTERS.dateFrom ||
+    dateTo !== DEFAULT_FILTERS.dateTo ||
     sourceFilter !== DEFAULT_FILTERS.sourceFilter ||
     categoryFilter !== DEFAULT_FILTERS.categoryFilter ||
     kindFilter !== DEFAULT_FILTERS.kindFilter ||
@@ -646,6 +805,14 @@ export function ImportsPage() {
     urlFiltersRef.current = DEFAULT_FILTERS
     reset(DEFAULT_FILTERS)
     void setUrlFilters(null)
+  }
+
+  function applyCustomDateRange(nextFrom: string, nextTo: string) {
+    setValue("timeFilter", "custom")
+    setValue("dateFrom", nextFrom)
+    setValue("dateTo", nextTo)
+    setSelectedTx(null)
+    updateUrlFilters({ timeFilter: "custom", dateFrom: nextFrom, dateTo: nextTo })
   }
 
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -808,10 +975,23 @@ export function ImportsPage() {
               </Link>
             </span>
           </div>
-          <DailyBars data={dailyBars} color={analysisColor} todayIndex={29} height={56} />
+          <DailyBars
+            data={dailyBars}
+            labels={dailyBarLabels}
+            color={analysisColor}
+            todayIndex={dailyBars.length - 1}
+            height={56}
+            onBarClick={(index) => {
+              const bucket = dailyBuckets[index]
+              if (!bucket) return
+              applyCustomDateRange(bucket.from, bucket.to)
+            }}
+          />
           <div style={{ display: "flex", justifyContent: "space-between", marginTop: 5 }}>
-            <Dim style={{ fontSize: 9.5 }}>30 天前</Dim>
-            <Dim style={{ fontSize: 9.5, color: "var(--accent)", fontWeight: 600 }}>今天</Dim>
+            <Dim style={{ fontSize: 9.5 }}>{dailyAxisStart}</Dim>
+            <Dim style={{ fontSize: 9.5, color: "var(--accent)", fontWeight: 600 }}>
+              {dailyAxisEnd}
+            </Dim>
           </div>
         </div>
       </div>
@@ -838,14 +1018,34 @@ export function ImportsPage() {
                     value={field.value}
                     onChange={(value) => {
                       const next = value as TimeFilterKey
+                      if (next === "custom") {
+                        field.onChange(next)
+                        updateUrlFilters({ timeFilter: next })
+                        return
+                      }
+                      const bounds = timeFilterBounds(next, refDate)
                       field.onChange(next)
-                      updateUrlFilters({ timeFilter: next })
+                      setValue("dateFrom", bounds.from)
+                      setValue("dateTo", bounds.to)
+                      updateUrlFilters({
+                        timeFilter: next,
+                        dateFrom: bounds.from,
+                        dateTo: bounds.to,
+                      })
                     }}
                     options={TIME_FILTERS}
                     className="w-[116px]"
                   />
                 )}
               />
+              <div className="w-[250px]">
+                <FormField label="日期范围" labelClassName={FILTER_LABEL_CLASS}>
+                  <DateRangeFilter
+                    value={{ from: dateFrom, to: dateTo }}
+                    onChange={(next) => applyCustomDateRange(next.from, next.to)}
+                  />
+                </FormField>
+              </div>
               <Controller
                 control={control}
                 name="sourceFilter"

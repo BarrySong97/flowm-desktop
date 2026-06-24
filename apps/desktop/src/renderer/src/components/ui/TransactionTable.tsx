@@ -7,8 +7,9 @@
 
 import { DataTable, DataTableRow, DataTableCell } from "./DataTable"
 import { ColorDot } from "./ColorDot"
-import { categoryColor } from "@/lib/domainDisplay"
+import { SOURCE_BADGES, categoryColor } from "@/lib/domainDisplay"
 import { useMoney } from "@/lib/useMoney"
+import { currencySymbol } from "@flowm/shared"
 
 interface TxRow {
   date: string
@@ -16,11 +17,32 @@ interface TxRow {
   counterparty?: string
   flowKind: string
   amount: string | number
+  currency?: string
   categoryName?: string
+  tag?: string
+  source?: string
 }
 
 interface Props {
   rows: TxRow[]
+}
+
+function SourceBadge({ source }: { source?: string }) {
+  const sourceName = source || "手动"
+  const badge = SOURCE_BADGES[sourceName]
+  return (
+    <span className="inline-flex items-center gap-1 whitespace-nowrap">
+      {badge && (
+        <span
+          className="inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[4px] text-[9.5px] font-bold text-white"
+          style={{ background: badge.bg }}
+        >
+          {badge.char}
+        </span>
+      )}
+      <span className="text-[11.5px] text-[var(--ink-3)]">{sourceName}</span>
+    </span>
+  )
 }
 
 export function TransactionTable({ rows }: Props) {
@@ -28,16 +50,20 @@ export function TransactionTable({ rows }: Props) {
   return (
     <DataTable
       columns={[
-        { label: "日期", width: 56 },
+        { label: "日期", width: 62 },
         { label: "项目" },
-        { label: "类别" },
-        { label: "金额", align: "right" },
+        { label: "类别", width: 80 },
+        { label: "标签", width: 72 },
+        { label: "来源", width: 108 },
+        { label: "金额", width: 96, align: "right" },
       ]}
     >
       {rows.map((t, i) => {
         const amt = Math.abs(Number(t.amount))
         const isIncome = t.flowKind === "income"
+        const isTransfer = t.flowKind === "transfer"
         const color = categoryColor(t.categoryName)
+        const symbol = currencySymbol(t.currency ?? "CNY")
         return (
           <DataTableRow key={i}>
             <DataTableCell className="font-['IBM_Plex_Mono'] text-[var(--ink-4)]">
@@ -50,11 +76,19 @@ export function TransactionTable({ rows }: Props) {
                 {t.categoryName ?? "其他"}
               </span>
             </DataTableCell>
+            <DataTableCell>
+              <span className="text-[11px] text-[var(--ink-4)]">{t.tag ? `#${t.tag}` : "—"}</span>
+            </DataTableCell>
+            <DataTableCell>
+              <SourceBadge source={t.source} />
+            </DataTableCell>
             <DataTableCell
               align="right"
-              className={`font-['IBM_Plex_Mono'] ${isIncome ? "text-[var(--green)]" : "text-[var(--red)]"}`}
+              className={`font-['IBM_Plex_Mono'] ${isIncome ? "text-[var(--green)]" : isTransfer ? "text-[var(--ink-3)]" : "text-[var(--red)]"}`}
             >
-              {isIncome ? "+" : "−"}¥{fmt(amt, 2)}
+              {isIncome ? "+" : isTransfer ? "" : "−"}
+              {symbol}
+              {fmt(amt, 2)}
             </DataTableCell>
           </DataTableRow>
         )
