@@ -1,6 +1,6 @@
 {
   "name": "@barrysongdev4real/flowm-cli",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Safe local Flowm ledger CLI for agents and developers.",
   "license": "UNLICENSED",
   "private": true,

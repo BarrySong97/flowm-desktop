@@ -19,10 +19,25 @@ export type ReleaseNote = {
 
 export const RELEASES: ReleaseNote[] = [
   {
+    version: "0.1.3",
+    date: "2026-06-28",
+    head: "新增移动端只读预览，并让流水分类汇总可以直接反向筛选流水表。",
+    badge: "latest",
+    groups: [
+      {
+        title: "移动端",
+        items: ["新增 Flutter 移动端只读壳", "内置演示账本并展示首页、流水、资产和未来计划视图"],
+      },
+      {
+        title: "流水",
+        items: ["点击分类圆环色块可同步切换左侧分类筛选", "点击分类汇总列表行也会进入对应分类筛选"],
+      },
+    ],
+  },
+  {
     version: "0.1.2",
     date: "2026-06-24",
     head: "强化首页和流水页的消费柱交互，并统一流水表格与日期筛选体验。",
-    badge: "latest",
     groups: [
       {
         title: "桌面应用",
