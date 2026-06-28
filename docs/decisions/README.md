@@ -19,3 +19,4 @@ Record durable architecture and product-model decisions here so agents do not re
 | 0003   | Desktop App Icon Assets                          | Accepted | 2026-06-16 |
 | 0004   | Agent Ledger Patches                             | Accepted | 2026-06-16 |
 | 0005   | Local CLI Commit Refresh Socket                  | Accepted | 2026-06-18 |
+| 0006   | Add Flutter Mobile App                           | Accepted | 2026-06-27 |

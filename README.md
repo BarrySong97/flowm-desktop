@@ -1,10 +1,13 @@
 # Flowm Desktop
 
-Flowm Desktop is the Electron + React implementation of Flowm.
+Flowm Desktop is the Electron + React implementation of Flowm. This workspace
+also carries the web site and a Flutter mobile app shell around the same Flowm
+product model.
 
 ## Architecture
 
-- Runtime shell: Electron, built with electron-vite
+- Desktop runtime shell: Electron, built with electron-vite
+- Mobile runtime shell: Flutter for Android/iOS
 - UI: React, TanStack Router, Zustand, Tailwind CSS, HeroUI, shadcn-style local primitives
 - Business layer: TypeScript packages under `packages/*`
 - Data: SQLite through Electron IPC
@@ -14,8 +17,12 @@ The workspace is organized as:
 ```text
 apps/
   desktop/   Electron main/preload process plus React renderer
+  mobile/    Flutter Android/iOS app shell
+  web/       Next.js marketing site
 packages/
   api/       Product facade used by the renderer
+  cli/       Ledger inspection and guarded agent patch CLI
+  config/    Shared TypeScript package configuration
   db/        Drizzle schema, migrations, and typed database handle
   shared/    Shared types and utilities
   ui/        Shared UI primitives and styles
@@ -42,6 +49,16 @@ pnpm check-docs
 pnpm test
 pnpm build
 pnpm package
+```
+
+Flutter mobile commands run from `apps/mobile`:
+
+```bash
+cd apps/mobile
+flutter pub get
+flutter run
+flutter analyze
+flutter test
 ```
 
 `pnpm test` runs Vitest through Electron's Node runtime after rebuilding native
