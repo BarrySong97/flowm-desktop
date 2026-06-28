@@ -95,6 +95,9 @@ Update `apps/desktop/src/preload/index.d.ts` whenever the preload contract chang
   objects, and values Tailwind cannot express cleanly.
 - Dashboard cashflow range selection is a renderer preference persisted in
   `localStorage`; it does not change the active ledger or database state.
+- The imports/cashflow page keeps its category breakdown interactive: clicking
+  a donut segment or the adjacent category row must update the left-side
+  category filter and URL-synced filter state.
 - Budget creation must work on an empty personal ledger by lazily creating the default budget set and current monthly period before inserting the first item.
 - Budget create/edit forms bind optional expense-category scopes through HeroUI
   multi-select controls. Leaving the selection empty means an overall expense

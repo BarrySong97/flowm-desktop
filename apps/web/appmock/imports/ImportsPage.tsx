@@ -72,6 +72,19 @@ const KIND_FILTERS: Array<{ key: KindFilterKey; label: string }> = [
 ]
 
 const FILTER_LABEL_CLASS = "mb-1 block text-[10.5px] leading-[1.2] text-[var(--ink-3)]"
+const UNCATEGORIZED_CATEGORY_FILTER = "__uncategorized__"
+
+type FlowBreakdownSegment = {
+  categoryFilterValue: string
+  name: string
+  amt: number
+  color: string
+}
+
+function categoryFilterIncludes(value: string, categoryFilterValue: string): boolean {
+  if (value === "all") return true
+  return value === categoryFilterValue
+}
 
 function addMonths(date: Date, months: number): Date {
   const next = new Date(date)
@@ -170,14 +183,18 @@ function SourceBadge({ source }: { source: string }) {
 
 function DonutChart({
   segments,
+  selectedCategoryFilter,
+  onSelectCategory,
   size = 140,
   thick = 28,
 }: {
-  segments: { name: string; amt: number; color: string }[]
+  segments: FlowBreakdownSegment[]
+  selectedCategoryFilter: string
+  onSelectCategory: (segment: FlowBreakdownSegment) => void
   size?: number
   thick?: number
 }) {
-  type Seg = { name: string; amt: number; color: string; frac: number; d: string }
+  type Seg = FlowBreakdownSegment & { frac: number; d: string }
   const fmt = useMoney()
   const [tooltip, setTooltip] = useState<{ x: number; y: number; seg: Seg } | null>(null)
   const total = segments.reduce((s, x) => s + x.amt, 0)
@@ -215,7 +232,22 @@ function DonutChart({
             key={i}
             d={p.d}
             fill={p.color}
-            style={{ cursor: "pointer", transition: "opacity 0.1s" }}
+            role="button"
+            tabIndex={0}
+            aria-label={`筛选${p.name}`}
+            style={{
+              cursor: "pointer",
+              opacity: categoryFilterIncludes(selectedCategoryFilter, p.categoryFilterValue)
+                ? 1
+                : 0.45,
+              transition: "opacity 0.1s",
+            }}
+            onClick={() => onSelectCategory(p)}
+            onKeyDown={(event) => {
+              if (event.key !== "Enter" && event.key !== " ") return
+              event.preventDefault()
+              onSelectCategory(p)
+            }}
             onMouseEnter={(e) => {
               const rect = e.currentTarget.closest("svg")!.getBoundingClientRect()
               setTooltip({ x: e.clientX - rect.left, y: e.clientY - rect.top, seg: p })
@@ -471,16 +503,20 @@ export function ImportsPage() {
         .sort((a, b) => a.displayOrder - b.displayOrder || a.name.localeCompare(b.name)),
     [analysisKind, categoriesQuery.data],
   )
-  const categoryFilterOptions = useMemo(
-    () => [
+  const categoryFilterOptions = useMemo(() => {
+    const options = [
       { key: "all", label: "全部分类" },
       ...categoryOptions.map((category) => ({ key: String(category.id), label: category.name })),
-    ],
-    [categoryOptions],
-  )
+    ]
+    if (categoryFilter === UNCATEGORIZED_CATEGORY_FILTER) {
+      options.push({ key: UNCATEGORIZED_CATEGORY_FILTER, label: "未分类" })
+    }
+    return options
+  }, [categoryFilter, categoryOptions])
   useEffect(() => {
     if (categoriesQuery.data == null) return
     if (categoryFilter === "all") return
+    if (categoryFilter === UNCATEGORIZED_CATEGORY_FILTER) return
     if (categoryOptions.some((category) => String(category.id) === categoryFilter)) return
     updateFilters({ categoryFilter: "all" })
   }, [categoriesQuery.data, categoryFilter, categoryOptions])
@@ -497,7 +533,11 @@ export function ImportsPage() {
       if (bounds.from && tx.date < bounds.from) return false
       if (bounds.to && tx.date > bounds.to) return false
       if (sourceFilter !== "all" && tx.source !== sourceFilter) return false
-      if (categoryFilter !== "all" && String(tx.categoryId ?? "") !== categoryFilter) return false
+      if (categoryFilter === UNCATEGORIZED_CATEGORY_FILTER) {
+        if (tx.categoryId != null) return false
+      } else if (categoryFilter !== "all" && String(tx.categoryId ?? "") !== categoryFilter) {
+        return false
+      }
       if (kindFilter !== "all" && tx.flowKind !== kindFilter) return false
       if (term) {
         const haystack = [
@@ -525,7 +565,7 @@ export function ImportsPage() {
   const rangeNet = rangeIn - rangeOut
 
   const dailyBars = useMemo(() => {
-    const bars = new Array<number>(30).fill(0)
+    const bars = Array.from({ length: 30 }, () => 0)
     for (const t of filteredTxs) {
       if (t.flowKind !== analysisKind) continue
       const daysAgo = Math.round((refDate.getTime() - new Date(t.date).getTime()) / 86400000)
@@ -535,13 +575,16 @@ export function ImportsPage() {
   }, [analysisKind, filteredTxs, refDate])
 
   const flowBreakdown = useMemo(() => {
-    const map = new Map<string, { name: string; amt: number; color: string }>()
+    const map = new Map<string, FlowBreakdownSegment>()
     for (const t of filteredTxs) {
       if (t.flowKind !== analysisKind) continue
+      const categoryFilterValue =
+        t.categoryId == null ? UNCATEGORIZED_CATEGORY_FILTER : String(t.categoryId)
       const key = t.categoryId == null ? `uncategorized:${analysisKind}` : String(t.categoryId)
       const category = t.categoryId == null ? null : categoryById.get(String(t.categoryId))
       const current = map.get(key)
       map.set(key, {
+        categoryFilterValue,
         name: category?.name ?? t.categoryName,
         amt: (current?.amt ?? 0) + t.amount,
         color:
@@ -569,6 +612,11 @@ export function ImportsPage() {
 
   function resetFilters() {
     setFilters(DEFAULT_FILTERS)
+  }
+
+  function applyCategoryBreakdownFilter(segment: FlowBreakdownSegment) {
+    updateFilters({ categoryFilter: segment.categoryFilterValue })
+    setSelectedTx(null)
   }
 
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -951,7 +999,13 @@ export function ImportsPage() {
               </div>
               <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
                 <div style={{ position: "relative", width: 240, height: 240 }}>
-                  <DonutChart segments={flowBreakdown} size={240} thick={42} />
+                  <DonutChart
+                    segments={flowBreakdown}
+                    selectedCategoryFilter={categoryFilter}
+                    onSelectCategory={applyCategoryBreakdownFilter}
+                    size={240}
+                    thick={42}
+                  />
                   <div
                     style={{
                       position: "absolute",
@@ -982,27 +1036,58 @@ export function ImportsPage() {
                 </div>
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                {flowBreakdown.map((c) => (
-                  <div key={c.name} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <ColorDot color={c.color} size={7} />
-                    <span style={{ fontSize: 12, color: "var(--ink-2)", flex: 1 }}>{c.name}</span>
-                    <span
+                {flowBreakdown.map((c) => {
+                  const isActive = categoryFilterIncludes(categoryFilter, c.categoryFilterValue)
+                  return (
+                    <button
+                      key={c.categoryFilterValue}
+                      type="button"
+                      aria-label={`筛选${c.name}`}
+                      onClick={() => applyCategoryBreakdownFilter(c)}
                       style={{
-                        fontFamily: "IBM Plex Mono, monospace",
-                        fontSize: 11.5,
-                        color: "var(--ink-3)",
-                        paddingRight: 4,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                        width: "100%",
+                        appearance: "none",
+                        border: 0,
+                        borderRadius: 6,
+                        background:
+                          categoryFilter === c.categoryFilterValue ? "var(--surface-2)" : "none",
+                        padding: "3px 4px",
+                        color: "inherit",
+                        cursor: "pointer",
+                        font: "inherit",
+                        opacity: isActive ? 1 : 0.55,
+                        textAlign: "left",
+                        transition: "background 0.1s, opacity 0.1s",
                       }}
                     >
-                      ¥{fmt(c.amt)}
-                    </span>
-                    <span
-                      style={{ fontSize: 11, color: "var(--ink-4)", width: 26, textAlign: "right" }}
-                    >
-                      {analysisTotal > 0 ? Math.round((c.amt / analysisTotal) * 100) : 0}%
-                    </span>
-                  </div>
-                ))}
+                      <ColorDot color={c.color} size={7} />
+                      <span style={{ fontSize: 12, color: "var(--ink-2)", flex: 1 }}>{c.name}</span>
+                      <span
+                        style={{
+                          fontFamily: "IBM Plex Mono, monospace",
+                          fontSize: 11.5,
+                          color: "var(--ink-3)",
+                          paddingRight: 4,
+                        }}
+                      >
+                        ¥{fmt(c.amt)}
+                      </span>
+                      <span
+                        style={{
+                          fontSize: 11,
+                          color: "var(--ink-4)",
+                          width: 26,
+                          textAlign: "right",
+                        }}
+                      >
+                        {analysisTotal > 0 ? Math.round((c.amt / analysisTotal) * 100) : 0}%
+                      </span>
+                    </button>
+                  )
+                })}
               </div>
             </div>
           )}
