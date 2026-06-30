@@ -57,6 +57,8 @@ npx -y @barrysongdev4real/flowm-cli list-categories
 npx -y @barrysongdev4real/flowm-cli list-cashflow --limit 50
 npx -y @barrysongdev4real/flowm-cli list-assets --active-only
 npx -y @barrysongdev4real/flowm-cli list-asset-snapshots --latest-only
+npx -y @barrysongdev4real/flowm-cli list-budget-periods --status active
+npx -y @barrysongdev4real/flowm-cli list-budget-items --budget-period-id <budget-period-id>
 npx -y @barrysongdev4real/flowm-cli net-worth --currency CNY
 \`\`\`
 
@@ -144,6 +146,31 @@ npx -y @barrysongdev4real/flowm-cli create-asset --name "招商银行储蓄卡" 
 
 \`\`\`bash
 npx -y @barrysongdev4real/flowm-cli add-asset-snapshot --asset-id <asset-id> --value 12888.32 --currency CNY --at 2026-06-23T10:00:00.000Z --commit
+\`\`\`
+
+## 写入预算
+
+预算是计划边界，只用过去已发生的支出流水计算进度。不要为了预算自动生成真实支出。
+
+先查当前预算周期：
+
+\`\`\`bash
+npx -y @barrysongdev4real/flowm-cli list-budget-sets
+npx -y @barrysongdev4real/flowm-cli list-budget-periods --status active
+\`\`\`
+
+如果没有当前周期，先创建预算集合和周期。写入前先 dry-run，确认后再加 \`--commit\`：
+
+\`\`\`bash
+npx -y @barrysongdev4real/flowm-cli create-budget-set --name "月度预算" --commit
+npx -y @barrysongdev4real/flowm-cli create-budget-period --budget-set-id <budget-set-id> --kind monthly --start 2026-06-01 --end 2026-06-30 --currency CNY --commit
+\`\`\`
+
+创建预算项时可以绑定一个或多个支出分类；不绑定分类表示整体支出预算：
+
+\`\`\`bash
+npx -y @barrysongdev4real/flowm-cli create-budget-item --budget-period-id <budget-period-id> --name "餐饮预算" --amount 2500 --currency CNY --category-id <category-id> --dry-run
+npx -y @barrysongdev4real/flowm-cli budget-progress --budget-period-id <budget-period-id>
 \`\`\`
 
 ## 推荐工作流

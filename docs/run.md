@@ -5,6 +5,8 @@
 - Runtime: Node.js compatible with the workspace `pnpm` lockfile.
 - Package manager: `pnpm@10.12.1`.
 - Desktop runtime: Electron with native `better-sqlite3`.
+- Mobile runtime: Flutter stable. The initial `apps/mobile` shell was generated
+  with Flutter 3.41.4 and Dart 3.11.1.
 - Data location: `~/Library/Application Support/com.flowm.desktop/flowm.sqlite3`.
 
 ## Install
@@ -30,6 +32,22 @@ On macOS, the desktop package dev script first prepares
 `Electron.app` and launches it through `ELECTRON_EXEC_PATH`. This keeps the
 Dock, app menu, and process name aligned with the production app while still
 using electron-vite's development server.
+
+## Start Mobile App
+
+Flutter commands run directly inside the mobile app directory rather than
+through pnpm or Turbo:
+
+```bash
+cd apps/mobile
+flutter pub get
+flutter run
+```
+
+The initial mobile shell targets Android and iOS. It is not wired to the
+Electron IPC or the user's live Desktop data directory. For development, it
+copies the bundled Desktop demo SQLite fixture into the simulator/device app
+sandbox and reads it through Drift with a read-only SQLite connection.
 
 ## Build
 
@@ -110,6 +128,15 @@ Avoid plain `vitest run` unless you intentionally want to recompile native depen
 pnpm rebuild:electron
 ```
 
+Mobile app checks:
+
+```bash
+cd apps/mobile
+flutter analyze
+flutter test
+dart run build_runner build --delete-conflicting-outputs
+```
+
 ## Demo Data
 
 ```bash
@@ -122,6 +149,8 @@ This delegates to the desktop package demo seed script.
 
 ```bash
 pnpm flowm-cli ledger-info
+pnpm flowm-cli list-budget-periods --status active
+pnpm flowm-cli budget-progress --budget-period-id <id>
 pnpm flowm-cli apply-patch patch.json --dry-run
 ```
 

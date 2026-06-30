@@ -10,6 +10,9 @@ for agents is `pnpm --silent flowm-cli apply-patch`; internally it calls
 pnpm --silent flowm-cli ledger-info
 pnpm --silent flowm-cli list-categories
 pnpm --silent flowm-cli list-assets
+pnpm --silent flowm-cli list-budget-periods --status active
+pnpm --silent flowm-cli list-budget-items --budget-period-id <budget-period-id>
+pnpm --silent flowm-cli budget-progress --budget-period-id <budget-period-id>
 pnpm --silent flowm-cli list-cashflow --source wechat-pay --limit 20
 pnpm --silent flowm-cli apply-patch patch.json --dry-run
 pnpm --silent flowm-cli apply-patch patch.json --commit
@@ -17,6 +20,8 @@ pnpm --silent flowm-cli apply-patch patch.json --commit
 
 Use `--db /path/to/ledger.sqlite3` for temporary ledgers or explicit targets.
 Use `-` as the patch path to read JSON from stdin.
+Budget set, period, and item writes are separate CLI commands. They also default
+to dry-run and require `--commit`; they are not part of `apply-patch`.
 
 ## Current Operations
 

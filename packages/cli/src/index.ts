@@ -18,7 +18,13 @@ import {
   createFlowmApi,
   type AddAssetSnapshotInput,
   type AgentLedgerPatchInput,
+  type BindCashflowInput,
+  type BudgetScopeInput,
+  type CashflowLinkOwnerType,
   type CreateAssetItemInput,
+  type CreateBudgetItemInput,
+  type CreateBudgetPeriodInput,
+  type UpdateBudgetItemInput,
   type FlowmApi,
   type FlowmId,
   type ListAssetItemsInput,
@@ -182,6 +188,18 @@ function parsePositiveInteger(value: string): number {
   return parsed
 }
 
+function collectText(value: string, previous: string[]): string[] {
+  previous.push(value)
+  return previous
+}
+
+function parseOwnerType(value: string): CashflowLinkOwnerType {
+  if (value !== "subscription" && value !== "loan") {
+    throw new InvalidArgumentError("owner type must be 'subscription' or 'loan'")
+  }
+  return value
+}
+
 function optionalText(value: string | undefined): string | null | undefined {
   if (value === undefined) return undefined
   const trimmed = value.trim()
@@ -201,6 +219,38 @@ function removeUndefined<T extends Record<string, unknown>>(input: T): Partial<T
   return Object.fromEntries(
     Object.entries(input).filter(([, value]) => value !== undefined),
   ) as Partial<T>
+}
+
+function parseBudgetScope(value: string): BudgetScopeInput {
+  const separatorIndex = value.search(/[:=]/)
+  const rawKind = separatorIndex === -1 ? value : value.slice(0, separatorIndex)
+  const rawValue = separatorIndex === -1 ? undefined : value.slice(separatorIndex + 1)
+  const scopeKind = rawKind.trim() as BudgetScopeInput["scopeKind"]
+  if (!scopeKind) {
+    throw new InvalidArgumentError("scope kind is required")
+  }
+  return {
+    scopeKind,
+    scopeValue: optionalText(rawValue),
+  }
+}
+
+function buildBudgetScopes(input: {
+  categoryIds?: string[]
+  scopeInputs?: string[]
+  allConsumption?: boolean
+}): BudgetScopeInput[] | undefined {
+  const scopes: BudgetScopeInput[] = []
+  for (const categoryId of input.categoryIds ?? []) {
+    scopes.push({ scopeKind: "category", scopeValue: categoryId })
+  }
+  for (const scope of input.scopeInputs ?? []) {
+    scopes.push(parseBudgetScope(scope))
+  }
+  if (input.allConsumption) {
+    scopes.push({ scopeKind: "all_consumption" })
+  }
+  return scopes.length > 0 ? scopes : undefined
 }
 
 function addCommitOption(command: Command): Command {
@@ -277,6 +327,11 @@ async function findAssetSnapshot(api: FlowmApi, id: FlowmId) {
   return snapshots.find((snapshot) => String(snapshot.id) === String(id)) ?? null
 }
 
+async function findBudgetItem(api: FlowmApi, id: FlowmId) {
+  const items = unwrap(await api.listBudgetItems())
+  return items.find((item) => String(item.id) === String(id)) ?? null
+}
+
 function makeProgram(): Command {
   const program = new Command()
 
@@ -309,6 +364,8 @@ function makeProgram(): Command {
         const assets = unwrap(await api.listAssetItems({ includeArchived: true }))
         const subscriptions = unwrap(await api.listSubscriptions())
         const loans = unwrap(await api.listLoans())
+        const budgetSets = unwrap(await api.listBudgetSets())
+        const budgetPeriods = unwrap(await api.listBudgetPeriods())
         printJson({
           dbPath: resolved.dbPath,
           exists: true,
@@ -320,6 +377,8 @@ function makeProgram(): Command {
             assets: assets.length,
             subscriptions: subscriptions.length,
             loans: loans.length,
+            budgetSets: budgetSets.length,
+            budgetPeriods: budgetPeriods.length,
           },
         })
       })
@@ -711,6 +770,289 @@ function makeProgram(): Command {
     )
 
   program
+    .command("list-budget-sets")
+    .description("List budget sets")
+    .action(async () => {
+      const { dbPath } = resolveLedgerPath(program.opts<GlobalOptions>())
+      await withLedger(dbPath, async ({ api }) => {
+        printJson({ budgetSets: unwrap(await api.listBudgetSets()) })
+      })
+    })
+
+  addCommitOption(
+    program
+      .command("create-budget-set")
+      .description("Create a budget set, defaulting to dry-run")
+      .requiredOption("--name <name>", "Budget set name"),
+  ).action(async (options: { name: string; commit?: boolean }) => {
+    const resolved = resolveLedgerPath(program.opts<GlobalOptions>())
+    const { dbPath } = resolved
+    const input = { name: options.name.trim() }
+    if (!shouldCommit(options)) {
+      printDryRun(dbPath, "create-budget-set", input)
+      return
+    }
+    await withLedger(dbPath, async ({ api }) => {
+      printJson({ dbPath, budgetSet: unwrap(await api.createBudgetSet(input)) })
+    })
+    await notifyLedgerChanged(resolved, "create-budget-set")
+  })
+
+  program
+    .command("list-budget-periods")
+    .description("List budget periods")
+    .option("--budget-set-id <id>", "Budget set id")
+    .option("--status <status>", "Filter by status")
+    .action(async (options: { budgetSetId?: string; status?: string }) => {
+      const { dbPath } = resolveLedgerPath(program.opts<GlobalOptions>())
+      await withLedger(dbPath, async ({ api }) => {
+        printJson({
+          budgetPeriods: unwrap(
+            await api.listBudgetPeriods({
+              budgetSetId: options.budgetSetId,
+              status: options.status,
+            }),
+          ),
+        })
+      })
+    })
+
+  addCommitOption(
+    program
+      .command("create-budget-period")
+      .description("Create a budget period, defaulting to dry-run")
+      .requiredOption("--budget-set-id <id>", "Budget set id")
+      .requiredOption("--start <date>", "Period start date")
+      .requiredOption("--end <date>", "Period end date")
+      .option("--kind <kind>", "Period kind", "monthly")
+      .option("--currency <code>", "Period currency"),
+  ).action(
+    async (options: {
+      budgetSetId: string
+      start: string
+      end: string
+      kind: CreateBudgetPeriodInput["periodKind"]
+      currency?: string
+      commit?: boolean
+    }) => {
+      const resolved = resolveLedgerPath(program.opts<GlobalOptions>())
+      const { dbPath } = resolved
+      const input = removeUndefined({
+        budgetSetId: options.budgetSetId,
+        periodKind: options.kind,
+        periodStart: options.start,
+        periodEnd: options.end,
+        currency: options.currency,
+      }) as CreateBudgetPeriodInput
+      await withLedger(dbPath, async ({ api }) => {
+        const sets = unwrap(await api.listBudgetSets())
+        const budgetSet = sets.find((set) => String(set.id) === String(options.budgetSetId))
+        if (!budgetSet) throw new Error(`Budget set not found: ${options.budgetSetId}`)
+        if (!shouldCommit(options)) {
+          printJson({
+            dbPath,
+            dryRun: true,
+            operation: "create-budget-period",
+            budgetSet,
+            wouldWrite: input,
+          })
+          return
+        }
+        printJson({ dbPath, budgetPeriod: unwrap(await api.createBudgetPeriod(input)) })
+      })
+      if (shouldCommit(options)) {
+        await notifyLedgerChanged(resolved, "create-budget-period")
+      }
+    },
+  )
+
+  program
+    .command("list-budget-items")
+    .description("List budget items")
+    .option("--budget-period-id <id>", "Budget period id")
+    .action(async (options: { budgetPeriodId?: string }) => {
+      const { dbPath } = resolveLedgerPath(program.opts<GlobalOptions>())
+      await withLedger(dbPath, async ({ api }) => {
+        printJson({
+          budgetItems: unwrap(
+            await api.listBudgetItems({ budgetPeriodId: options.budgetPeriodId }),
+          ),
+        })
+      })
+    })
+
+  addCommitOption(
+    program
+      .command("create-budget-item")
+      .description("Create a budget item, defaulting to dry-run")
+      .requiredOption("--budget-period-id <id>", "Budget period id")
+      .requiredOption("--name <name>", "Budget item name")
+      .requiredOption("--amount <amount>", "Planned amount")
+      .option("--currency <code>", "Budget item currency")
+      .option("--kind <kind>", "Budget item kind")
+      .option("--color <color>", "Display color")
+      .option("--category-id <id>", "Bind to an expense category, repeatable", collectText, [])
+      .option("--scope <kind:value>", "Bind to a scope, repeatable", collectText, [])
+      .option("--all-consumption", "Bind to all expense cashflow"),
+  ).action(
+    async (options: {
+      budgetPeriodId: string
+      name: string
+      amount: string
+      currency?: string
+      kind?: CreateBudgetItemInput["itemKind"]
+      color?: string
+      categoryId?: string[]
+      scope?: string[]
+      allConsumption?: boolean
+      commit?: boolean
+    }) => {
+      const resolved = resolveLedgerPath(program.opts<GlobalOptions>())
+      const { dbPath } = resolved
+      const input = removeUndefined({
+        budgetPeriodId: options.budgetPeriodId,
+        name: options.name.trim(),
+        itemKind: options.kind,
+        plannedAmount: options.amount,
+        currency: options.currency,
+        color: optionalText(options.color),
+        scopes: buildBudgetScopes({
+          categoryIds: options.categoryId,
+          scopeInputs: options.scope,
+          allConsumption: options.allConsumption,
+        }),
+      }) as CreateBudgetItemInput
+      await withLedger(dbPath, async ({ api }) => {
+        const periods = unwrap(await api.listBudgetPeriods())
+        const period = periods.find((row) => String(row.id) === String(options.budgetPeriodId))
+        if (!period) throw new Error(`Budget period not found: ${options.budgetPeriodId}`)
+        if (!shouldCommit(options)) {
+          printJson({
+            dbPath,
+            dryRun: true,
+            operation: "create-budget-item",
+            budgetPeriod: period,
+            wouldWrite: input,
+          })
+          return
+        }
+        printJson({ dbPath, budgetItem: unwrap(await api.createBudgetItem(input)) })
+      })
+      if (shouldCommit(options)) {
+        await notifyLedgerChanged(resolved, "create-budget-item")
+      }
+    },
+  )
+
+  addCommitOption(
+    program
+      .command("update-budget-item")
+      .description("Update a budget item, defaulting to dry-run")
+      .argument("<id>", "Budget item id")
+      .option("--name <name>", "Budget item name")
+      .option("--amount <amount>", "Planned amount")
+      .option("--currency <code>", "Budget item currency")
+      .option("--color <color>", "Display color")
+      .option(
+        "--category-id <id>",
+        "Replace scopes with this category, repeatable",
+        collectText,
+        [],
+      )
+      .option("--scope <kind:value>", "Replace scopes with this scope, repeatable", collectText, [])
+      .option("--all-consumption", "Replace scopes with all expense cashflow")
+      .option("--clear-scopes", "Replace scopes with no explicit scopes"),
+  ).action(
+    async (
+      id: string,
+      options: {
+        name?: string
+        amount?: string
+        currency?: string
+        color?: string
+        categoryId?: string[]
+        scope?: string[]
+        allConsumption?: boolean
+        clearScopes?: boolean
+        commit?: boolean
+      },
+    ) => {
+      const resolved = resolveLedgerPath(program.opts<GlobalOptions>())
+      const { dbPath } = resolved
+      const parsedScopes = buildBudgetScopes({
+        categoryIds: options.categoryId,
+        scopeInputs: options.scope,
+        allConsumption: options.allConsumption,
+      })
+      const shouldReplaceScopes = options.clearScopes || parsedScopes !== undefined
+      const input = removeUndefined({
+        id,
+        name: options.name?.trim(),
+        plannedAmount: options.amount,
+        currency: options.currency,
+        color: optionalText(options.color),
+        scopes: shouldReplaceScopes ? (parsedScopes ?? []) : undefined,
+      }) as UpdateBudgetItemInput
+      await withLedger(dbPath, async ({ api }) => {
+        const current = await findBudgetItem(api, id)
+        if (!current) throw new Error(`Budget item not found: ${id}`)
+        if (!shouldCommit(options)) {
+          printJson({
+            dbPath,
+            dryRun: true,
+            operation: "update-budget-item",
+            current,
+            wouldWrite: input,
+          })
+          return
+        }
+        printJson({ dbPath, budgetItem: unwrap(await api.updateBudgetItem(input)) })
+      })
+      if (shouldCommit(options)) {
+        await notifyLedgerChanged(resolved, "update-budget-item")
+      }
+    },
+  )
+
+  addCommitOption(
+    program
+      .command("archive-budget-item")
+      .description("Archive a budget item, defaulting to dry-run")
+      .argument("<id>", "Budget item id"),
+  ).action(async (id: string, options: { commit?: boolean }) => {
+    const resolved = resolveLedgerPath(program.opts<GlobalOptions>())
+    const { dbPath } = resolved
+    await withLedger(dbPath, async ({ api }) => {
+      const current = await findBudgetItem(api, id)
+      if (!current) throw new Error(`Budget item not found: ${id}`)
+      if (!shouldCommit(options)) {
+        printJson({ dbPath, dryRun: true, operation: "archive-budget-item", current })
+        return
+      }
+      unwrap(await api.archiveBudgetItem({ id }))
+      printJson({ dbPath, archived: true, budgetItemId: id })
+    })
+    if (shouldCommit(options)) {
+      await notifyLedgerChanged(resolved, "archive-budget-item")
+    }
+  })
+
+  program
+    .command("budget-progress")
+    .description("Show budget progress for one budget period")
+    .requiredOption("--budget-period-id <id>", "Budget period id")
+    .action(async (options: { budgetPeriodId: string }) => {
+      const { dbPath } = resolveLedgerPath(program.opts<GlobalOptions>())
+      await withLedger(dbPath, async ({ api }) => {
+        printJson({
+          progress: unwrap(
+            await api.getBudgetReferenceProgress({ budgetPeriodId: options.budgetPeriodId }),
+          ),
+        })
+      })
+    })
+
+  program
     .command("list-cashflow")
     .description("List cashflow events, optionally filtered by import source")
     .option("--source <name>", "Import source name")
@@ -730,6 +1072,82 @@ function makeProgram(): Command {
         })
       })
     })
+
+  program
+    .command("list-linked-cashflow")
+    .description("List cashflow events bound to a subscription or loan as its deductions")
+    .requiredOption("--owner-type <type>", "Owner type: subscription or loan", parseOwnerType)
+    .requiredOption("--owner-id <id>", "Subscription or loan id")
+    .action(async (options: { ownerType: CashflowLinkOwnerType; ownerId: string }) => {
+      const { dbPath } = resolveLedgerPath(program.opts<GlobalOptions>())
+      await withLedger(dbPath, async ({ api }) => {
+        printJson({
+          linked: unwrap(
+            await api.listLinkedCashflowEvents({
+              ownerType: options.ownerType,
+              ownerId: options.ownerId,
+            }),
+          ),
+        })
+      })
+    })
+
+  addCommitOption(
+    program
+      .command("bind-cashflow")
+      .description("Bind cashflow events to a subscription or loan, defaulting to dry-run")
+      .requiredOption("--owner-type <type>", "Owner type: subscription or loan", parseOwnerType)
+      .requiredOption("--owner-id <id>", "Subscription or loan id")
+      .option("--event-id <id>", "Cashflow event id to bind, repeatable", collectText, [])
+      .option("--note <text>", "Optional note stored on each link"),
+  ).action(
+    async (options: {
+      ownerType: CashflowLinkOwnerType
+      ownerId: string
+      eventId: string[]
+      note?: string
+      commit?: boolean
+    }) => {
+      const resolved = resolveLedgerPath(program.opts<GlobalOptions>())
+      const { dbPath } = resolved
+      if (options.eventId.length === 0) {
+        throw new InvalidArgumentError("at least one --event-id is required")
+      }
+      const input = removeUndefined({
+        ownerType: options.ownerType,
+        ownerId: options.ownerId,
+        eventIds: options.eventId,
+        note: optionalText(options.note),
+      }) as BindCashflowInput
+      if (!shouldCommit(options)) {
+        printDryRun(dbPath, "bind-cashflow", input)
+        return
+      }
+      await withLedger(dbPath, async ({ api }) => {
+        printJson({ dbPath, bound: unwrap(await api.bindCashflowEvents(input)) })
+      })
+      await notifyLedgerChanged(resolved, "bind-cashflow")
+    },
+  )
+
+  addCommitOption(
+    program
+      .command("unbind-cashflow")
+      .description("Remove a cashflow binding by link id, defaulting to dry-run")
+      .argument("<link-id>", "Object link id from list-linked-cashflow"),
+  ).action(async (linkId: string, options: { commit?: boolean }) => {
+    const resolved = resolveLedgerPath(program.opts<GlobalOptions>())
+    const { dbPath } = resolved
+    if (!shouldCommit(options)) {
+      printDryRun(dbPath, "unbind-cashflow", { linkId })
+      return
+    }
+    await withLedger(dbPath, async ({ api }) => {
+      unwrap(await api.unbindCashflowEvent({ linkId }))
+      printJson({ dbPath, unbound: { linkId } })
+    })
+    await notifyLedgerChanged(resolved, "unbind-cashflow")
+  })
 
   program
     .command("apply-patch")

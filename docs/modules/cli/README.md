@@ -58,7 +58,19 @@ be executed as `npx @barrysongdev4real/flowm-cli ...` or through the installed
 - `pnpm flowm-cli delete-asset-snapshot <id> [--commit] [--db path]`
 - `pnpm flowm-cli net-worth [--currency code] [--db path]`
 - `pnpm flowm-cli asset-change <asset-id> [--comparison previous|30d|90d|1y] [--db path]`
+- `pnpm flowm-cli list-budget-sets [--db path]`
+- `pnpm flowm-cli create-budget-set --name name [--commit] [--db path]`
+- `pnpm flowm-cli list-budget-periods [--budget-set-id id] [--status status] [--db path]`
+- `pnpm flowm-cli create-budget-period --budget-set-id id --start date --end date [--kind monthly|weekly|yearly|custom] [--commit] [--db path]`
+- `pnpm flowm-cli list-budget-items [--budget-period-id id] [--db path]`
+- `pnpm flowm-cli create-budget-item --budget-period-id id --name name --amount amount [--category-id id] [--commit] [--db path]`
+- `pnpm flowm-cli update-budget-item <id> [fields...] [--category-id id] [--clear-scopes] [--commit] [--db path]`
+- `pnpm flowm-cli archive-budget-item <id> [--commit] [--db path]`
+- `pnpm flowm-cli budget-progress --budget-period-id id [--db path]`
 - `pnpm flowm-cli list-cashflow [--db path] [--source name] [--source-external-id id] [--limit n]`
+- `pnpm flowm-cli list-linked-cashflow --owner-type subscription|loan --owner-id id [--db path]`
+- `pnpm flowm-cli bind-cashflow --owner-type subscription|loan --owner-id id --event-id id [--event-id id...] [--note text] [--commit] [--db path]`
+- `pnpm flowm-cli unbind-cashflow <link-id> [--commit] [--db path]`
 - `pnpm flowm-cli apply-patch <patch.json|-> [--db path] [--dry-run|--commit]`
 
 The `apply-patch` command defaults to `--dry-run`. It writes only when callers
@@ -67,6 +79,19 @@ pass `--commit`.
 Asset write commands also default to dry-run and write only when callers pass
 `--commit`. Asset item deletion is intentionally exposed as archive, while
 asset snapshot deletion removes a single present-state snapshot record.
+
+Budget write commands also default to dry-run and write only when callers pass
+`--commit`. Budget scopes can be bound with repeatable `--category-id` flags or
+lower-level repeatable `--scope kind:value` flags. `budget-progress` summarizes
+past active expense cashflow inside the selected period; it does not materialize
+planned spend or future obligations.
+
+Cashflow-binding commands record which real cashflow events back a subscription
+or loan as its deductions, stored as `object_links`. `bind-cashflow` accepts
+repeatable `--event-id` and is idempotent (existing links are skipped);
+`unbind-cashflow` removes one link by id. Both default to dry-run and write only
+with `--commit`. Bindings are explanatory only and never change the forecast plan
+or its statistics.
 
 After a successful `--commit`, the CLI sends a best-effort local
 `ledger.changed` event to the desktop app's IPC socket. If the app is closed, or
