@@ -19,10 +19,32 @@ export type ReleaseNote = {
 
 export const RELEASES: ReleaseNote[] = [
   {
+    version: "0.1.4",
+    date: "2026-06-30",
+    head: "订阅和贷款可以绑定真实流水作为扣款记录，命令行也补齐了对应能力。",
+    badge: "latest",
+    groups: [
+      {
+        title: "桌面应用",
+        items: [
+          "订阅和贷款详情新增「扣款流水」入口，右侧抽屉展示已绑定的扣款流水并可解绑",
+          "手动添加弹窗复用流水列表的完整筛选，勾选即可批量绑定",
+          "绑定仅用于追溯实际扣款，不影响订阅/贷款的计划与统计",
+        ],
+      },
+      {
+        title: "命令行",
+        items: [
+          "新增 list-linked-cashflow / bind-cashflow / unbind-cashflow 管理扣款绑定",
+          "新增预算的查询、创建、更新与进度命令，写操作默认 dry-run",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.1.3",
     date: "2026-06-28",
     head: "新增移动端只读预览，并让流水分类汇总可以直接反向筛选流水表。",
-    badge: "latest",
     groups: [
       {
         title: "移动端",
