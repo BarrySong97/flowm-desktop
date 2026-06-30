@@ -1087,6 +1087,59 @@ describe("@flowm/api — clean-slate data model", () => {
     expect(updatedDaily?.categoryIds).toEqual([shoppingCategoryId])
   }, 30_000)
 
+  it("binds cashflow events to a subscription idempotently and unbinds without touching aggregates", async () => {
+    const { api } = await createApi("cashflow-link-binding")
+    const fixture = await createGoldenFixture(api)
+    const ownerId = fixture.future.iCloud.id
+    const pressureBefore = expectOk(await api.getFutureFixedPressure()).subscriptions
+
+    // First bind inserts both events.
+    expect(
+      expectOk(
+        await api.bindCashflowEvents({
+          ownerType: "subscription",
+          ownerId,
+          eventIds: [fixture.cashflow.foodExpense.id, fixture.cashflow.salary.id],
+        }),
+      ),
+    ).toBe(2)
+
+    // Re-binding an existing pair plus one new event only counts the new one.
+    expect(
+      expectOk(
+        await api.bindCashflowEvents({
+          ownerType: "subscription",
+          ownerId,
+          eventIds: [fixture.cashflow.foodExpense.id, fixture.cashflow.shoppingExpense.id],
+        }),
+      ),
+    ).toBe(1)
+
+    const linked = expectOk(
+      await api.listLinkedCashflowEvents({ ownerType: "subscription", ownerId }),
+    )
+    expect(linked.length).toBe(3)
+    expect(new Set(linked.map((item) => item.event.id))).toEqual(
+      new Set([
+        fixture.cashflow.foodExpense.id,
+        fixture.cashflow.salary.id,
+        fixture.cashflow.shoppingExpense.id,
+      ]),
+    )
+
+    // Unbinding removes exactly one link and leaves the rest.
+    const foodLink = linked.find((item) => item.event.id === fixture.cashflow.foodExpense.id)!
+    expectOk(await api.unbindCashflowEvent({ linkId: foodLink.linkId }))
+    const afterUnbind = expectOk(
+      await api.listLinkedCashflowEvents({ ownerType: "subscription", ownerId }),
+    )
+    expect(afterUnbind.map((item) => item.event.id)).not.toContain(fixture.cashflow.foodExpense.id)
+    expect(afterUnbind.length).toBe(2)
+
+    // The binding is display-only: it must not change forecast pressure.
+    expect(expectOk(await api.getFutureFixedPressure()).subscriptions).toBe(pressureBefore)
+  }, 30_000)
+
   it("object links explain relationships without changing core aggregates", async () => {
     const { api } = await createApi("object-link-invariant")
     const fixture = await createGoldenFixture(api)

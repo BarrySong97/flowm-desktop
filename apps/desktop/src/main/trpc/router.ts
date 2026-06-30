@@ -172,6 +172,23 @@ export const appRouter = router({
           ),
         ),
       ),
+    linkedTo: publicProcedure
+      .input(apiInput<"listLinkedCashflowEvents">())
+      .query(({ ctx, input }) =>
+        callApi(ctx, (api) =>
+          api.listLinkedCashflowEvents(requiredInput<"listLinkedCashflowEvents">(input)),
+        ),
+      ),
+    bind: publicProcedure
+      .input(apiInput<"bindCashflowEvents">())
+      .mutation(({ ctx, input }) =>
+        callApi(ctx, (api) => api.bindCashflowEvents(requiredInput<"bindCashflowEvents">(input))),
+      ),
+    unbind: publicProcedure
+      .input(apiInput<"unbindCashflowEvent">())
+      .mutation(({ ctx, input }) =>
+        callApi(ctx, (api) => api.unbindCashflowEvent(requiredInput<"unbindCashflowEvent">(input))),
+      ),
   }),
   assets: router({
     items: publicProcedure

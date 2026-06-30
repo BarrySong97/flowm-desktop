@@ -6,18 +6,8 @@
  */
 
 import { useCallback, useEffect, useRef, useMemo, useState } from "react"
-import {
-  Button,
-  DateField,
-  DateRangePicker,
-  Input,
-  ListBox,
-  RangeCalendar,
-  Select,
-} from "@heroui/react"
+import { Button, Input } from "@heroui/react"
 import { Controller, useForm, useWatch } from "react-hook-form"
-import type { DateValue } from "@internationalized/date"
-import { parseDate } from "@internationalized/date"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 import {
@@ -44,6 +34,7 @@ import { ScrollArea } from "../components/ui/ScrollArea"
 import { Dock } from "../components/layout/Dock"
 import { TxDetailPanel, type Tx } from "./TxDetailPanel"
 import { AddTxModal, emptyTxForm, type TxForm } from "./AddTxModal"
+import { DateRangeFilter, FILTER_LABEL_CLASS, FilterSelectField } from "./filterControls"
 import { ColorDot } from "../components/ui/ColorDot"
 import { Dim } from "../components/ui/Dim"
 import { DailyBars } from "../components/charts/DailyBars"
@@ -123,7 +114,6 @@ const IMPORTS_FILTER_URL_KEYS = {
   keyword: "q",
 } as const
 
-const FILTER_LABEL_CLASS = "mb-1 block text-[10.5px] leading-[1.2] text-[var(--ink-3)]"
 const UNCATEGORIZED_CATEGORY_FILTER = "__uncategorized__"
 
 type FlowBreakdownSegment = {
@@ -201,118 +191,6 @@ function compactDateRange(
   const dates = txs.map((tx) => tx.date).sort((a, b) => a.localeCompare(b))
   const to = dates[dates.length - 1] ?? fallbackTo
   return { from: addDateKeyDays(to, -29), to }
-}
-
-function FilterSelectField({
-  label,
-  value,
-  options,
-  onChange,
-  className,
-}: {
-  label: string
-  value: string
-  options: Array<{ key: string; label: string }>
-  onChange: (value: string) => void
-  className: string
-}) {
-  return (
-    <div className={className}>
-      <FormField label={label} labelClassName={FILTER_LABEL_CLASS}>
-        <Select
-          variant="secondary"
-          selectedKey={value}
-          onSelectionChange={(key) => {
-            if (key == null) return
-            const next = String(key)
-            if (next !== value) onChange(next)
-          }}
-        >
-          <Select.Trigger className="h-[30px] min-h-[30px] px-2 text-[11.5px]">
-            <Select.Value className="text-[11.5px]" />
-            <Select.Indicator className="size-3" />
-          </Select.Trigger>
-          <Select.Popover>
-            <ListBox>
-              {options.map((option) => (
-                <ListBox.Item key={option.key} id={option.key} textValue={option.label}>
-                  {option.label}
-                  <ListBox.ItemIndicator />
-                </ListBox.Item>
-              ))}
-            </ListBox>
-          </Select.Popover>
-        </Select>
-      </FormField>
-    </div>
-  )
-}
-
-type DateRangeValue = { start: DateValue; end: DateValue }
-
-function DateRangeFilter({
-  value,
-  onChange,
-}: {
-  value: { from: string; to: string }
-  onChange: (next: { from: string; to: string }) => void
-}) {
-  const rangeValue: DateRangeValue | null =
-    value.from && value.to ? { start: parseDate(value.from), end: parseDate(value.to) } : null
-
-  return (
-    <DateRangePicker
-      className="w-full"
-      value={rangeValue}
-      onChange={(next: DateRangeValue | null) => {
-        onChange({
-          from: next?.start.toString() ?? "",
-          to: next?.end.toString() ?? "",
-        })
-      }}
-    >
-      <DateField.Group
-        fullWidth
-        variant="secondary"
-        className="h-[30px] min-h-[30px] px-2 text-[11.5px]"
-      >
-        <DateField.Input slot="start">
-          {(segment) => <DateField.Segment segment={segment} />}
-        </DateField.Input>
-        <DateRangePicker.RangeSeparator className="px-1 text-[var(--ink-4)]">
-          至
-        </DateRangePicker.RangeSeparator>
-        <DateField.Input slot="end">
-          {(segment) => <DateField.Segment segment={segment} />}
-        </DateField.Input>
-        <DateField.Suffix>
-          <DateRangePicker.Trigger>
-            <DateRangePicker.TriggerIndicator />
-          </DateRangePicker.Trigger>
-        </DateField.Suffix>
-      </DateField.Group>
-      <DateRangePicker.Popover placement="bottom" style={{ maxWidth: "none" }}>
-        <RangeCalendar>
-          <RangeCalendar.Header>
-            <RangeCalendar.YearPickerTrigger>
-              <RangeCalendar.YearPickerTriggerHeading />
-              <RangeCalendar.YearPickerTriggerIndicator />
-            </RangeCalendar.YearPickerTrigger>
-            <RangeCalendar.NavButton slot="previous" />
-            <RangeCalendar.NavButton slot="next" />
-          </RangeCalendar.Header>
-          <RangeCalendar.Grid>
-            <RangeCalendar.GridHeader>
-              {(day) => <RangeCalendar.HeaderCell>{day}</RangeCalendar.HeaderCell>}
-            </RangeCalendar.GridHeader>
-            <RangeCalendar.GridBody>
-              {(date) => <RangeCalendar.Cell date={date} />}
-            </RangeCalendar.GridBody>
-          </RangeCalendar.Grid>
-        </RangeCalendar>
-      </DateRangePicker.Popover>
-    </DateRangePicker>
-  )
 }
 
 function SourceBadge({ source }: { source: string }) {

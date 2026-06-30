@@ -5,17 +5,19 @@
  * @gotcha  Preserve Flowm layer boundaries and avoid raw SQL except targeted Drizzle sql fragments.
  */
 
-import { and, asc, desc, eq, getTableColumns, gte, lte, sql, type SQL } from "drizzle-orm"
+import { and, asc, desc, eq, getTableColumns, gte, inArray, lte, sql, type SQL } from "drizzle-orm"
 import {
   cashflowEventTags,
   cashflowEvents,
   categories,
+  objectLinks,
   type CashflowEventInsert,
   type CashflowEventRow,
   type CategoryRow,
 } from "@flowm/db"
 import type { Result } from "@flowm/shared"
 import type {
+  BindCashflowInput,
   CashflowBreakdownInput,
   CashflowBreakdownRow,
   CashflowEventSummary,
@@ -23,7 +25,9 @@ import type {
   CashflowSummaryInput,
   CreateCashflowEventInput,
   FlowmId,
+  LinkedCashflowSummary,
   ListCashflowEventsInput,
+  ListLinkedCashflowInput,
   MonthlyCashflowTrendInput,
   MonthlyCashflowTrendRow,
   UpdateCashflowEventInput,
@@ -341,6 +345,110 @@ export abstract class CashflowApiRepository extends ImportsApiRepository {
           }
         }),
       )
+    } catch (error) {
+      return fail(error)
+    }
+  }
+
+  /**
+   * List cashflow events bound to a subscription/loan via object_links. Returns each event paired
+   * with its link id so the renderer can unbind. Dangling links (event deleted) are skipped, and
+   * link order (newest first) is preserved.
+   */
+  async listLinkedCashflowEvents(
+    input: ListLinkedCashflowInput,
+  ): Promise<Result<LinkedCashflowSummary[]>> {
+    try {
+      const links = this.db
+        .select()
+        .from(objectLinks)
+        .where(
+          and(
+            eq(objectLinks.fromType, input.ownerType),
+            eq(objectLinks.fromId, toSqlId(input.ownerId)),
+            eq(objectLinks.toType, "cashflow_event"),
+          ),
+        )
+        .orderBy(desc(objectLinks.createdAt))
+        .all()
+      if (links.length === 0) return ok([])
+      const rows = this.db
+        .select({ ...getTableColumns(cashflowEvents), categoryName: categories.name })
+        .from(cashflowEvents)
+        .leftJoin(categories, eq(categories.id, cashflowEvents.categoryId))
+        .where(
+          inArray(
+            cashflowEvents.id,
+            links.map((link) => link.toId),
+          ),
+        )
+        .all()
+      const byId = new Map(rows.map((row) => [row.id, row] as const))
+      const result: LinkedCashflowSummary[] = []
+      for (const link of links) {
+        const row = byId.get(link.toId)
+        if (!row) continue
+        result.push({ linkId: link.id, event: await this.mapCashflowEvent(row) })
+      }
+      return ok(result)
+    } catch (error) {
+      return fail(error)
+    }
+  }
+
+  /**
+   * Bind cashflow events to a subscription/loan as confirmed matches. Existing links for the same
+   * (owner, event) pair are skipped so re-binding is idempotent. Returns the number newly inserted.
+   */
+  async bindCashflowEvents(input: BindCashflowInput): Promise<Result<number>> {
+    try {
+      const existing = this.db
+        .select({ toId: objectLinks.toId })
+        .from(objectLinks)
+        .where(
+          and(
+            eq(objectLinks.fromType, input.ownerType),
+            eq(objectLinks.fromId, toSqlId(input.ownerId)),
+            eq(objectLinks.toType, "cashflow_event"),
+          ),
+        )
+        .all()
+      const linked = new Set(existing.map((row) => row.toId))
+      let inserted = 0
+      for (const eventId of input.eventIds) {
+        const toId = toSqlId(eventId)
+        if (linked.has(toId)) continue
+        linked.add(toId)
+        this.db
+          .insert(objectLinks)
+          .values({
+            id: newId("link"),
+            fromType: input.ownerType,
+            fromId: toSqlId(input.ownerId),
+            toType: "cashflow_event",
+            toId,
+            linkType: "confirmed_matches",
+            confidence: null,
+            createdBy: "user",
+            note: input.note ?? null,
+            createdAt: nowIso(),
+          })
+          .run()
+        inserted += 1
+      }
+      return ok(inserted)
+    } catch (error) {
+      return fail(error)
+    }
+  }
+
+  async unbindCashflowEvent(input: { linkId: FlowmId }): Promise<Result<void>> {
+    try {
+      this.db
+        .delete(objectLinks)
+        .where(eq(objectLinks.id, toSqlId(input.linkId)))
+        .run()
+      return ok(undefined)
     } catch (error) {
       return fail(error)
     }

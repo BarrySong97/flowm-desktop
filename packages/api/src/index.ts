@@ -107,6 +107,9 @@ export interface FlowmApi {
   getMonthlyCashflowTrend(
     input?: MonthlyCashflowTrendInput,
   ): Promise<Result<MonthlyCashflowTrendRow[]>>
+  listLinkedCashflowEvents(input: ListLinkedCashflowInput): Promise<Result<LinkedCashflowSummary[]>>
+  bindCashflowEvents(input: BindCashflowInput): Promise<Result<number>>
+  unbindCashflowEvent(input: { linkId: FlowmId }): Promise<Result<void>>
 
   listAssetItems(input?: ListAssetItemsInput): Promise<Result<AssetItemSummary[]>>
   createAssetItem(input: CreateAssetItemInput): Promise<Result<AssetItemSummary>>
@@ -500,6 +503,26 @@ export interface CashflowEventSummary {
   classificationSource: string
   tags: TagSummary[]
   createdAt: string
+}
+
+/** A cashflow event bound to a subscription/loan, paired with its object_links id for unbinding. */
+export interface LinkedCashflowSummary {
+  linkId: FlowmId
+  event: CashflowEventSummary
+}
+
+export type CashflowLinkOwnerType = "subscription" | "loan"
+
+export interface ListLinkedCashflowInput {
+  ownerType: CashflowLinkOwnerType
+  ownerId: FlowmId
+}
+
+export interface BindCashflowInput {
+  ownerType: CashflowLinkOwnerType
+  ownerId: FlowmId
+  eventIds: FlowmId[]
+  note?: string | null
 }
 
 export interface ListCashflowEventsInput {

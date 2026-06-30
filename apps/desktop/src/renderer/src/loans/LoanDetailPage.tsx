@@ -23,6 +23,7 @@ import { Route } from "../routes/loans.$id"
 import { LoanScheduleBar } from "./LoanScheduleBar"
 import { buildLoanSchedule } from "./loanSchedule"
 import { FormField } from "../components/ui/FormField"
+import { LinkedCashflowDrawer } from "../cashflow-links/LinkedCashflowDrawer"
 
 function InfoRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -58,6 +59,7 @@ export function LoanDetailPage() {
   const queryClient = useQueryClient()
   const [editing, setEditing] = useState(false)
   const [prepaying, setPrepaying] = useState(false)
+  const [linkOpen, setLinkOpen] = useState(false)
   const archiveLoan = useMutation(trpc.loans.archive.mutationOptions())
   const updateLoan = useMutation(trpc.loans.update.mutationOptions())
   const today = todayKey()
@@ -374,6 +376,14 @@ export function LoanDetailPage() {
                   >
                     编辑
                   </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    style={{ borderRadius: 5 }}
+                    onPress={() => setLinkOpen(true)}
+                  >
+                    扣款流水
+                  </Button>
                   <div style={{ flex: 1 }} />
                   <Button
                     size="sm"
@@ -656,6 +666,15 @@ export function LoanDetailPage() {
           </Modal.Dialog>
         </Modal.Container>
       </Modal.Backdrop>
+      {loan && (
+        <LinkedCashflowDrawer
+          open={linkOpen}
+          ownerType="loan"
+          ownerId={id}
+          ownerLabel={loan.name}
+          onClose={() => setLinkOpen(false)}
+        />
+      )}
       <Dock />
     </div>
   )

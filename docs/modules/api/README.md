@@ -75,6 +75,7 @@ The personal starter seed should be idempotent and conservative. It should only 
   snapshot and net worth queries use active accounts only; explicit archived
   queries are for history/recovery surfaces.
 - Do not materialize subscription or loan forecasts as actual cashflow unless an explicit workflow is being built.
+- Cashflow-to-obligation binding (`bindCashflowEvents` / `listLinkedCashflowEvents` / `unbindCashflowEvent`) records the deduction link in `object_links` (`fromType` `subscription`/`loan` → `toType` `cashflow_event`, `linkType` `confirmed_matches`). Binding is idempotent (existing owner/event pairs are skipped) and strictly explanatory: it must not change forecast pressure, net worth, or any cashflow aggregate.
 - Keep platform-specific statement parsing outside durable product code when a
   local agent command can normalize the source into imported cashflow records.
 - Agent write workflows should submit business-level patch operations, not raw

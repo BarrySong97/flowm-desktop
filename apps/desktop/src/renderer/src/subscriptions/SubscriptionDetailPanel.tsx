@@ -20,6 +20,7 @@ import { FormField } from "../components/ui/FormField"
 import { CurrencySelect } from "../components/ui/CurrencySelect"
 import { DateInput } from "../components/ui/DateInput"
 import { currencySymbol } from "@flowm/shared"
+import { LinkedCashflowDrawer } from "../cashflow-links/LinkedCashflowDrawer"
 
 function InfoRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -50,6 +51,7 @@ export function SubscriptionDetailPanel({ id, onBack }: Props) {
   const confirm = useConfirm()
   const queryClient = useQueryClient()
   const [editing, setEditing] = useState(false)
+  const [linkOpen, setLinkOpen] = useState(false)
   const archiveSubscription = useMutation(trpc.subscriptions.archive.mutationOptions())
   const updateSubscription = useMutation(trpc.subscriptions.update.mutationOptions())
 
@@ -384,6 +386,14 @@ export function SubscriptionDetailPanel({ id, onBack }: Props) {
               >
                 编辑
               </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                style={{ borderRadius: 5 }}
+                onPress={() => setLinkOpen(true)}
+              >
+                扣款流水
+              </Button>
               <div style={{ flex: 1 }} />
               <Button
                 size="sm"
@@ -529,6 +539,15 @@ export function SubscriptionDetailPanel({ id, onBack }: Props) {
           </Modal.Dialog>
         </Modal.Container>
       </Modal.Backdrop>
+      {sub && (
+        <LinkedCashflowDrawer
+          open={linkOpen}
+          ownerType="subscription"
+          ownerId={id}
+          ownerLabel={sub.name}
+          onClose={() => setLinkOpen(false)}
+        />
+      )}
     </div>
   )
 }
