@@ -21,15 +21,20 @@ import {
   type BindCashflowInput,
   type BudgetScopeInput,
   type CashflowLinkOwnerType,
+  type CreateLoanInput,
   type CreateAssetItemInput,
   type CreateBudgetItemInput,
   type CreateBudgetPeriodInput,
+  type CreateSubscriptionInput,
   type UpdateBudgetItemInput,
   type FlowmApi,
   type FlowmId,
+  type GenerateOccurrenceInput,
   type ListAssetItemsInput,
+  type UpdateLoanInput,
   type UpdateAssetItemInput,
   type UpdateAssetSnapshotInput,
+  type UpdateSubscriptionInput,
 } from "@flowm/api"
 import { schema, type Database } from "@flowm/db"
 import { getFlowmLedgerChangeSocketPath, type LedgerChangeEvent } from "@flowm/shared/ipc"
@@ -188,6 +193,22 @@ function parsePositiveInteger(value: string): number {
   return parsed
 }
 
+function parseNonNegativeInteger(value: string): number {
+  const parsed = Number(value)
+  if (!Number.isInteger(parsed) || parsed < 0) {
+    throw new InvalidArgumentError("must be a non-negative integer")
+  }
+  return parsed
+}
+
+function parsePaymentDay(value: string): number {
+  const parsed = parsePositiveInteger(value)
+  if (parsed > 31) {
+    throw new InvalidArgumentError("must be between 1 and 31")
+  }
+  return parsed
+}
+
 function collectText(value: string, previous: string[]): string[] {
   previous.push(value)
   return previous
@@ -330,6 +351,15 @@ async function findAssetSnapshot(api: FlowmApi, id: FlowmId) {
 async function findBudgetItem(api: FlowmApi, id: FlowmId) {
   const items = unwrap(await api.listBudgetItems())
   return items.find((item) => String(item.id) === String(id)) ?? null
+}
+
+async function findSubscription(api: FlowmApi, id: FlowmId) {
+  const subscriptions = unwrap(await api.listSubscriptions())
+  return subscriptions.find((subscription) => String(subscription.id) === String(id)) ?? null
+}
+
+async function findLoan(api: FlowmApi, id: FlowmId) {
+  return unwrap(await api.getLoan({ id }))
 }
 
 function makeProgram(): Command {
@@ -768,6 +798,554 @@ function makeProgram(): Command {
         })
       },
     )
+
+  program
+    .command("list-subscriptions")
+    .description("List subscription plans")
+    .option("--status <status>", "Filter by status")
+    .action(async (options: { status?: string }) => {
+      const { dbPath } = resolveLedgerPath(program.opts<GlobalOptions>())
+      await withLedger(dbPath, async ({ api }) => {
+        printJson({
+          subscriptions: unwrap(await api.listSubscriptions({ status: options.status })),
+        })
+      })
+    })
+
+  program
+    .command("get-subscription")
+    .description("Get one subscription plan and its forecast occurrences")
+    .argument("<id>", "Subscription id")
+    .action(async (id: string) => {
+      const { dbPath } = resolveLedgerPath(program.opts<GlobalOptions>())
+      await withLedger(dbPath, async ({ api }) => {
+        const subscription = await findSubscription(api, id)
+        if (!subscription) throw new Error(`Subscription not found: ${id}`)
+        const occurrences = unwrap(await api.listSubscriptionOccurrences({ subscriptionId: id }))
+        printJson({ subscription, occurrences })
+      })
+    })
+
+  addCommitOption(
+    program
+      .command("create-subscription")
+      .description("Create a subscription plan, defaulting to dry-run")
+      .requiredOption("--name <name>", "Subscription name")
+      .option("--merchant <name>", "Merchant name")
+      .requiredOption("--amount <amount>", "Charge amount")
+      .option("--currency <code>", "Charge currency")
+      .requiredOption("--billing-cycle <cycle>", "Billing cycle: weekly, monthly, yearly, custom")
+      .option("--interval-count <n>", "Billing interval count", parsePositiveInteger)
+      .requiredOption("--next-charge-date <date>", "Next charge date")
+      .addOption(new Option("--auto-renew", "Enable auto-renew").default(undefined))
+      .addOption(new Option("--no-auto-renew", "Disable auto-renew").default(undefined))
+      .option("--category-id <id>", "Expense category id")
+      .option("--note <text>", "Subscription note"),
+  ).action(
+    async (options: {
+      name: string
+      merchant?: string
+      amount: string
+      currency?: string
+      billingCycle: CreateSubscriptionInput["billingCycle"]
+      intervalCount?: number
+      nextChargeDate: string
+      autoRenew?: boolean
+      categoryId?: string
+      note?: string
+      commit?: boolean
+    }) => {
+      const resolved = resolveLedgerPath(program.opts<GlobalOptions>())
+      const { dbPath } = resolved
+      const input = removeUndefined({
+        name: options.name.trim(),
+        merchant: optionalText(options.merchant),
+        amount: options.amount,
+        currency: options.currency,
+        billingCycle: options.billingCycle,
+        intervalCount: options.intervalCount,
+        nextChargeDate: options.nextChargeDate,
+        autoRenew: options.autoRenew,
+        categoryId: options.categoryId,
+        note: optionalText(options.note),
+      }) as CreateSubscriptionInput
+      if (!shouldCommit(options)) {
+        printDryRun(dbPath, "create-subscription", input)
+        return
+      }
+      await withLedger(dbPath, async ({ api }) => {
+        printJson({ dbPath, subscription: unwrap(await api.createSubscription(input)) })
+      })
+      await notifyLedgerChanged(resolved, "create-subscription")
+    },
+  )
+
+  addCommitOption(
+    program
+      .command("update-subscription")
+      .description("Update a subscription plan, defaulting to dry-run")
+      .argument("<id>", "Subscription id")
+      .option("--name <name>", "Subscription name")
+      .option("--merchant <name>", "Merchant name")
+      .option("--amount <amount>", "Charge amount")
+      .option("--currency <code>", "Charge currency")
+      .option("--billing-cycle <cycle>", "Billing cycle: weekly, monthly, yearly, custom")
+      .option("--interval-count <n>", "Billing interval count", parsePositiveInteger)
+      .option("--next-charge-date <date>", "Next charge date")
+      .addOption(new Option("--auto-renew", "Enable auto-renew").default(undefined))
+      .addOption(new Option("--no-auto-renew", "Disable auto-renew").default(undefined))
+      .option("--status <status>", "Subscription status")
+      .option("--category-id <id>", "Expense category id")
+      .option("--clear-category", "Remove the category binding")
+      .option("--note <text>", "Subscription note"),
+  ).action(
+    async (
+      id: string,
+      options: {
+        name?: string
+        merchant?: string
+        amount?: string
+        currency?: string
+        billingCycle?: UpdateSubscriptionInput["billingCycle"]
+        intervalCount?: number
+        nextChargeDate?: string
+        autoRenew?: boolean
+        status?: string
+        categoryId?: string
+        clearCategory?: boolean
+        note?: string
+        commit?: boolean
+      },
+    ) => {
+      const resolved = resolveLedgerPath(program.opts<GlobalOptions>())
+      const { dbPath } = resolved
+      if (options.categoryId && options.clearCategory) {
+        throw new InvalidArgumentError("--category-id conflicts with --clear-category")
+      }
+      const input = removeUndefined({
+        id,
+        name: options.name?.trim(),
+        merchant: optionalText(options.merchant),
+        amount: options.amount,
+        currency: options.currency,
+        billingCycle: options.billingCycle,
+        intervalCount: options.intervalCount,
+        nextChargeDate: options.nextChargeDate,
+        autoRenew: options.autoRenew,
+        status: options.status,
+        categoryId: options.clearCategory ? null : options.categoryId,
+        note: optionalText(options.note),
+      }) as UpdateSubscriptionInput
+      await withLedger(dbPath, async ({ api }) => {
+        const current = await findSubscription(api, id)
+        if (!current) throw new Error(`Subscription not found: ${id}`)
+        if (!shouldCommit(options)) {
+          printJson({
+            dbPath,
+            dryRun: true,
+            operation: "update-subscription",
+            current,
+            wouldWrite: input,
+          })
+          return
+        }
+        printJson({ dbPath, subscription: unwrap(await api.updateSubscription(input)) })
+      })
+      if (shouldCommit(options)) {
+        await notifyLedgerChanged(resolved, "update-subscription")
+      }
+    },
+  )
+
+  addCommitOption(
+    program
+      .command("archive-subscription")
+      .description("Cancel a subscription plan, defaulting to dry-run")
+      .argument("<id>", "Subscription id"),
+  ).action(async (id: string, options: { commit?: boolean }) => {
+    const resolved = resolveLedgerPath(program.opts<GlobalOptions>())
+    const { dbPath } = resolved
+    await withLedger(dbPath, async ({ api }) => {
+      const current = await findSubscription(api, id)
+      if (!current) throw new Error(`Subscription not found: ${id}`)
+      if (!shouldCommit(options)) {
+        printJson({ dbPath, dryRun: true, operation: "archive-subscription", current })
+        return
+      }
+      unwrap(await api.archiveSubscription({ id }))
+      printJson({ dbPath, archived: true, subscriptionId: id })
+    })
+    if (shouldCommit(options)) {
+      await notifyLedgerChanged(resolved, "archive-subscription")
+    }
+  })
+
+  program
+    .command("list-subscription-occurrences")
+    .description("List projected subscription occurrences")
+    .option("--subscription-id <id>", "Subscription id")
+    .option("--date-from <date>", "Start date")
+    .option("--date-to <date>", "End date")
+    .action(async (options: { subscriptionId?: string; dateFrom?: string; dateTo?: string }) => {
+      const { dbPath } = resolveLedgerPath(program.opts<GlobalOptions>())
+      await withLedger(dbPath, async ({ api }) => {
+        printJson({
+          occurrences: unwrap(
+            await api.listSubscriptionOccurrences({
+              subscriptionId: options.subscriptionId,
+              dateFrom: options.dateFrom,
+              dateTo: options.dateTo,
+            }),
+          ),
+        })
+      })
+    })
+
+  addCommitOption(
+    program
+      .command("generate-subscription-occurrences")
+      .description("Generate projected subscription occurrences, defaulting to dry-run")
+      .requiredOption("--through-date <date>", "Generate through this date")
+      .option("--subscription-id <id>", "Subscription id"),
+  ).action(async (options: { throughDate: string; subscriptionId?: string; commit?: boolean }) => {
+    const resolved = resolveLedgerPath(program.opts<GlobalOptions>())
+    const { dbPath } = resolved
+    const input = removeUndefined({
+      id: options.subscriptionId,
+      throughDate: options.throughDate,
+    }) as GenerateOccurrenceInput
+    await withLedger(dbPath, async ({ api }) => {
+      const subscription = options.subscriptionId
+        ? await findSubscription(api, options.subscriptionId)
+        : null
+      if (options.subscriptionId && !subscription) {
+        throw new Error(`Subscription not found: ${options.subscriptionId}`)
+      }
+      if (!shouldCommit(options)) {
+        printJson({
+          dbPath,
+          dryRun: true,
+          operation: "generate-subscription-occurrences",
+          subscription,
+          wouldWrite: input,
+        })
+        return
+      }
+      printJson({
+        dbPath,
+        generated: unwrap(await api.generateSubscriptionOccurrences(input)),
+      })
+    })
+    if (shouldCommit(options)) {
+      await notifyLedgerChanged(resolved, "generate-subscription-occurrences")
+    }
+  })
+
+  program
+    .command("list-loans")
+    .description("List loan plans")
+    .option("--status <status>", "Filter by status")
+    .action(async (options: { status?: string }) => {
+      const { dbPath } = resolveLedgerPath(program.opts<GlobalOptions>())
+      await withLedger(dbPath, async ({ api }) => {
+        printJson({ loans: unwrap(await api.listLoans({ status: options.status })) })
+      })
+    })
+
+  program
+    .command("get-loan")
+    .description("Get one loan plan and its forecast payment occurrences")
+    .argument("<id>", "Loan id")
+    .action(async (id: string) => {
+      const { dbPath } = resolveLedgerPath(program.opts<GlobalOptions>())
+      await withLedger(dbPath, async ({ api }) => {
+        const loan = await findLoan(api, id)
+        if (!loan) throw new Error(`Loan not found: ${id}`)
+        const occurrences = unwrap(await api.listLoanPaymentOccurrences({ loanId: id }))
+        printJson({ loan, occurrences })
+      })
+    })
+
+  addCommitOption(
+    program
+      .command("create-loan")
+      .description("Create a loan plan, defaulting to dry-run")
+      .requiredOption("--name <name>", "Loan name")
+      .option("--lender <name>", "Lender name")
+      .option("--currency <code>", "Payment currency")
+      .option("--principal <amount>", "Original principal amount")
+      .option("--current-principal <amount>", "Current principal estimate")
+      .option("--annual-rate-bps <bps>", "Annual rate in basis points", parseNonNegativeInteger)
+      .option("--repayment-method <method>", "Repayment method")
+      .requiredOption("--payment-amount <amount>", "Scheduled payment amount")
+      .option("--payment-day <day>", "Monthly payment day", parsePaymentDay)
+      .requiredOption("--start-date <date>", "Payment start date")
+      .option("--term-months <n>", "Term length in months", parsePositiveInteger)
+      .option("--note <text>", "Loan note"),
+  ).action(
+    async (options: {
+      name: string
+      lender?: string
+      currency?: string
+      principal?: string
+      currentPrincipal?: string
+      annualRateBps?: number
+      repaymentMethod?: string
+      paymentAmount: string
+      paymentDay?: number
+      startDate: string
+      termMonths?: number
+      note?: string
+      commit?: boolean
+    }) => {
+      const resolved = resolveLedgerPath(program.opts<GlobalOptions>())
+      const { dbPath } = resolved
+      const input = removeUndefined({
+        name: options.name.trim(),
+        lender: optionalText(options.lender),
+        currency: options.currency,
+        principalAmount: optionalText(options.principal),
+        currentPrincipalEstimate: optionalText(options.currentPrincipal),
+        annualRateBps: options.annualRateBps,
+        repaymentMethod: optionalText(options.repaymentMethod),
+        paymentAmount: options.paymentAmount,
+        paymentDay: options.paymentDay,
+        startDate: options.startDate,
+        termMonths: options.termMonths,
+        note: optionalText(options.note),
+      }) as CreateLoanInput
+      if (!shouldCommit(options)) {
+        printDryRun(dbPath, "create-loan", input)
+        return
+      }
+      await withLedger(dbPath, async ({ api }) => {
+        printJson({ dbPath, loan: unwrap(await api.createLoan(input)) })
+      })
+      await notifyLedgerChanged(resolved, "create-loan")
+    },
+  )
+
+  addCommitOption(
+    program
+      .command("update-loan")
+      .description("Update a loan plan, defaulting to dry-run")
+      .argument("<id>", "Loan id")
+      .option("--name <name>", "Loan name")
+      .option("--lender <name>", "Lender name")
+      .option("--clear-lender", "Remove the lender")
+      .option("--currency <code>", "Payment currency")
+      .option("--principal <amount>", "Original principal amount")
+      .option("--clear-principal", "Remove the original principal amount")
+      .option("--current-principal <amount>", "Current principal estimate")
+      .option("--clear-current-principal", "Remove the current principal estimate")
+      .option("--annual-rate-bps <bps>", "Annual rate in basis points", parseNonNegativeInteger)
+      .option("--clear-annual-rate", "Remove the annual rate")
+      .option("--repayment-method <method>", "Repayment method")
+      .option("--clear-repayment-method", "Remove the repayment method")
+      .option("--payment-amount <amount>", "Scheduled payment amount")
+      .option("--payment-day <day>", "Monthly payment day", parsePaymentDay)
+      .option("--clear-payment-day", "Remove the payment day")
+      .option("--start-date <date>", "Payment start date")
+      .option("--term-months <n>", "Term length in months", parsePositiveInteger)
+      .option("--clear-term-months", "Remove the term length")
+      .option("--status <status>", "Loan status")
+      .option("--note <text>", "Loan note"),
+  ).action(
+    async (
+      id: string,
+      options: {
+        name?: string
+        lender?: string
+        clearLender?: boolean
+        currency?: string
+        principal?: string
+        clearPrincipal?: boolean
+        currentPrincipal?: string
+        clearCurrentPrincipal?: boolean
+        annualRateBps?: number
+        clearAnnualRate?: boolean
+        repaymentMethod?: string
+        clearRepaymentMethod?: boolean
+        paymentAmount?: string
+        paymentDay?: number
+        clearPaymentDay?: boolean
+        startDate?: string
+        termMonths?: number
+        clearTermMonths?: boolean
+        status?: string
+        note?: string
+        commit?: boolean
+      },
+    ) => {
+      const resolved = resolveLedgerPath(program.opts<GlobalOptions>())
+      const { dbPath } = resolved
+      const conflictPairs = [
+        [options.lender, options.clearLender, "--lender", "--clear-lender"],
+        [options.principal, options.clearPrincipal, "--principal", "--clear-principal"],
+        [
+          options.currentPrincipal,
+          options.clearCurrentPrincipal,
+          "--current-principal",
+          "--clear-current-principal",
+        ],
+        [
+          options.annualRateBps,
+          options.clearAnnualRate,
+          "--annual-rate-bps",
+          "--clear-annual-rate",
+        ],
+        [
+          options.repaymentMethod,
+          options.clearRepaymentMethod,
+          "--repayment-method",
+          "--clear-repayment-method",
+        ],
+        [options.paymentDay, options.clearPaymentDay, "--payment-day", "--clear-payment-day"],
+        [options.termMonths, options.clearTermMonths, "--term-months", "--clear-term-months"],
+      ] as const
+      for (const [value, clear, valueFlag, clearFlag] of conflictPairs) {
+        if (value !== undefined && clear) {
+          throw new InvalidArgumentError(`${valueFlag} conflicts with ${clearFlag}`)
+        }
+      }
+      const input = removeUndefined({
+        id,
+        name: options.name?.trim(),
+        lender: options.clearLender ? null : optionalText(options.lender),
+        currency: options.currency,
+        principalAmount: options.clearPrincipal ? null : optionalText(options.principal),
+        currentPrincipalEstimate: options.clearCurrentPrincipal
+          ? null
+          : optionalText(options.currentPrincipal),
+        annualRateBps: options.clearAnnualRate ? null : options.annualRateBps,
+        repaymentMethod: options.clearRepaymentMethod
+          ? null
+          : optionalText(options.repaymentMethod),
+        paymentAmount: options.paymentAmount,
+        paymentDay: options.clearPaymentDay ? null : options.paymentDay,
+        startDate: options.startDate,
+        termMonths: options.clearTermMonths ? null : options.termMonths,
+        status: options.status,
+        note: optionalText(options.note),
+      }) as UpdateLoanInput
+      await withLedger(dbPath, async ({ api }) => {
+        const current = await findLoan(api, id)
+        if (!current) throw new Error(`Loan not found: ${id}`)
+        if (!shouldCommit(options)) {
+          printJson({
+            dbPath,
+            dryRun: true,
+            operation: "update-loan",
+            current,
+            wouldWrite: input,
+          })
+          return
+        }
+        printJson({ dbPath, loan: unwrap(await api.updateLoan(input)) })
+      })
+      if (shouldCommit(options)) {
+        await notifyLedgerChanged(resolved, "update-loan")
+      }
+    },
+  )
+
+  addCommitOption(
+    program
+      .command("archive-loan")
+      .description("Close a loan plan, defaulting to dry-run")
+      .argument("<id>", "Loan id"),
+  ).action(async (id: string, options: { commit?: boolean }) => {
+    const resolved = resolveLedgerPath(program.opts<GlobalOptions>())
+    const { dbPath } = resolved
+    await withLedger(dbPath, async ({ api }) => {
+      const current = await findLoan(api, id)
+      if (!current) throw new Error(`Loan not found: ${id}`)
+      if (!shouldCommit(options)) {
+        printJson({ dbPath, dryRun: true, operation: "archive-loan", current })
+        return
+      }
+      unwrap(await api.archiveLoan({ id }))
+      printJson({ dbPath, archived: true, loanId: id })
+    })
+    if (shouldCommit(options)) {
+      await notifyLedgerChanged(resolved, "archive-loan")
+    }
+  })
+
+  program
+    .command("list-loan-occurrences")
+    .description("List projected loan payment occurrences")
+    .option("--loan-id <id>", "Loan id")
+    .option("--date-from <date>", "Start date")
+    .option("--date-to <date>", "End date")
+    .action(async (options: { loanId?: string; dateFrom?: string; dateTo?: string }) => {
+      const { dbPath } = resolveLedgerPath(program.opts<GlobalOptions>())
+      await withLedger(dbPath, async ({ api }) => {
+        printJson({
+          occurrences: unwrap(
+            await api.listLoanPaymentOccurrences({
+              loanId: options.loanId,
+              dateFrom: options.dateFrom,
+              dateTo: options.dateTo,
+            }),
+          ),
+        })
+      })
+    })
+
+  addCommitOption(
+    program
+      .command("generate-loan-occurrences")
+      .description("Generate projected loan payment occurrences, defaulting to dry-run")
+      .requiredOption("--through-date <date>", "Generate through this date")
+      .option("--loan-id <id>", "Loan id"),
+  ).action(async (options: { throughDate: string; loanId?: string; commit?: boolean }) => {
+    const resolved = resolveLedgerPath(program.opts<GlobalOptions>())
+    const { dbPath } = resolved
+    const input = removeUndefined({
+      id: options.loanId,
+      throughDate: options.throughDate,
+    }) as GenerateOccurrenceInput
+    await withLedger(dbPath, async ({ api }) => {
+      const loan = options.loanId ? await findLoan(api, options.loanId) : null
+      if (options.loanId && !loan) {
+        throw new Error(`Loan not found: ${options.loanId}`)
+      }
+      if (!shouldCommit(options)) {
+        printJson({
+          dbPath,
+          dryRun: true,
+          operation: "generate-loan-occurrences",
+          loan,
+          wouldWrite: input,
+        })
+        return
+      }
+      printJson({ dbPath, generated: unwrap(await api.generateLoanPaymentOccurrences(input)) })
+    })
+    if (shouldCommit(options)) {
+      await notifyLedgerChanged(resolved, "generate-loan-occurrences")
+    }
+  })
+
+  program
+    .command("future-pressure")
+    .description("Show fixed future payment pressure from subscription and loan occurrences")
+    .option("--date-from <date>", "Start date")
+    .option("--date-to <date>", "End date")
+    .action(async (options: { dateFrom?: string; dateTo?: string }) => {
+      const { dbPath } = resolveLedgerPath(program.opts<GlobalOptions>())
+      await withLedger(dbPath, async ({ api }) => {
+        printJson({
+          pressure: unwrap(
+            await api.getFutureFixedPressure({
+              dateFrom: options.dateFrom,
+              dateTo: options.dateTo,
+            }),
+          ),
+        })
+      })
+    })
 
   program
     .command("list-budget-sets")

@@ -5,6 +5,10 @@ Safe local command line interface for inspecting and updating Flowm ledgers.
 ```bash
 npx @barrysongdev4real/flowm-cli ledger-info
 npx @barrysongdev4real/flowm-cli list-cashflow --limit 20
+npx @barrysongdev4real/flowm-cli list-subscriptions
+npx @barrysongdev4real/flowm-cli update-subscription <id> --amount 28.00 --commit
+npx @barrysongdev4real/flowm-cli list-loans
+npx @barrysongdev4real/flowm-cli update-loan <id> --current-principal 1750000.00 --commit
 npx @barrysongdev4real/flowm-cli list-budget-periods --status active
 npx @barrysongdev4real/flowm-cli budget-progress --budget-period-id <id>
 npx @barrysongdev4real/flowm-cli list-linked-cashflow --owner-type loan --owner-id <id>
@@ -18,6 +22,11 @@ specific SQLite ledger.
 
 Budget commands cover sets, periods, items, and progress. Creating, updating,
 or archiving budget records is dry-run by default and requires `--commit`.
+
+Subscription and loan commands cover plan listing, detail, creation, updates,
+archive/cancel flows, forecast occurrence generation, and future pressure
+summaries. These maintain future plans only; they do not create actual cashflow
+or asset-liability snapshots.
 
 Cashflow-binding commands link real cashflow events to a subscription or loan as
 its deductions: `list-linked-cashflow` reads the bindings, `bind-cashflow`
