@@ -299,13 +299,17 @@ function validateRemoteRelease(tagName) {
     "--repo",
     REPO,
     "--json",
-    "tagName,isLatest,isDraft",
+    "tagName,isDraft",
     "--jq",
-    "[.tagName, .isLatest, .isDraft] | @tsv",
+    "[.tagName, .isDraft] | @tsv",
   ])
-  const [seenTag, isLatest, isDraft] = remoteTag.split("\t")
-  if (seenTag !== tagName || isLatest !== "true" || isDraft !== "false") {
+  const [seenTag, isDraft] = remoteTag.split("\t")
+  if (seenTag !== tagName || isDraft !== "false") {
     fail(`Release validation failed: ${remoteTag}`)
+  }
+  const latestTag = sh("gh", ["api", `repos/${REPO}/releases/latest`, "--jq", ".tag_name"])
+  if (latestTag !== tagName) {
+    fail(`Latest release validation failed: expected ${tagName}, got ${latestTag || "missing"}.`)
   }
 }
 
