@@ -19,10 +19,33 @@ export type ReleaseNote = {
 
 export const RELEASES: ReleaseNote[] = [
   {
+    version: "0.1.6",
+    date: "2026-07-08",
+    head: "预算进入新月份时会提示从最近一期复制生成本月计划，命令行也补齐了订阅和贷款计划管理。",
+    badge: "latest",
+    groups: [
+      {
+        title: "桌面应用",
+        items: [
+          "首页和预算页会在本月没有预算时提示从最近一期预算生成本月计划",
+          "生成预算只复制计划项、金额、颜色和分类范围，已用金额仍按本月真实流水计算",
+          "用户选择暂不生成后，本月不会反复自动弹窗打扰",
+        ],
+      },
+      {
+        title: "命令行",
+        items: [
+          "新增订阅计划的查询、创建、更新、取消和预测 occurrence 命令",
+          "新增贷款计划的查询、创建、更新、关闭和预测 occurrence 命令",
+          "新增 future-pressure 命令查看订阅和贷款的未来固定压力",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.1.4",
     date: "2026-06-30",
     head: "订阅和贷款可以绑定真实流水作为扣款记录，命令行也补齐了对应能力。",
-    badge: "latest",
     groups: [
       {
         title: "桌面应用",
