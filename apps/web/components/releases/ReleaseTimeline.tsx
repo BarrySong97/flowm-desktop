@@ -19,10 +19,25 @@ export type ReleaseNote = {
 
 export const RELEASES: ReleaseNote[] = [
   {
+    version: "0.1.7",
+    date: "2026-07-08",
+    head: "修复首页净资产趋势的月度计算口径，让资产快照按月末最近余额延续。",
+    badge: "latest",
+    groups: [
+      {
+        title: "桌面应用",
+        items: [
+          "首页右上角净资产趋势改为按每个月月末的最近资产快照计算",
+          "未在当月更新的资产账户会沿用最近已知余额，避免趋势点漏算账户",
+          "近 12 个月净资产变化在下降时会正确显示负号和红色状态",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.1.6",
     date: "2026-07-08",
     head: "预算进入新月份时会提示从最近一期复制生成本月计划，命令行也补齐了订阅和贷款计划管理。",
-    badge: "latest",
     groups: [
       {
         title: "桌面应用",
