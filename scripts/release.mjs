@@ -143,7 +143,10 @@ function ensureInitialWorktree() {
     .split("\n")
     .filter(Boolean)
   const allowed = new Set([NOTES_FILE])
-  const unexpected = changed.filter((line) => !allowed.has(line.slice(3).trim()))
+  const unexpected = changed.filter((line) => {
+    const file = line.replace(/^[ MADRCU?!]{1,2}\s+/, "").trim()
+    return !allowed.has(file)
+  })
   if (unexpected.length > 0 && !dryRun) {
     fail(
       `Unexpected uncommitted files before release:\n${unexpected.join(
