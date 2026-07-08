@@ -35,6 +35,7 @@ import { ScrollArea } from "../components/ui/ScrollArea"
 import { useCurrentRates } from "@/lib/useCurrentRates"
 import { currencySymbol } from "@flowm/shared"
 import { useBudgetRolloverPrompt } from "../budget/useBudgetRolloverPrompt"
+import { buildNetWorthTrend } from "./netWorthTrend"
 
 type CashflowRangeKey = "this_month" | "last_month" | "last_30" | "last_90" | "year" | "all"
 const DEFAULT_CASHFLOW_RANGE_KEY: CashflowRangeKey = "this_month"
@@ -235,34 +236,12 @@ function useDailyExpenseBuckets(
   }, [events, range])
 }
 
-function useNetWorthTrend(snapshots: AssetSnapshotSummary[]): number[] {
+function useNetWorthTrend(snapshots: AssetSnapshotSummary[], asOfDateKey: string): number[] {
   const { toDisplay } = useCurrentRates()
-  return useMemo(() => {
-    if (snapshots.length === 0) return new Array(12).fill(0)
-    const buckets = new Map<string, Map<string, AssetSnapshotSummary>>()
-    for (const snapshot of snapshots) {
-      const month = snapshot.snapshotAt.slice(0, 7)
-      const bucket = buckets.get(month) ?? new Map<string, AssetSnapshotSummary>()
-      const previous = bucket.get(String(snapshot.assetItemId))
-      if (!previous || snapshot.snapshotAt > previous.snapshotAt) {
-        bucket.set(String(snapshot.assetItemId), snapshot)
-      }
-      buckets.set(month, bucket)
-    }
-    const values = [...buckets.entries()]
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([, bucket]) =>
-        [...bucket.values()].reduce((sum, asset) => {
-          // Value every snapshot at the current rate so the trend is FX-neutral.
-          const amount = Math.abs(
-            toDisplay(Number(asset.valueNumber || 0), asset.valueCurrency) ?? 0,
-          )
-          return sum + (asset.assetType === "liability" ? -amount : amount)
-        }, 0),
-      )
-    if (values.length >= 12) return values.slice(-12)
-    return [...new Array(12 - values.length).fill(values[0] ?? 0), ...values]
-  }, [snapshots, toDisplay])
+  return useMemo(
+    () => buildNetWorthTrend(snapshots, toDisplay, dateKeyToUtc(asOfDateKey)),
+    [asOfDateKey, snapshots, toDisplay],
+  )
 }
 
 function useUpcoming(
@@ -387,8 +366,10 @@ export function OverviewPage() {
     [assetSnapshots, toDisplay],
   )
   const netWorth = Number(netWorthQuery.data?.netWorth.number ?? totalAssets - totalLiab)
-  const _netTrend = useNetWorthTrend(assetHistoryQuery.data ?? [])
+  const _netTrend = useNetWorthTrend(assetHistoryQuery.data ?? [], today)
   const netGain = _netTrend[11] - _netTrend[0]
+  const netGainTone = netGain >= 0 ? "var(--green)" : "var(--red)"
+  const netGainText = `${netGain >= 0 ? "+" : "−"}${baseSymbol}${fmt(Math.abs(netGain))}`
 
   const { income: _monthIn, expense: _monthOut, net: _monthNet } = useCashflowStats(events)
   const monthIn = _monthIn
@@ -485,9 +466,8 @@ export function OverviewPage() {
             <div className="ml-auto flex flex-col w-1/2 text-right">
               <Dim className="text-[11.5px] mb-2 block">
                 近 12 个月{" "}
-                <span className="font-['IBM_Plex_Mono'] text-[var(--green)] ml-1">
-                  +{baseSymbol}
-                  {fmt(netGain)}
+                <span className="font-['IBM_Plex_Mono'] ml-1" style={{ color: netGainTone }}>
+                  {netGainText}
                 </span>
               </Dim>
               <div className="mt-auto">

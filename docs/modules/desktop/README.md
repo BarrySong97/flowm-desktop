@@ -95,6 +95,9 @@ Update `apps/desktop/src/preload/index.d.ts` whenever the preload contract chang
   objects, and values Tailwind cannot express cleanly.
 - Dashboard cashflow range selection is a renderer preference persisted in
   `localStorage`; it does not change the active ledger or database state.
+- Dashboard net worth trend points are month-end as-of asset snapshot totals:
+  each account carries its latest known snapshot forward until a newer snapshot
+  replaces it, while liabilities subtract from the total.
 - The imports/cashflow page keeps its category breakdown interactive: clicking
   a donut segment or the adjacent category row must update the left-side
   category filter and URL-synced filter state.
