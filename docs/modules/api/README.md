@@ -27,7 +27,7 @@
 
 - `assets/assets-api.ts` - asset item archive/restore, asset snapshot CRUD,
   net worth inputs, and asset detail data.
-- `budgets/budgets-api.ts` - budget definitions, category/source/tag scopes, and budget-related cashflow summaries.
+- `budgets/budgets-api.ts` - budget definitions, category/source/tag scopes, budget-related cashflow summaries, and confirmed monthly budget rollover.
 - `cashflow/cashflow-api.ts` - past cashflow event queries, mutations, and monthly income/expense/net trend summaries.
 - `dashboard/dashboard-api.ts` - cross-layer dashboard composition without requiring reconciliation.
 - `imports/imports-api.ts` - legacy imported statement records and transaction review
@@ -56,6 +56,11 @@ Budget progress summarizes past active analytics expense cashflow for the budget
 period. Multiple scope values of the same kind are ORed together, while
 different scope kinds are ANDed together; a budget with no explicit scopes is
 treated as an overall expense budget.
+
+Budget rollover is explicit. `getBudgetRolloverSuggestion` is a read-only check
+for “current month has no budget but a previous monthly plan exists.”
+`createBudgetPeriodFromLatest` runs only after user confirmation and copies the
+latest monthly budget period's active items and scopes into the target month.
 
 ## Seed Data
 

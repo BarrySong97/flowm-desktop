@@ -34,6 +34,7 @@ import { DailyBars } from "../components/charts/DailyBars"
 import { ScrollArea } from "../components/ui/ScrollArea"
 import { useCurrentRates } from "@/lib/useCurrentRates"
 import { currencySymbol } from "@flowm/shared"
+import { useBudgetRolloverPrompt } from "../budget/useBudgetRolloverPrompt"
 
 type CashflowRangeKey = "this_month" | "last_month" | "last_30" | "last_90" | "year" | "all"
 const DEFAULT_CASHFLOW_RANGE_KEY: CashflowRangeKey = "this_month"
@@ -352,6 +353,9 @@ export function OverviewPage() {
   const currentBudgetPeriod = budgetPeriodsQuery.data?.find(
     (period) => period.periodStart <= today && period.periodEnd >= today,
   )
+  useBudgetRolloverPrompt({
+    enabled: !budgetPeriodsQuery.isPending && !currentBudgetPeriod,
+  })
   const budgetProgressQuery = useQuery({
     ...trpc.budgets.progress.queryOptions({ budgetPeriodId: currentBudgetPeriod?.id ?? "" }),
     enabled: Boolean(currentBudgetPeriod),

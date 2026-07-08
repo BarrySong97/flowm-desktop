@@ -5,13 +5,14 @@
  * @gotcha  Preserve Flowm layer boundaries and avoid raw SQL except targeted Drizzle sql fragments.
  */
 
-import { and, asc, desc, eq, type SQL } from "drizzle-orm"
+import { and, asc, desc, eq, gte, lt, lte, type SQL } from "drizzle-orm"
 import {
   budgetItemScopes,
   budgetItems,
   budgetPeriods,
   budgetSets,
   type BudgetItemInsert,
+  type BudgetItemScopeInsert,
   type BudgetItemScopeRow,
   type BudgetPeriodRow,
 } from "@flowm/db"
@@ -19,9 +20,13 @@ import type { Result } from "@flowm/shared"
 import type {
   BudgetItemSummary,
   BudgetPeriodSummary,
+  BudgetRolloverSuggestion,
+  BudgetRolloverSuggestionInput,
   BudgetReferenceProgressInput,
   BudgetReferenceProgressRow,
   BudgetSetSummary,
+  CreateBudgetPeriodFromLatestInput,
+  CreateBudgetPeriodFromLatestResult,
   CreateBudgetItemInput,
   CreateBudgetPeriodInput,
   CreateBudgetSetInput,
@@ -31,7 +36,16 @@ import type {
   UpdateBudgetItemInput,
 } from "../../../index"
 import { LoansApiRepository } from "./loans-api.repository"
-import { fail, newId, normalizeCurrency, nowIso, ok, toSqlId } from "../../../shared/api-helpers"
+import {
+  fail,
+  monthBounds,
+  newId,
+  normalizeCurrency,
+  nowIso,
+  ok,
+  toSqlId,
+  todayKey,
+} from "../../../shared/api-helpers"
 
 export abstract class BudgetsApiRepository extends LoansApiRepository {
   async listBudgetSets(): Promise<Result<BudgetSetSummary[]>> {
@@ -54,6 +68,93 @@ export abstract class BudgetsApiRepository extends LoansApiRepository {
       return ok(
         this.mapBudgetSet(this.db.select().from(budgetSets).where(eq(budgetSets.id, id)).get()!),
       )
+    } catch (error) {
+      return fail(error)
+    }
+  }
+
+  async getBudgetRolloverSuggestion(
+    input: BudgetRolloverSuggestionInput = {},
+  ): Promise<Result<BudgetRolloverSuggestion | null>> {
+    try {
+      const target = this.findBudgetRolloverTarget(input)
+      if (!target) return ok(null)
+      const itemCount = this.db
+        .select()
+        .from(budgetItems)
+        .where(
+          and(
+            eq(budgetItems.budgetPeriodId, target.sourcePeriod.id),
+            eq(budgetItems.status, "active"),
+          ),
+        )
+        .all().length
+      if (itemCount === 0) return ok(null)
+      return ok({
+        asOf: target.asOf,
+        budgetSetId: target.budgetSet.id,
+        periodStart: target.periodStart,
+        periodEnd: target.periodEnd,
+        sourcePeriodId: target.sourcePeriod.id,
+        sourcePeriodStart: target.sourcePeriod.periodStart,
+        sourcePeriodEnd: target.sourcePeriod.periodEnd,
+        itemCount,
+      })
+    } catch (error) {
+      return fail(error)
+    }
+  }
+
+  async createBudgetPeriodFromLatest(
+    input: CreateBudgetPeriodFromLatestInput = {},
+  ): Promise<Result<CreateBudgetPeriodFromLatestResult>> {
+    try {
+      const asOf = input.asOf ?? todayKey()
+      const month = monthBounds(asOf.slice(0, 7))
+      const budgetSet = this.resolveBudgetSet(input.budgetSetId)
+      if (!budgetSet && input.budgetSetId) {
+        throw new Error(`Budget set ${input.budgetSetId} not found`)
+      }
+      if (!budgetSet) {
+        const createdSet = this.createDefaultBudgetSet()
+        const period = this.createMonthlyBudgetPeriod({
+          budgetSetId: createdSet.id,
+          periodStart: month.start,
+          periodEnd: month.end,
+          currency: input.currency,
+        })
+        return ok({
+          budgetPeriod: this.mapBudgetPeriod(period),
+          sourcePeriodId: null,
+          copiedItems: 0,
+          alreadyExists: false,
+        })
+      }
+
+      const current = this.findCurrentBudgetPeriod(budgetSet.id, asOf)
+      if (current) {
+        return ok({
+          budgetPeriod: this.mapBudgetPeriod(current),
+          sourcePeriodId: null,
+          copiedItems: 0,
+          alreadyExists: true,
+        })
+      }
+
+      const sourcePeriod = this.findLatestSourceBudgetPeriod(budgetSet.id, month.start)
+      const period = this.createMonthlyBudgetPeriod({
+        budgetSetId: budgetSet.id,
+        periodStart: month.start,
+        periodEnd: month.end,
+        currency: input.currency,
+      })
+      const copiedItems = sourcePeriod ? this.copyBudgetItems(sourcePeriod.id, period.id) : 0
+      return ok({
+        budgetPeriod: this.mapBudgetPeriod(period),
+        sourcePeriodId: sourcePeriod?.id ?? null,
+        copiedItems,
+        alreadyExists: false,
+      })
     } catch (error) {
       return fail(error)
     }
@@ -266,5 +367,163 @@ export abstract class BudgetsApiRepository extends LoansApiRepository {
     } catch (error) {
       return fail(error)
     }
+  }
+
+  private createDefaultBudgetSet() {
+    const id = newId("bset")
+    const timestamp = nowIso()
+    this.db
+      .insert(budgetSets)
+      .values({ id, name: "月度预算", createdAt: timestamp, updatedAt: timestamp })
+      .run()
+    return this.db.select().from(budgetSets).where(eq(budgetSets.id, id)).get()!
+  }
+
+  private resolveBudgetSet(budgetSetId?: FlowmId) {
+    if (budgetSetId) {
+      return (
+        this.db
+          .select()
+          .from(budgetSets)
+          .where(eq(budgetSets.id, toSqlId(budgetSetId)))
+          .get() ?? null
+      )
+    }
+    return (
+      this.db
+        .select()
+        .from(budgetSets)
+        .where(eq(budgetSets.status, "active"))
+        .orderBy(asc(budgetSets.createdAt))
+        .limit(1)
+        .get() ?? null
+    )
+  }
+
+  private findCurrentBudgetPeriod(budgetSetId: FlowmId, asOf: string) {
+    return (
+      this.db
+        .select()
+        .from(budgetPeriods)
+        .where(
+          and(
+            eq(budgetPeriods.budgetSetId, toSqlId(budgetSetId)),
+            eq(budgetPeriods.status, "active"),
+            lte(budgetPeriods.periodStart, asOf),
+            gte(budgetPeriods.periodEnd, asOf),
+          ),
+        )
+        .orderBy(desc(budgetPeriods.periodStart))
+        .limit(1)
+        .get() ?? null
+    )
+  }
+
+  private findLatestSourceBudgetPeriod(budgetSetId: FlowmId, periodStart: string) {
+    return (
+      this.db
+        .select()
+        .from(budgetPeriods)
+        .where(
+          and(
+            eq(budgetPeriods.budgetSetId, toSqlId(budgetSetId)),
+            eq(budgetPeriods.periodKind, "monthly"),
+            eq(budgetPeriods.status, "active"),
+            lt(budgetPeriods.periodStart, periodStart),
+          ),
+        )
+        .orderBy(desc(budgetPeriods.periodStart))
+        .limit(1)
+        .get() ?? null
+    )
+  }
+
+  private findBudgetRolloverTarget(input: BudgetRolloverSuggestionInput) {
+    const asOf = input.asOf ?? todayKey()
+    const month = monthBounds(asOf.slice(0, 7))
+    const budgetSet = this.resolveBudgetSet(input.budgetSetId)
+    if (!budgetSet) return null
+    const current = this.findCurrentBudgetPeriod(budgetSet.id, asOf)
+    if (current) return null
+    const sourcePeriod = this.findLatestSourceBudgetPeriod(budgetSet.id, month.start)
+    if (!sourcePeriod) return null
+    return {
+      asOf,
+      budgetSet,
+      periodStart: month.start,
+      periodEnd: month.end,
+      sourcePeriod,
+    }
+  }
+
+  private createMonthlyBudgetPeriod(input: {
+    budgetSetId: FlowmId
+    periodStart: string
+    periodEnd: string
+    currency?: string
+  }) {
+    const id = newId("bper")
+    this.db
+      .insert(budgetPeriods)
+      .values({
+        id,
+        budgetSetId: toSqlId(input.budgetSetId),
+        periodKind: "monthly",
+        periodStart: input.periodStart,
+        periodEnd: input.periodEnd,
+        currency: normalizeCurrency(input.currency),
+      })
+      .run()
+    return this.db.select().from(budgetPeriods).where(eq(budgetPeriods.id, id)).get()!
+  }
+
+  private copyBudgetItems(sourcePeriodId: FlowmId, targetPeriodId: FlowmId): number {
+    const sourceItems = this.db
+      .select()
+      .from(budgetItems)
+      .where(
+        and(
+          eq(budgetItems.budgetPeriodId, toSqlId(sourcePeriodId)),
+          eq(budgetItems.status, "active"),
+        ),
+      )
+      .orderBy(asc(budgetItems.name))
+      .all()
+    let copied = 0
+    for (const sourceItem of sourceItems) {
+      const itemId = newId("bitem")
+      const insert: BudgetItemInsert = {
+        id: itemId,
+        budgetPeriodId: toSqlId(targetPeriodId),
+        name: sourceItem.name,
+        itemKind: sourceItem.itemKind,
+        plannedAmount: sourceItem.plannedAmount,
+        currency: sourceItem.currency,
+        categoryId: sourceItem.categoryId,
+        rolloverPolicy: sourceItem.rolloverPolicy,
+        status: sourceItem.status,
+        note: sourceItem.note,
+        color: sourceItem.color,
+      }
+      this.db.insert(budgetItems).values(insert).run()
+      copied += 1
+
+      const sourceScopes = this.db
+        .select()
+        .from(budgetItemScopes)
+        .where(eq(budgetItemScopes.budgetItemId, sourceItem.id))
+        .orderBy(asc(budgetItemScopes.scopeKind))
+        .all()
+      for (const sourceScope of sourceScopes) {
+        const scopeInsert: BudgetItemScopeInsert = {
+          id: newId("bscope"),
+          budgetItemId: itemId,
+          scopeKind: sourceScope.scopeKind,
+          scopeValue: sourceScope.scopeValue,
+        }
+        this.db.insert(budgetItemScopes).values(scopeInsert).run()
+      }
+    }
+    return copied
   }
 }

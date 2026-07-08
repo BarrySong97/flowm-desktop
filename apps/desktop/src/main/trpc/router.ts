@@ -364,6 +364,20 @@ export const appRouter = router({
       .mutation(({ ctx, input }) =>
         callApi(ctx, (api) => api.createBudgetSet(requiredInput<"createBudgetSet">(input))),
       ),
+    rolloverSuggestion: publicProcedure
+      .input(apiInput<"getBudgetRolloverSuggestion">())
+      .query(({ ctx, input }) =>
+        callApi(ctx, (api) =>
+          api.getBudgetRolloverSuggestion(inputOrEmpty<"getBudgetRolloverSuggestion">(input)),
+        ),
+      ),
+    createPeriodFromLatest: publicProcedure
+      .input(apiInput<"createBudgetPeriodFromLatest">())
+      .mutation(({ ctx, input }) =>
+        callApi(ctx, (api) =>
+          api.createBudgetPeriodFromLatest(inputOrEmpty<"createBudgetPeriodFromLatest">(input)),
+        ),
+      ),
     createPeriod: publicProcedure
       .input(apiInput<"createBudgetPeriod">())
       .mutation(({ ctx, input }) =>

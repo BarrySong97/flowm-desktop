@@ -150,6 +150,12 @@ export interface FlowmApi {
 
   listBudgetSets(): Promise<Result<BudgetSetSummary[]>>
   createBudgetSet(input: CreateBudgetSetInput): Promise<Result<BudgetSetSummary>>
+  getBudgetRolloverSuggestion(
+    input?: BudgetRolloverSuggestionInput,
+  ): Promise<Result<BudgetRolloverSuggestion | null>>
+  createBudgetPeriodFromLatest(
+    input?: CreateBudgetPeriodFromLatestInput,
+  ): Promise<Result<CreateBudgetPeriodFromLatestResult>>
   listBudgetPeriods(input?: ListBudgetPeriodsInput): Promise<Result<BudgetPeriodSummary[]>>
   createBudgetPeriod(input: CreateBudgetPeriodInput): Promise<Result<BudgetPeriodSummary>>
   listBudgetItems(input?: ListBudgetItemsInput): Promise<Result<BudgetItemSummary[]>>
@@ -841,6 +847,33 @@ export interface BudgetSetSummary {
 
 export interface CreateBudgetSetInput {
   name: string
+}
+
+export interface BudgetRolloverSuggestionInput {
+  asOf?: string
+  budgetSetId?: FlowmId
+}
+
+export interface BudgetRolloverSuggestion {
+  asOf: string
+  budgetSetId: FlowmId
+  periodStart: string
+  periodEnd: string
+  sourcePeriodId: FlowmId
+  sourcePeriodStart: string
+  sourcePeriodEnd: string
+  itemCount: number
+}
+
+export interface CreateBudgetPeriodFromLatestInput extends BudgetRolloverSuggestionInput {
+  currency?: string
+}
+
+export interface CreateBudgetPeriodFromLatestResult {
+  budgetPeriod: BudgetPeriodSummary
+  sourcePeriodId: FlowmId | null
+  copiedItems: number
+  alreadyExists: boolean
 }
 
 export interface BudgetPeriodSummary {

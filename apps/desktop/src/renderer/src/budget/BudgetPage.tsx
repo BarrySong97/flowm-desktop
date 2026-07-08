@@ -18,6 +18,7 @@ import { dateKey, monthStart, todayKey } from "@/lib/dates"
 import { AddBudgetModal } from "./AddBudgetModal"
 import type { BudgetForm } from "./AddBudgetModal"
 import { invalidateBudgetQueries } from "./invalidateBudgetQueries"
+import { useBudgetRolloverPrompt } from "./useBudgetRolloverPrompt"
 
 function Bar({ pct, color, h }: { pct: number; color: string; h: number }) {
   return (
@@ -48,6 +49,9 @@ export function BudgetPage() {
   const currentPeriod = periodsQuery.data?.find(
     (period) => period.periodStart <= today && period.periodEnd >= today,
   )
+  const rollover = useBudgetRolloverPrompt({
+    enabled: !periodsQuery.isPending && !currentPeriod,
+  })
   const progressQuery = useQuery({
     ...trpc.budgets.progress.queryOptions({ budgetPeriodId: currentPeriod?.id ?? "" }),
     enabled: Boolean(currentPeriod),
@@ -186,12 +190,25 @@ export function BudgetPage() {
           <Bar pct={pctTotal} color={pctTotal > 100 ? "var(--red)" : "var(--accent)"} h={8} />
         </div>
         <div style={{ marginLeft: "auto", paddingTop: 8, alignSelf: "flex-start" }}>
+          {rollover.suggestion && (
+            <Button
+              size="sm"
+              variant="outline"
+              style={{ borderRadius: 5, marginRight: 8 }}
+              onPress={() => rollover.prompt(true)}
+              isDisabled={rollover.isLoading || saving}
+            >
+              从上期生成本月预算
+            </Button>
+          )}
           <Button
             size="sm"
             variant="primary"
             style={{ borderRadius: 5 }}
             onPress={() => setShowAdd(true)}
-            isDisabled={setsQuery.isPending || periodsQuery.isPending || saving}
+            isDisabled={
+              setsQuery.isPending || periodsQuery.isPending || rollover.isLoading || saving
+            }
           >
             ＋ 添加预算
           </Button>

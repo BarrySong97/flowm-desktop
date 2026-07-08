@@ -1087,6 +1087,45 @@ describe("@flowm/api — clean-slate data model", () => {
     expect(updatedDaily?.categoryIds).toEqual([shoppingCategoryId])
   }, 30_000)
 
+  it("suggests and creates the current monthly budget from the latest plan only after confirmation", async () => {
+    const { api } = await createApi("budget-rollover")
+    const fixture = await createGoldenFixture(api)
+
+    const suggestion = expectOk(await api.getBudgetRolloverSuggestion({ asOf: "2026-07-10" }))
+    expect(suggestion).toMatchObject({
+      periodStart: "2026-07-01",
+      periodEnd: "2026-07-31",
+      sourcePeriodId: fixture.budget.period.id,
+      itemCount: 2,
+    })
+    expect(expectOk(await api.listBudgetPeriods()).map((period) => period.periodStart)).toEqual([
+      "2026-06-01",
+    ])
+
+    const created = expectOk(await api.createBudgetPeriodFromLatest({ asOf: "2026-07-10" }))
+    expect(created.alreadyExists).toBe(false)
+    expect(created.sourcePeriodId).toBe(fixture.budget.period.id)
+    expect(created.copiedItems).toBe(2)
+    expect(created.budgetPeriod.periodStart).toBe("2026-07-01")
+
+    const second = expectOk(await api.createBudgetPeriodFromLatest({ asOf: "2026-07-20" }))
+    expect(second.alreadyExists).toBe(true)
+    expect(second.budgetPeriod.id).toBe(created.budgetPeriod.id)
+
+    const copiedItems = expectOk(
+      await api.listBudgetItems({ budgetPeriodId: created.budgetPeriod.id }),
+    )
+    expect(copiedItems.map((item) => item.name).sort()).toEqual(["无流水预算", "餐饮预算"])
+    const copiedEmpty = copiedItems.find((item) => item.name === "无流水预算")
+    expect(copiedEmpty?.plannedAmount).toBe("500.00")
+
+    const progress = expectOk(
+      await api.getBudgetReferenceProgress({ budgetPeriodId: created.budgetPeriod.id }),
+    )
+    const copiedScopedBudget = progress.find((row) => row.budgetName === "无流水预算")
+    expect(copiedScopedBudget?.referenceUsed).toBe("0.00")
+  }, 30_000)
+
   it("binds cashflow events to a subscription idempotently and unbinds without touching aggregates", async () => {
     const { api } = await createApi("cashflow-link-binding")
     const fixture = await createGoldenFixture(api)
