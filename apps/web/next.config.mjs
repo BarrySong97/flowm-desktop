@@ -1,11 +1,22 @@
 /**
  * @purpose Configure the Flowm marketing site (Next.js App Router).
  * @role    Build/runtime config for the apps/web package.
- * @deps    Next.js 15.
+ * @deps    Next.js 15, Velite.
  * @gotcha  Linting runs through the workspace oxlint pass, not next lint.
+ *          Velite watches content in development and performs one clean build
+ *          for production so App Router can import generated blog data.
  */
 
 import { join } from "node:path"
+
+startVelite()
+
+function startVelite() {
+  if (process.env.VELITE_STARTED) return
+  process.env.VELITE_STARTED = "1"
+  const isDev = process.argv.includes("dev")
+  void import("velite").then((velite) => velite.build({ watch: isDev, clean: !isDev }))
+}
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {

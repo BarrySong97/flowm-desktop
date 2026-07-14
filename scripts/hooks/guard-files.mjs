@@ -21,7 +21,10 @@ const patch = typeof toolInput.input === "string" ? toolInput.input : ""
 const targets = [filePath, patch].filter(Boolean)
 
 const RULES = [
-  { re: /(^|\/)\.env($|\.)/, why: "Blocked edits to .env files; handle secrets manually." },
+  {
+    re: /(^|\/)\.env(?:$|\.(?!(?:example|sample|template)$))/,
+    why: "Blocked edits to .env files; handle secrets manually.",
+  },
   {
     re: /\.(pem|key|p12|keystore)$|(^|\/)id_rsa/,
     why: "Blocked edits to key or certificate files.",

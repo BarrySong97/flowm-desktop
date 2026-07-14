@@ -8,7 +8,15 @@
 import type { Metadata } from "next"
 import type { Viewport } from "next"
 import type { ReactNode } from "react"
-import { SEO_KEYWORDS, SITE_DESCRIPTION, SITE_NAME, SITE_TITLE, SITE_URL } from "@/lib/seo"
+import {
+  OG_IMAGE_URL,
+  SEO_KEYWORDS,
+  SITE_DESCRIPTION,
+  SITE_ICON_URL,
+  SITE_NAME,
+  SITE_TITLE,
+  SITE_URL,
+} from "@/lib/seo"
 import "./globals.css"
 
 export const metadata: Metadata = {
@@ -39,9 +47,9 @@ export const metadata: Metadata = {
     },
   },
   icons: {
-    icon: [{ url: "/app-icon.png", type: "image/png", sizes: "1024x1024" }],
-    shortcut: "/app-icon.png",
-    apple: "/app-icon.png",
+    icon: [{ url: SITE_ICON_URL, type: "image/png", sizes: "1024x1024" }],
+    shortcut: SITE_ICON_URL,
+    apple: SITE_ICON_URL,
   },
   manifest: "/manifest.webmanifest",
   openGraph: {
@@ -53,7 +61,7 @@ export const metadata: Metadata = {
     description: SITE_DESCRIPTION,
     images: [
       {
-        url: "/og-image.png",
+        url: OG_IMAGE_URL,
         width: 1200,
         height: 630,
         alt: "Flowm 本地优先个人财务仪表盘预览",
@@ -64,7 +72,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: SITE_TITLE,
     description: SITE_DESCRIPTION,
-    images: ["/og-image.png"],
+    images: [OG_IMAGE_URL],
   },
   appleWebApp: {
     capable: true,

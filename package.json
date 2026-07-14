@@ -20,6 +20,7 @@
     "format": "oxfmt .",
     "format:check": "oxfmt . --check",
     "typecheck": "turbo check-types",
+    "img": "node scripts/img.mjs",
     "rebuild:electron": "pnpm -F desktop exec electron-builder install-app-deps",
     "test": "pnpm run test:electron",
     "test:electron": "pnpm run rebuild:electron && ELECTRON_RUN_AS_NODE=1 apps/desktop/node_modules/.bin/electron ./node_modules/vitest/vitest.mjs run",
@@ -31,9 +32,12 @@
     "dist": "pnpm -F desktop dist"
   },
   "devDependencies": {
+    "aws4fetch": "^1.0.20",
     "@vitest/ui": "^4.0.18",
     "oxfmt": "^0.54.0",
     "oxlint": "^1.69.0",
+    "sharp": "^0.34.5",
+    "thumbhash": "^0.1.1",
     "turbo": "^2.5.4",
     "typescript": "~5.8.3",
     "vitest": "^4.0.18"

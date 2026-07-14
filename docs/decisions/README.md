@@ -20,3 +20,5 @@ Record durable architecture and product-model decisions here so agents do not re
 | 0004   | Agent Ledger Patches                             | Accepted | 2026-06-16 |
 | 0005   | Local CLI Commit Refresh Socket                  | Accepted | 2026-06-18 |
 | 0006   | Add Flutter Mobile App                           | Accepted | 2026-06-27 |
+| 0007   | Build The Web Blog With Velite                   | Accepted | 2026-07-14 |
+| 0008   | Content-Address Blog Images                      | Accepted | 2026-07-14 |

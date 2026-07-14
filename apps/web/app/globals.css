@@ -11,6 +11,7 @@
 
 /* @heroui/styles internally pulls in Tailwind CSS v4 + the HeroUI theme. */
 @import "@heroui/styles";
+@plugin "@tailwindcss/typography";
 
 @source "./**/*.{ts,tsx}";
 @source "../components/**/*.{ts,tsx}";

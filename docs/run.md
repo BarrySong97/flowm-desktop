@@ -49,6 +49,20 @@ Electron IPC or the user's live Desktop data directory. For development, it
 copies the bundled Desktop demo SQLite fixture into the simulator/device app
 sandbox and reads it through Drift with a read-only SQLite connection.
 
+## Prepare Blog Images
+
+Copy `.env.example` to `.env` and fill the Cloudflare R2 credentials, then run:
+
+```bash
+pnpm img <blog-slug> --dry-run
+pnpm img <blog-slug>
+```
+
+The first command previews compression and MDX rewriting without uploading or
+changing files. The second uploads content-addressed WebP assets and writes
+dimensions plus ThumbHash placeholders into the article. See
+[Blog Image Pipeline](topics/blog-images.md).
+
 ## Build
 
 ```bash

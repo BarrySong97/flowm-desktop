@@ -39,6 +39,7 @@ export function Nav() {
             ["理念", "/#model"],
             ["能力", "/#features-detail"],
             ["隐私", "/#privacy"],
+            ["博客", "/blog"],
             ["更新日志", "/releases"],
           ].map(([t, h]) => (
             <a

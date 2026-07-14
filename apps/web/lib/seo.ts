@@ -13,6 +13,8 @@ export const GITHUB_URL = "https://github.com/BarrySong97/flowm-desktop"
 export const GITHUB_RELEASES_URL = `${GITHUB_URL}/releases`
 export const GITHUB_LATEST_RELEASE_URL = `${GITHUB_RELEASES_URL}/latest`
 export const DOWNLOAD_URL = GITHUB_LATEST_RELEASE_URL
+export const SITE_ICON_URL = "/app-icon.png"
+export const OG_IMAGE_URL = "/og-image.png"
 
 export const SEO_KEYWORDS = [
   "Flowm",

@@ -1,6 +1,7 @@
 # Next.js
 /.next/
 /out/
+/.velite/
 next-env.d.ts
 
 # build / deps

@@ -21,6 +21,7 @@ const COLS: { h: string; links: { label: string; href: string }[] }[] = [
     links: [
       { label: "使用指南", href: GITHUB_URL },
       { label: "命令行工具 · flowm CLI", href: GITHUB_URL },
+      { label: "博客", href: "/blog" },
       { label: "更新日志", href: "/releases" },
     ],
   },
