@@ -1,6 +1,6 @@
 {
   "name": "web",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "Flowm marketing site (Next.js)",
   "private": true,
   "type": "module",

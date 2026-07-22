@@ -19,10 +19,25 @@ export type ReleaseNote = {
 
 export const RELEASES: ReleaseNote[] = [
   {
+    version: "0.1.8",
+    date: "2026-07-22",
+    head: "补齐结余分析的返回体验，并让桌面端支持鼠标侧键和系统手势前进后退。",
+    badge: "latest",
+    groups: [
+      {
+        title: "桌面应用",
+        items: [
+          "从看板或流水进入结余分析后，可通过页内返回按钮回到原页面并保留筛选状态",
+          "支持 macOS 鼠标侧键、浏览器快捷键与触控板手势进行路由前进后退",
+          "支持 Windows 和 Linux 的鼠标浏览器前进后退命令",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.1.7",
     date: "2026-07-08",
     head: "修复首页净资产趋势的月度计算口径，让资产快照按月末最近余额延续。",
-    badge: "latest",
     groups: [
       {
         title: "桌面应用",
