@@ -18,6 +18,7 @@ import { appDisplayName, appUserModelId } from "./bootstrap/app-info"
 import { isDevRuntime } from "./bootstrap/runtime-env"
 import { initAutoUpdate } from "./bootstrap/auto-update"
 import { startLocalLedgerChangeServer } from "./local-ledger-change-server"
+import { installNativeHistoryNavigation } from "./native-navigation"
 
 const ledgerStore = new LedgerStore()
 let ledgerChangeServer: Awaited<ReturnType<typeof startLocalLedgerChangeServer>> = null
@@ -190,6 +191,8 @@ function createWindow(): BrowserWindow {
     shell.openExternal(details.url)
     return { action: "deny" }
   })
+
+  installNativeHistoryNavigation(window)
 
   if (isDevRuntime() && process.env.ELECTRON_RENDERER_URL) {
     window.loadURL(process.env.ELECTRON_RENDERER_URL)

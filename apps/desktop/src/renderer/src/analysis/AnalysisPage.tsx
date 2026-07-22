@@ -8,7 +8,7 @@
 import { useMemo, useState } from "react"
 import { Tabs } from "@heroui/react"
 import { useQuery } from "@tanstack/react-query"
-import { Link } from "@tanstack/react-router"
+import { Link, useRouter } from "@tanstack/react-router"
 import { trpc } from "@/lib/trpc"
 import { usePagePerf } from "@/lib/debug/perf"
 import { useCurrencyMoney, useMoney, useSignedMoney } from "@/lib/useMoney"
@@ -18,6 +18,7 @@ import { Kicker } from "../components/ui/Kicker"
 import { BigNumber } from "../components/ui/BigNumber"
 import { SectionTitle } from "../components/ui/SectionTitle"
 import { Dim } from "../components/ui/Dim"
+import { BackButton } from "../components/ui/BackButton"
 import {
   MonthlyCashflowCombo,
   MonthlyNetBars,
@@ -92,6 +93,7 @@ function Legend() {
 }
 
 export function AnalysisPage() {
+  const router = useRouter()
   const fmt = useMoney()
   const fmtc = useCurrencyMoney()
   const signed = useSignedMoney()
@@ -136,6 +138,9 @@ export function AnalysisPage() {
     <div className="relative flex flex-col h-full overflow-hidden bg-white">
       <ScrollArea className="flex-1 min-h-0">
         <div className="flex flex-col px-[34px] pt-[30px] pb-[108px]">
+          <div className="mb-3">
+            <BackButton label="返回" onBack={() => router.history.back()} />
+          </div>
           <div className="flex items-start gap-6">
             <div>
               <Kicker className="mb-1.5">现金流分析</Kicker>

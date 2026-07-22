@@ -24,6 +24,22 @@ React renderer
 - Keep `apps/desktop/src/preload/index.ts` and `index.d.ts` in sync.
 - Main process code may use Node and Electron APIs; renderer feature code should stay browser-compatible.
 
+## Native History Navigation
+
+TanStack Router owns renderer route history through `createHashHistory()`. Native
+browser-style navigation inputs are adapted at the platform boundary:
+
+- Electron `app-command` events drive `WebContents.navigationHistory` on
+  Windows and Linux.
+- Electron window `swipe` events drive the same history on macOS.
+- Raw macOS mouse side buttons are handled as DOM buttons 3/4 in the renderer.
+  Drivers that synthesize the standard browser shortcuts Command+[ and
+  Command+] are captured in the main process. Electron does not expose
+  `app-command` on macOS.
+
+Keep the macOS DOM listener platform-gated so one physical input cannot be
+handled by both Electron and the renderer on Windows or Linux.
+
 ## External CLI Refresh
 
 The desktop main process owns a local ledger-change socket used by `flowm-cli`
