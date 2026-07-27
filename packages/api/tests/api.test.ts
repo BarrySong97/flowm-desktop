@@ -1001,6 +1001,10 @@ describe("@flowm/api — clean-slate data model", () => {
 
     const cashflow = expectOk(await api.listCashflowEvents({ keyword: "iCloud" }))
     expect(cashflow).toEqual([])
+    const generatedLoanCashflow = expectOk(
+      await api.listCashflowEvents({ sourceName: "loan_schedule" }),
+    )
+    expect(generatedLoanCashflow).toEqual([])
 
     // The loan does not create a liability asset; only the manually tracked
     // informal debt appears here. The loan's principal feeds net worth separately.

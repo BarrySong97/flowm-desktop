@@ -1,8 +1,8 @@
 /**
- * @purpose Resolve and switch between the primary user ledger and packaged demo ledger files.
- * @role    Main-process ledger path helper used before API/database services are exposed.
+ * @purpose Resolve ledgers and run their open-time background maintenance.
+ * @role    Main-process ledger lifecycle, switching, FX refresh, and loan-schedule refresh.
  * @deps    Node fs/path, Electron app paths, and packaged resources.
- * @gotcha  Never silently replace the user ledger with demo data; switching must be explicit.
+ * @gotcha  Due-date refresh may extend forecasts but must never create cashflow or asset changes.
  */
 
 import { app, BrowserWindow, dialog, shell } from "electron"
@@ -15,10 +15,13 @@ import { migrate } from "drizzle-orm/better-sqlite3/migrator"
 import { createFlowmApi, createFrankfurterFxProvider, type FlowmApi } from "@flowm/api"
 import { seedDefaultCategories, seedPersonalStarterData } from "@flowm/api/default-seed"
 import { schema, type Database as DrizzleDatabase } from "@flowm/db"
+import type { LedgerChangeEvent } from "@flowm/shared/ipc"
 import { isDevRuntime } from "./bootstrap/runtime-env"
 
 const PERSONAL_FILE = "flowm.sqlite3"
 const DEMO_FILE = "flowm-demo.sqlite3"
+const LEDGER_CHANGED_CHANNEL = "flowm:ledger-changed"
+const LOAN_FORECAST_DAYS = 60
 
 export interface LedgerRecord {
   id: string
@@ -51,12 +54,32 @@ function nowIso(): string {
   return new Date().toISOString()
 }
 
+function localDateKey(date = new Date()): string {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, "0")
+  const day = String(date.getDate()).padStart(2, "0")
+  return `${year}-${month}-${day}`
+}
+
+function addDaysKey(dateKey: string, days: number): string {
+  const date = new Date(`${dateKey}T00:00:00.000Z`)
+  date.setUTCDate(date.getUTCDate() + days)
+  return date.toISOString().slice(0, 10)
+}
+
+function millisecondsUntilNextLocalDay(): number {
+  const now = new Date()
+  const next = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 1)
+  return Math.max(next.getTime() - now.getTime(), 1_000)
+}
+
 export class LedgerStore {
   private registry: LedgerRegistry | null = null
   private client: Database.Database | null = null
   private drizzleDb: DrizzleDatabase | null = null
   private api: FlowmApi | null = null
   private activeFilePath: string | null = null
+  private loanScheduleTimer: ReturnType<typeof setTimeout> | null = null
 
   // ---- paths -------------------------------------------------------------
 
@@ -166,13 +189,65 @@ export class LedgerStore {
     // self-skips currency pairs already refreshed today, so launches and ledger switches
     // stay cheap and never block opening.
     void api.refreshExchangeRates().catch(() => {})
+    this.refreshLoanSchedules(api, absPath, false)
+    this.scheduleNextLoanRefresh()
   }
 
   close(): void {
+    if (this.loanScheduleTimer != null) {
+      clearTimeout(this.loanScheduleTimer)
+      this.loanScheduleTimer = null
+    }
     this.api = null
     this.drizzleDb = null
     this.client?.close()
     this.client = null
+  }
+
+  /**
+   * Keep forecast rows available for date-derived renderer progress. At the next
+   * local day boundary, notify renderers so "today" and progress recalculate.
+   */
+  private refreshLoanSchedules(api: FlowmApi, dbPath: string, notifyRenderer: boolean): void {
+    const today = localDateKey()
+    void api
+      .generateLoanPaymentOccurrences({
+        throughDate: addDaysKey(today, LOAN_FORECAST_DAYS),
+      })
+      .catch(() => {
+        // A ledger switch can close the previous database while this background
+        // refresh is still pending. The next view/open refresh will retry.
+      })
+      .finally(() => {
+        if (!notifyRenderer || this.activeFilePath !== dbPath) {
+          return
+        }
+        const event: LedgerChangeEvent = {
+          type: "ledger.changed",
+          dbPath,
+          source: "flowm-desktop",
+          command: "refresh-loan-schedules",
+          pid: process.pid,
+          changedAt: nowIso(),
+        }
+        const payload = { ...event, receivedAt: nowIso() }
+        for (const window of BrowserWindow.getAllWindows()) {
+          if (!window.isDestroyed()) {
+            window.webContents.send(LEDGER_CHANGED_CHANNEL, payload)
+          }
+        }
+      })
+  }
+
+  private scheduleNextLoanRefresh(): void {
+    this.loanScheduleTimer = setTimeout(() => {
+      this.loanScheduleTimer = null
+      if (this.api == null || this.activeFilePath == null) {
+        return
+      }
+      this.refreshLoanSchedules(this.api, this.activeFilePath, true)
+      this.scheduleNextLoanRefresh()
+    }, millisecondsUntilNextLocalDay())
   }
 
   private writeRegistry(): void {

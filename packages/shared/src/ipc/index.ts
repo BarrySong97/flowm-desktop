@@ -1,11 +1,11 @@
 /**
- * @purpose Define local IPC contracts shared by Flowm desktop and CLI.
- * @role    Browser-safe event and socket-path helpers for cross-process app refresh.
+ * @purpose Define ledger-refresh IPC contracts shared by Flowm desktop and CLI.
+ * @role    Browser-safe refresh events and socket-path helpers for app/CLI writes.
  * @deps    TypeScript runtime only.
  * @gotcha  Keep this module free of Node/Electron imports so shared stays platform-light.
  */
 
-export type LedgerChangeSource = "flowm-cli"
+export type LedgerChangeSource = "flowm-cli" | "flowm-desktop"
 
 export interface LedgerChangeEvent {
   type: "ledger.changed"

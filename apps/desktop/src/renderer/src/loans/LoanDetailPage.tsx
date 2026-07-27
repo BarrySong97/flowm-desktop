@@ -2,7 +2,7 @@
  * @purpose Render and calculate the loan detail page workflow.
  * @role    Renderer feature surface for future loan obligations.
  * @deps    React, tRPC loan queries, schedule helpers, and UI primitives.
- * @gotcha  Loan plans are forecasts; liabilities in net worth come from asset snapshots.
+ * @gotcha  Loan progress is date-derived and must not create cashflow or asset changes.
  */
 
 import React, { useMemo, useState } from "react"
@@ -17,7 +17,7 @@ import { Dock } from "../components/layout/Dock"
 import { ScrollArea } from "../components/ui/ScrollArea"
 import { useConfirm } from "../components/ui/ConfirmModal"
 import { trpc } from "@/lib/trpc"
-import { addMonths, todayKey } from "@/lib/dates"
+import { addMonths, localDateKey } from "@/lib/dates"
 import { useMoney } from "@/lib/useMoney"
 import { Route } from "../routes/loans.$id"
 import { LoanScheduleBar } from "./LoanScheduleBar"
@@ -62,7 +62,7 @@ export function LoanDetailPage() {
   const [linkOpen, setLinkOpen] = useState(false)
   const archiveLoan = useMutation(trpc.loans.archive.mutationOptions())
   const updateLoan = useMutation(trpc.loans.update.mutationOptions())
-  const today = todayKey()
+  const today = localDateKey()
 
   const loanQuery = useQuery(trpc.loans.get.queryOptions({ id }))
   // Same wide window as the loans list so the schedule bar matches exactly.
@@ -86,7 +86,7 @@ export function LoanDetailPage() {
       paymentAmount: loan?.paymentAmount ?? "",
       annualRate: loan?.annualRateBps == null ? "" : String(loan.annualRateBps / 100),
       termMonths: loan?.termMonths == null ? "" : String(loan.termMonths),
-      startDate: loan?.startDate ?? todayKey(),
+      startDate: loan?.startDate ?? localDateKey(),
       note: loan?.note ?? "",
       cur: loan?.currency ?? "CNY",
     },
@@ -100,9 +100,7 @@ export function LoanDetailPage() {
   )
 
   const principal = loan ? parseFloat(loan.principalAmount ?? "0") : 0
-  const currentPrincipal = loan
-    ? parseFloat(loan.currentPrincipalEstimate ?? loan.principalAmount ?? "0")
-    : 0
+  const currentPrincipal = schedule?.remain ?? 0
   const monthly = schedule?.monthly ?? 0
   const ratePct = loan?.annualRateBps != null ? loan.annualRateBps / 100 : null
   const termMonths = schedule?.termTotal ?? 0
@@ -127,6 +125,7 @@ export function LoanDetailPage() {
 
   async function refreshLoanViews() {
     await queryClient.invalidateQueries(trpc.loans.list.queryFilter())
+    await queryClient.invalidateQueries(trpc.loans.get.queryFilter())
     await queryClient.invalidateQueries(trpc.loans.occurrences.queryFilter())
     await queryClient.invalidateQueries(trpc.loans.futurePressure.queryFilter())
     await queryClient.invalidateQueries(trpc.reference.currentRates.queryFilter())
@@ -355,7 +354,7 @@ export function LoanDetailPage() {
                 <div
                   style={{ marginTop: 16, fontSize: 11, color: "var(--ink-4)", lineHeight: 1.7 }}
                 >
-                  月供计入每月固定支出，与净资产中的负债同步。提前还款可减少利息，结清后从负债移除。
+                  还款进度按期次日期自动推算，不会生成流水或修改资产快照。净资产中的负债仍以资产快照为准。
                 </div>
 
                 {/* Actions */}

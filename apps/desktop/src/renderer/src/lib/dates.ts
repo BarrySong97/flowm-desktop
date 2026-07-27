@@ -2,7 +2,7 @@
  * @purpose Provide renderer dates helper functions.
  * @role    Shared utility module for React feature code.
  * @deps    Browser-safe TypeScript utilities and local domain types.
- * @gotcha  Keep Node, Electron main, and SQLite access behind preload/tRPC.
+ * @gotcha  Use localDateKey for user-facing "today"; dateKey serializes UTC.
  */
 
 export function dateKey(date: Date): string {
@@ -11,6 +11,13 @@ export function dateKey(date: Date): string {
 
 export function todayKey(): string {
   return dateKey(new Date())
+}
+
+export function localDateKey(date = new Date()): string {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, "0")
+  const day = String(date.getDate()).padStart(2, "0")
+  return `${year}-${month}-${day}`
 }
 
 export function addDays(date: Date, days: number): Date {

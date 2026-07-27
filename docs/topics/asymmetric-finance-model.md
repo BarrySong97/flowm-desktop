@@ -15,6 +15,9 @@ Flowm intentionally avoids forcing all personal finance data into one reconciled
 - Dashboard and overview screens may show these layers together, but aggregation must not imply reconciliation.
 - Linking imported cashflow to subscriptions or loans can help explain data, but it should not automatically create asset changes or actual expenses.
 - Net worth liabilities come from liability asset snapshots, not from loan plans.
+- Elapsed loan due dates may advance projected progress in the UI, but they do
+  not convert forecast occurrences into past cashflow, require a linked
+  transaction, or mutate an asset snapshot.
 
 ## Review Questions
 

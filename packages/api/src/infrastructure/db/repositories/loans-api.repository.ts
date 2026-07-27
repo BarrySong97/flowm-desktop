@@ -2,7 +2,7 @@
  * @purpose Implement loans persistence operations for the layered API facade.
  * @role    Infrastructure repository layer module used by use-case wrappers.
  * @deps    /db schema, Drizzle query builder, SQLite base capabilities, and shared API helpers.
- * @gotcha  Preserve Flowm layer boundaries and avoid raw SQL except targeted Drizzle sql fragments.
+ * @gotcha  Loan occurrences remain forecasts; date-derived progress must never create cashflow.
  */
 
 import { and, asc, eq, gte, inArray, lte, type SQL } from "drizzle-orm"
@@ -177,7 +177,10 @@ export abstract class LoansApiRepository extends SubscriptionsApiRepository {
         let safety = 0
         while (due <= input.throughDate && safety++ < 500) {
           const exists = this.db
-            .select({ id: loanPaymentOccurrences.id })
+            .select({
+              id: loanPaymentOccurrences.id,
+              remainingPrincipalEstimate: loanPaymentOccurrences.remainingPrincipalEstimate,
+            })
             .from(loanPaymentOccurrences)
             .where(
               and(
@@ -186,7 +189,11 @@ export abstract class LoansApiRepository extends SubscriptionsApiRepository {
               ),
             )
             .get()
-          if (!exists) {
+          if (exists) {
+            if (exists.remainingPrincipalEstimate != null) {
+              remaining = Number(exists.remainingPrincipalEstimate)
+            }
+          } else {
             const payment = Number(loan.paymentAmount ?? 0)
             const interest =
               loan.annualRateBps == null

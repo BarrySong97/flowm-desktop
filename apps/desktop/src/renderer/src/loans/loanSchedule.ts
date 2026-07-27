@@ -1,11 +1,12 @@
 /**
- * @purpose Calculate projected loan schedule values for renderer displays.
+ * @purpose Calculate date-derived loan schedule values for renderer displays.
  * @role    Renderer feature surface for future loan obligations.
  * @deps    React, tRPC loan queries, schedule helpers, and UI primitives.
- * @gotcha  Loan plans are forecasts; liabilities in net worth come from asset snapshots.
+ * @gotcha  Due dates advance plan progress only; they never materialize cashflow or asset changes.
  */
 
-import type { RouterOutputs } from "@/lib/trpc"
+import { localDateKey } from "../lib/dates"
+import type { RouterOutputs } from "../lib/trpc"
 
 export type LoanSummary = RouterOutputs["loans"]["list"][number]
 export type LoanOccurrence = RouterOutputs["loans"]["occurrences"][number]
@@ -32,14 +33,24 @@ export interface LoanSchedule {
  * exist, and an amortization estimate fills in the remaining (future) periods.
  * Both the loans list and the loan detail page call this so their bars match.
  */
-export function buildLoanSchedule(loan: LoanSummary, occurrences: LoanOccurrence[]): LoanSchedule {
+export function buildLoanSchedule(
+  loan: LoanSummary,
+  occurrences: LoanOccurrence[],
+  asOf = localDateKey(),
+): LoanSchedule {
   const sorted = [...occurrences].sort((a, b) => a.dueDate.localeCompare(b.dueDate))
   const total = Number(loan.principalAmount ?? loan.currentPrincipalEstimate ?? 0)
-  const remain = Number(loan.currentPrincipalEstimate ?? loan.principalAmount ?? 0)
+  const storedRemain = Number(loan.currentPrincipalEstimate ?? loan.principalAmount ?? 0)
   const monthly = Number(loan.paymentAmount || 0)
   const rate = Number(loan.annualRateBps ?? 0) / 100 // annual percent, e.g. 4.5
   const termTotal = loan.termMonths ?? Math.max(sorted.length, 1)
-  const paid = sorted.filter((occurrence) => occurrence.status === "paid").length
+  const dueOccurrences = sorted.filter(
+    (occurrence) => occurrence.dueDate <= asOf && occurrence.status !== "skipped",
+  )
+  const paid = Math.min(dueOccurrences.length, termTotal)
+  const dueRemain = dueOccurrences[dueOccurrences.length - 1]?.remainingPrincipalEstimate
+  const remain =
+    dueRemain == null ? storedRemain : Math.min(storedRemain, Math.max(Number(dueRemain), 0))
 
   const monthlyRate = rate / 100 / 12
   let balance = total

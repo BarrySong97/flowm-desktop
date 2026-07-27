@@ -2,7 +2,7 @@
  * @purpose Render and calculate the loans overview page workflow.
  * @role    Renderer feature surface for future loan obligations.
  * @deps    React, tRPC loan queries, schedule helpers, and UI primitives.
- * @gotcha  Loan plans are forecasts; liabilities in net worth come from asset snapshots.
+ * @gotcha  Loan progress is date-derived and must not create cashflow or asset changes.
  */
 
 import { useMemo, useState } from "react"
@@ -14,7 +14,7 @@ import { Dock } from "../components/layout/Dock"
 import { ScrollArea } from "../components/ui/ScrollArea"
 import { trpc } from "@/lib/trpc"
 import { usePagePerf } from "@/lib/debug/perf"
-import { addDays, dateKey, todayKey } from "@/lib/dates"
+import { addDays, localDateKey } from "@/lib/dates"
 import { useMoney } from "@/lib/useMoney"
 import { LoanScheduleBar } from "./LoanScheduleBar"
 import { buildLoanSchedule } from "./loanSchedule"
@@ -40,7 +40,7 @@ const EMPTY_FORM: LoanForm = {
   monthly: "",
   rate: "4.5",
   termTotal: "120",
-  startDate: todayKey(),
+  startDate: localDateKey(),
   cur: "CNY",
 }
 
@@ -201,8 +201,8 @@ export function LoansPage() {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const [showAdd, setShowAdd] = useState(false)
-  const today = dateKey(new Date())
-  const futureThrough = dateKey(addDays(new Date(), 60))
+  const today = localDateKey()
+  const futureThrough = localDateKey(addDays(new Date(), 60))
   const loansQuery = useQuery(trpc.loans.list.queryOptions({ status: "active" }))
   // Fetch the full occurrence history + forecast so the schedule bar can render every period.
   const loanOccurrencesQuery = useQuery(
