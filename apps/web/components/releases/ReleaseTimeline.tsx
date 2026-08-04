@@ -19,10 +19,24 @@ export type ReleaseNote = {
 
 export const RELEASES: ReleaseNote[] = [
   {
+    version: "0.1.11",
+    date: "2026-08-04",
+    head: "让订阅和贷款预测按滚动窗口自动补齐，旧订阅也能持续出现在即将扣费中。",
+    badge: "latest",
+    groups: [
+      {
+        title: "订阅和贷款",
+        items: [
+          "打开 FlowM 或跨过本地日期后，自动补齐 active 订阅和贷款未来 60 天的预测记录",
+          "按计划和到期日幂等生成，不重复创建预测，也不创建真实流水或修改资产快照",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.1.10",
     date: "2026-08-04",
     head: "修复首页贷款欠款进度和未来扣费展示，让首页计划信息与实际日期保持一致。",
-    badge: "latest",
     groups: [
       {
         title: "首页",
