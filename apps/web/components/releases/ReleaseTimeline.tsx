@@ -19,10 +19,24 @@ export type ReleaseNote = {
 
 export const RELEASES: ReleaseNote[] = [
   {
+    version: "0.1.10",
+    date: "2026-08-04",
+    head: "修复首页贷款欠款进度和未来扣费展示，让首页计划信息与实际日期保持一致。",
+    badge: "latest",
+    groups: [
+      {
+        title: "首页",
+        items: [
+          "贷款欠款会随着还款到期日推进而减少，不再长期显示初始欠款",
+          "即将扣费按未来 30 天完整统计，首页展示前 5 条并可进入订阅页查看全部",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.1.9",
     date: "2026-07-27",
     head: "贷款还款进度改为按期次日期自动推进，并与可选的真实扣款流水彻底解耦。",
-    badge: "latest",
     groups: [
       {
         title: "贷款",
