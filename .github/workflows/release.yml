@@ -7,12 +7,39 @@ on:
     tags:
       - "v*"
   workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to build, for example v0.1.11"
+        required: true
+        type: string
 
 permissions:
   contents: write # needed for the GITHUB_TOKEN to create/upload the Release
 
 jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+    steps:
+      - name: Create published GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest
+          else
+            VERSION="${RELEASE_TAG#v}"
+            gh release create "$RELEASE_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "FlowM $VERSION" \
+              --generate-notes \
+              --latest
+          fi
+
   release:
+    needs: create-release
     strategy:
       fail-fast: false
       matrix:
@@ -20,9 +47,13 @@ jobs:
           - os: macos-latest # Apple Silicon → builds arm64 dmg + zip, signs + notarizes
           - os: windows-latest # builds nsis installer
     runs-on: ${{ matrix.os }}
+    env:
+      RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TAG }}
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4

@@ -102,9 +102,10 @@ pnpm release 0.2.2
 
 The release script validates the release note, bumps the root/desktop/web/CLI
 package versions, commits the release, pushes `main`, pushes tag `v<version>`,
-waits for the tag-triggered GitHub Actions build, publishes the draft GitHub
-Release as latest, and publishes `@barrysongdev4real/flowm-cli` to npm from
-`packages/cli/npm`. Before committing, it runs `pnpm check-docs`,
+and waits for the tag-triggered GitHub Actions build. CI creates the published
+GitHub Release before the macOS and Windows jobs upload their installers, then
+the script publishes `@barrysongdev4real/flowm-cli` to npm from `packages/cli/npm`.
+Before committing, it runs `pnpm check-docs`,
 `pnpm format:check`, `pnpm lint`, and `pnpm build`. Use `--dry-run`,
 `--no-publish`, `--no-npm`, `--no-cask`, `--no-wait`, or `--no-checks` while
 testing.

@@ -10,9 +10,9 @@ note is added to the marketing site.
 - Add a release note source at `apps/web/components/releases/ReleaseTimeline.tsx`.
 - Add `pnpm release <version>` backed by `scripts/release.mjs`.
 - Bump root, desktop, web, and CLI package versions.
-- Commit, push `main`, tag `v<version>`, wait for the tag-triggered GitHub
-  Actions release build, then publish the draft release as latest and publish
-  `@barrysongdev4real/flowm-cli` to npm.
+- Commit, push `main`, tag `v<version>`, and wait for the tag-triggered GitHub
+  Actions release build. CI creates the published release before the matrix
+  jobs upload installers, then publish `@barrysongdev4real/flowm-cli` to npm.
 - Keep optional Homebrew cask support configurable but disabled by default until
   a tap repository exists.
 - Update docs so the release operator has a short runbook.

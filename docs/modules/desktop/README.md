@@ -12,7 +12,7 @@
 - `apps/desktop/src/main/native-navigation.ts` - native browser-style back/forward command, macOS mouse-driver shortcut, and swipe adapter over Electron navigation history.
 - `apps/desktop/src/main/bootstrap/auto-update.ts` - electron-updater wiring against the public GitHub Releases feed: launch + manual checks, download-on-click, and quit-to-install; relays lifecycle as `flowm:updater:status` events and no-ops in dev/local dir installs that lack `app-update.yml`.
 - `apps/desktop/src/renderer/src/providers/auto-update.tsx` - renderer controller that mirrors update status into `updateStatusAtom` and drives the bottom-right update toast.
-- `.github/workflows/release.yml` - tag-triggered (`v*`) CI that builds, signs, notarizes, and uploads installers to a draft GitHub Release (macOS arm64 dmg/zip, Windows nsis); `scripts/release.mjs` publishes the draft after the workflow succeeds.
+- `.github/workflows/release.yml` - tag-triggered (`v*`) CI that creates a published GitHub Release, then builds, signs, notarizes, and uploads installers (macOS arm64 dmg/zip, Windows nsis).
 - `apps/desktop/src/main/trpc/router.ts` - tRPC IPC router exposed to the renderer.
 - `apps/desktop/src/main/trpc/trpc.ts` - tRPC helpers for the Electron main process.
 - `apps/desktop/src/preload/index.ts` - typed preload bridge exposed as `window.flowm`.
@@ -21,7 +21,7 @@
 - `apps/desktop/scripts/seed-demo.ts` - developer script for seeding local demo data.
 - `apps/desktop/scripts/build-demo-ledger.ts` - script for building the packaged demo ledger resource.
 - `apps/desktop/electron-builder.yml` - desktop packaging configuration.
-- `scripts/release.mjs` - release automation entrypoint behind `pnpm release <version>`; validates the web release note, bumps package versions, commits, pushes `main`, tags, waits for CI, publishes the draft release, and publishes `@barrysongdev4real/flowm-cli` to npm.
+- `scripts/release.mjs` - release automation entrypoint behind `pnpm release <version>`; validates the web release note, bumps package versions, commits, pushes `main`, tags, waits for CI, validates the published release, and publishes `@barrysongdev4real/flowm-cli` to npm.
 - `scripts/prepare-electron-dev-app.mjs` - prepares the macOS branded `FlowM.app` used by the desktop dev command.
 
 ## Renderer Feature Map

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * @purpose One-command FlowM release automation.
- * @role    Bumps versions, commits, pushes main, tags, waits for CI, publishes the draft release.
+ * @role    Bumps versions, commits, pushes main, tags, waits for CI, and publishes the release.
  * @deps    Node built-ins plus external git/gh/pnpm commands.
  * @gotcha  The human/AI-authored release note must already be the first entry in ReleaseTimeline.tsx.
  */
@@ -78,10 +78,6 @@ function main() {
 
   if (!noWait) {
     waitForReleaseWorkflow(tag)
-  }
-
-  if (!noPublish) {
-    publishDraft(tag)
   }
 
   if (!noNpm) {
@@ -216,16 +212,6 @@ function findReleaseRun(tagName) {
     if (!dryRun) sleepSync(5000)
   }
   fail(`Could not find Release workflow run for ${tagName}.`)
-}
-
-function publishDraft(tagName) {
-  originalGhUser = currentGhUser()
-  try {
-    switchGhUser(OWNER)
-    mut("gh", ["release", "edit", tagName, "--repo", REPO, "--draft=false", "--latest"])
-  } finally {
-    if (originalGhUser && originalGhUser !== OWNER) switchGhUser(originalGhUser)
-  }
 }
 
 function publishNpmPackage(nextVersion) {
@@ -388,7 +374,7 @@ function usage() {
 
 Flags:
   --dry-run      Print write operations without changing files or remotes.
-  --no-publish   Do not publish the draft GitHub Release.
+  --no-publish   Skip remote GitHub Release validation.
   --no-cask      Skip Homebrew cask update.
   --no-npm       Skip publishing ${NPM_PACKAGE} to npm.
   --no-wait      Do not wait for GitHub Actions.
