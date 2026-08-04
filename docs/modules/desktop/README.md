@@ -97,6 +97,10 @@ Update `apps/desktop/src/preload/index.d.ts` whenever the preload contract chang
   objects, and values Tailwind cannot express cleanly.
 - Dashboard cashflow range selection is a renderer preference persisted in
   `localStorage`; it does not change the active ledger or database state.
+- Dashboard loan debt is a read-time projection: the overview loads loan
+  occurrence history and derives remaining principal from elapsed due dates so
+  its debt figure matches the loans page. This does not mutate forecast rows,
+  cashflow, or asset snapshots.
 - Dashboard net worth trend points are month-end as-of asset snapshot totals:
   each account carries its latest known snapshot forward until a newer snapshot
   replaces it, while liabilities subtract from the total.

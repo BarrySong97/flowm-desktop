@@ -10,15 +10,11 @@ import { Drawer, Dropdown } from "@heroui/react"
 import { useQuery } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 import { Dock } from "../components/layout/Dock"
-import type {
-  CashflowEventSummary,
-  LoanPaymentOccurrenceSummary,
-  SubscriptionOccurrenceSummary,
-} from "@flowm/api"
+import type { CashflowEventSummary } from "@flowm/api"
 import type { AssetSnapshotSummary } from "@flowm/shared/contracts"
 import { trpc } from "@/lib/trpc"
 import { usePagePerf } from "@/lib/debug/perf"
-import { addDays, dateKey, monthStart } from "@/lib/dates"
+import { addDays, dateKey, localDateKey, monthStart } from "@/lib/dates"
 import { useMoney, useSignedMoney } from "@/lib/useMoney"
 import { Kicker } from "../components/ui/Kicker"
 import { BigNumber } from "../components/ui/BigNumber"
@@ -36,6 +32,8 @@ import { useCurrentRates } from "@/lib/useCurrentRates"
 import { currencySymbol } from "@flowm/shared"
 import { useBudgetRolloverPrompt } from "../budget/useBudgetRolloverPrompt"
 import { buildNetWorthTrend } from "./netWorthTrend"
+import { buildUpcomingCharges } from "./upcoming"
+import { buildLoanSchedule } from "../loans/loanSchedule"
 
 type CashflowRangeKey = "this_month" | "last_month" | "last_30" | "last_90" | "year" | "all"
 const DEFAULT_CASHFLOW_RANGE_KEY: CashflowRangeKey = "this_month"
@@ -244,46 +242,6 @@ function useNetWorthTrend(snapshots: AssetSnapshotSummary[], asOfDateKey: string
   )
 }
 
-function useUpcoming(
-  subscriptions: Array<{ id: string | number; name: string }>,
-  subscriptionOccurrences: SubscriptionOccurrenceSummary[],
-  loans: Array<{ id: string | number; name: string; currency?: string }>,
-  loanOccurrences: LoanPaymentOccurrenceSummary[],
-) {
-  return useMemo(() => {
-    const now = new Date()
-    const subNames = new Map(subscriptions.map((sub) => [String(sub.id), sub.name]))
-    const loanNames = new Map(loans.map((loan) => [String(loan.id), loan.name]))
-    // Loan occurrences inherit the loan's currency.
-    const loanCur = new Map(loans.map((loan) => [String(loan.id), loan.currency ?? "CNY"]))
-    const rows = [
-      ...subscriptionOccurrences.map((occ) => ({
-        name: subNames.get(String(occ.subscriptionId)) ?? "订阅",
-        d: occ.dueDate.slice(5),
-        amt: Math.abs(Number(occ.amount) || 0),
-        cur: occ.currency,
-        kind: "订阅",
-        dueDate: new Date(occ.dueDate),
-      })),
-      ...loanOccurrences.map((occ) => ({
-        name: loanNames.get(String(occ.loanId)) ?? "贷款",
-        d: occ.dueDate.slice(5),
-        amt: Math.abs(Number(occ.paymentAmount) || 0),
-        cur: loanCur.get(String(occ.loanId)) ?? "CNY",
-        kind: "贷款",
-        dueDate: new Date(occ.dueDate),
-      })),
-    ]
-    return rows
-      .filter((u) => {
-        const diffDays = (u.dueDate.getTime() - now.getTime()) / 86400000
-        return diffDays >= 0 && diffDays <= 30
-      })
-      .sort((a, b) => a.d.localeCompare(b.d))
-      .slice(0, 6)
-  }, [loans, loanOccurrences, subscriptions, subscriptionOccurrences])
-}
-
 function toTransactionRow(t: CashflowEventSummary) {
   return {
     date: t.date,
@@ -303,9 +261,9 @@ export function OverviewPage() {
   const signed = useSignedMoney()
   const [cashflowRangeKey, setCashflowRangeKey] = useState<CashflowRangeKey>(readCashflowRangeKey)
   const [selectedBucketIndex, setSelectedBucketIndex] = useState<number | null>(null)
-  const today = dateKey(new Date())
+  const today = localDateKey()
   const range = cashflowRange(cashflowRangeKey)
-  const futureThrough = dateKey(addDays(new Date(), 60))
+  const futureThrough = addDateKeyDays(today, 60)
   const cashflowQuery = useQuery(
     trpc.cashflow.list.queryOptions({
       dateFrom: range.dateFrom,
@@ -323,7 +281,9 @@ export function OverviewPage() {
   )
   const loansQuery = useQuery(trpc.loans.list.queryOptions({ status: "active" }))
   const loanOccurrencesQuery = useQuery(
-    trpc.loans.occurrences.queryOptions({ dateFrom: today, dateTo: futureThrough }),
+    // Fetch the full history so the dashboard can derive each loan's remaining
+    // principal from elapsed due dates, just like the loans page.
+    trpc.loans.occurrences.queryOptions({ dateFrom: "1900-01-01", dateTo: "2999-12-31" }),
   )
   const futurePressureQuery = useQuery(
     trpc.loans.futurePressure.queryOptions({ dateFrom: today, dateTo: futureThrough }),
@@ -357,7 +317,32 @@ export function OverviewPage() {
   const events = cashflowQuery.data ?? []
   const assetSnapshots = assetSnapshotsQuery.data ?? []
   const totalAssets = Number(netWorthQuery.data?.assetValue.number ?? 0)
-  const totalLiab = Number(netWorthQuery.data?.liabilityValue.number ?? 0)
+  const snapshotLiabilities = useMemo(
+    () =>
+      assetSnapshots
+        .filter((snapshot) => snapshot.assetType === "liability")
+        .reduce(
+          (sum, snapshot) =>
+            sum +
+            (toDisplay(Math.abs(Number(snapshot.valueNumber || 0)), snapshot.valueCurrency) ?? 0),
+          0,
+        ),
+    [assetSnapshots, toDisplay],
+  )
+  const loanLiabilities = useMemo(() => {
+    const occurrencesByLoan = new Map<string, typeof loanOccurrencesQuery.data>()
+    for (const occurrence of loanOccurrencesQuery.data ?? []) {
+      const key = String(occurrence.loanId)
+      const rows = occurrencesByLoan.get(key) ?? []
+      rows.push(occurrence)
+      occurrencesByLoan.set(key, rows)
+    }
+    return (loansQuery.data ?? []).reduce((sum, loan) => {
+      const schedule = buildLoanSchedule(loan, occurrencesByLoan.get(String(loan.id)) ?? [], today)
+      return sum + (toDisplay(schedule.remain, loan.currency) ?? 0)
+    }, 0)
+  }, [loanOccurrencesQuery.data, loansQuery.data, toDisplay, today])
+  const totalLiab = snapshotLiabilities + loanLiabilities
   const liquidAssets = useMemo(
     () =>
       assetSnapshots
@@ -365,7 +350,7 @@ export function OverviewPage() {
         .reduce((s, a) => s + (toDisplay(Number(a.valueNumber || 0), a.valueCurrency) ?? 0), 0),
     [assetSnapshots, toDisplay],
   )
-  const netWorth = Number(netWorthQuery.data?.netWorth.number ?? totalAssets - totalLiab)
+  const netWorth = totalAssets - totalLiab
   const _netTrend = useNetWorthTrend(assetHistoryQuery.data ?? [], today)
   const netGain = _netTrend[11] - _netTrend[0]
   const netGainTone = netGain >= 0 ? "var(--green)" : "var(--red)"
@@ -421,12 +406,15 @@ export function OverviewPage() {
     limit: Number(row.budgeted),
   }))
 
-  const upcoming = useUpcoming(
+  const upcoming = buildUpcomingCharges(
+    today,
+    addDateKeyDays(today, 30),
     subscriptionsQuery.data ?? [],
     subscriptionOccurrencesQuery.data ?? [],
     loansQuery.data ?? [],
     loanOccurrencesQuery.data ?? [],
   )
+  const visibleUpcoming = upcoming.slice(0, 5)
 
   const upSum = upcoming.reduce((s, u) => s + (toDisplay(u.amt, u.cur) ?? 0), 0)
   const monthlyFixed = Number(futurePressureQuery.data?.total ?? upSum)
@@ -446,7 +434,7 @@ export function OverviewPage() {
   return (
     <div className="relative flex flex-col h-full overflow-hidden bg-white">
       <ScrollArea className="flex-1 min-h-0">
-        <div className="flex flex-col px-[34px] pt-[30px] pb-10">
+        <div className="flex flex-col px-[34px] pt-[30px] pb-28">
           {/* ── 净资产 + 趋势 ── */}
           <div className="flex items-stretch gap-9 pb-[18px]">
             <div>
@@ -606,7 +594,7 @@ export function OverviewPage() {
                 <Dim className="text-[12px]">未来 30 天暂无定期扣费</Dim>
               ) : (
                 <div>
-                  {upcoming.map((u, i) => (
+                  {visibleUpcoming.map((u, i) => (
                     <UpcomingRow
                       key={i}
                       date={u.d}
@@ -616,6 +604,14 @@ export function OverviewPage() {
                       amount={`${currencySymbol(u.cur)}${fmt(u.amt)}`}
                     />
                   ))}
+                  {upcoming.length > visibleUpcoming.length && (
+                    <Link
+                      to="/subscriptions"
+                      className="block pt-2.5 text-right text-[11px] text-[var(--accent)] hover:opacity-75 transition-opacity"
+                    >
+                      展示更多 →
+                    </Link>
+                  )}
                 </div>
               )}
             </div>
