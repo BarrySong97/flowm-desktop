@@ -1012,6 +1012,34 @@ describe("@flowm/api — clean-slate data model", () => {
     expect(liabilities.map((asset) => asset.name)).toEqual(["信用卡欠款"])
   }, 30_000)
 
+  it("backfills a rolling subscription forecast window idempotently", async () => {
+    const { api } = await createApi("subscription-forecast-window")
+    const fixture = await createGoldenFixture(api)
+
+    const first = expectOk(
+      await api.generateSubscriptionOccurrences({
+        throughDate: "2026-08-31",
+      }),
+    )
+    expect(first.generated).toBe(2)
+
+    const occurrences = expectOk(
+      await api.listSubscriptionOccurrences({ subscriptionId: fixture.future.iCloud.id }),
+    )
+    expect(occurrences.map((occurrence) => occurrence.dueDate)).toEqual([
+      "2026-06-15",
+      "2026-07-15",
+      "2026-08-15",
+    ])
+
+    const second = expectOk(
+      await api.generateSubscriptionOccurrences({
+        throughDate: "2026-08-31",
+      }),
+    )
+    expect(second.generated).toBe(0)
+  }, 30_000)
+
   it("clears forecast occurrences when a subscription or loan is archived so they stop surfacing", async () => {
     const { api } = await createApi("archive-clears-occurrences")
     const fixture = await createGoldenFixture(api)

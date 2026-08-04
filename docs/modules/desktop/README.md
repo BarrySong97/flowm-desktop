@@ -120,10 +120,11 @@ Update `apps/desktop/src/preload/index.d.ts` whenever the preload contract chang
 - UI copy and flows must preserve the separation between cashflow, assets, and obligations. The subscription/loan detail pages expose a 「扣款流水」 entry that opens `cashflow-links/LinkedCashflowDrawer` (bound flows + 解绑) and `cashflow-links/CashflowPickerModal` (filtered multi-select binding). These are read/link surfaces only: binding flows must never alter the forecast plan or its statistics. The picker reuses the shared filter controls extracted to `imports/filterControls.tsx`.
 - Loan progress is a date-derived projection: non-skipped occurrences due on or
   before the local current date count as elapsed, regardless of stored forecast
-  status or linked cashflow. `LedgerStore` extends forecasts 60 days ahead and
-  emits a renderer refresh hint at the next local date boundary. This workflow
-  never creates cashflow, changes occurrence status or stored principal, or
-  modifies asset snapshots.
+  status or linked cashflow. `LedgerStore` extends subscription and loan
+  forecasts 60 days ahead on ledger open and at the next local date boundary.
+  Generation is idempotent by plan and due date, and emits a renderer refresh
+  hint after the maintenance pass. This workflow never creates cashflow,
+  changes occurrence status or stored principal, or modifies asset snapshots.
 - Multi-currency: single items render in their original currency symbol via `currencySymbol(entity.currency)` — this applies to list rows, detail panels (subscription/loan/asset detail), and per-loan widgets (e.g. the schedule bar). Aggregated totals (net worth, asset totals/treemap, subscription/loan summaries, future pressure) render in the base currency after conversion via `useCurrentRates().toDisplay`. The base currency is editable in settings, and opening a ledger triggers a background daily FX refresh. Past cashflow, imports, and budgets stay in native amounts and are not converted.
 - Hide amounts: a global, persisted preference (`amountsHiddenAtom`) masks every money amount to `⋯⋯` (currency symbols/signs stay) for demos, screenshots, or onlookers. Components must format money through the `useMoney` / `useSignedMoney` / `useCurrencyMoney` hooks (in `@/lib/useMoney`), never the pure `@/lib/format` functions, so toggling re-renders them. Toggle it from settings or the dock eye button.
 - Asset account removal is an archive workflow. Archived accounts stay out of

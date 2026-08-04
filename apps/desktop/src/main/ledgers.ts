@@ -21,7 +21,7 @@ import { isDevRuntime } from "./bootstrap/runtime-env"
 const PERSONAL_FILE = "flowm.sqlite3"
 const DEMO_FILE = "flowm-demo.sqlite3"
 const LEDGER_CHANGED_CHANNEL = "flowm:ledger-changed"
-const LOAN_FORECAST_DAYS = 60
+const FORECAST_DAYS = 60
 
 export interface LedgerRecord {
   id: string
@@ -79,7 +79,7 @@ export class LedgerStore {
   private drizzleDb: DrizzleDatabase | null = null
   private api: FlowmApi | null = null
   private activeFilePath: string | null = null
-  private loanScheduleTimer: ReturnType<typeof setTimeout> | null = null
+  private forecastScheduleTimer: ReturnType<typeof setTimeout> | null = null
 
   // ---- paths -------------------------------------------------------------
 
@@ -189,14 +189,14 @@ export class LedgerStore {
     // self-skips currency pairs already refreshed today, so launches and ledger switches
     // stay cheap and never block opening.
     void api.refreshExchangeRates().catch(() => {})
-    this.refreshLoanSchedules(api, absPath, false)
-    this.scheduleNextLoanRefresh()
+    this.refreshForecastSchedules(api, absPath, false)
+    this.scheduleNextForecastRefresh()
   }
 
   close(): void {
-    if (this.loanScheduleTimer != null) {
-      clearTimeout(this.loanScheduleTimer)
-      this.loanScheduleTimer = null
+    if (this.forecastScheduleTimer != null) {
+      clearTimeout(this.forecastScheduleTimer)
+      this.forecastScheduleTimer = null
     }
     this.api = null
     this.drizzleDb = null
@@ -205,15 +205,17 @@ export class LedgerStore {
   }
 
   /**
-   * Keep forecast rows available for date-derived renderer progress. At the next
-   * local day boundary, notify renderers so "today" and progress recalculate.
+   * Keep subscription and loan forecast rows available through a rolling window.
+   * Generation is idempotent by plan and due date, so reopening a ledger repairs
+   * older plans without duplicating existing forecast rows.
    */
-  private refreshLoanSchedules(api: FlowmApi, dbPath: string, notifyRenderer: boolean): void {
+  private refreshForecastSchedules(api: FlowmApi, dbPath: string, notifyRenderer: boolean): void {
     const today = localDateKey()
-    void api
-      .generateLoanPaymentOccurrences({
-        throughDate: addDaysKey(today, LOAN_FORECAST_DAYS),
-      })
+    const throughDate = addDaysKey(today, FORECAST_DAYS)
+    void Promise.all([
+      api.generateSubscriptionOccurrences({ throughDate }),
+      api.generateLoanPaymentOccurrences({ throughDate }),
+    ])
       .catch(() => {
         // A ledger switch can close the previous database while this background
         // refresh is still pending. The next view/open refresh will retry.
@@ -226,7 +228,7 @@ export class LedgerStore {
           type: "ledger.changed",
           dbPath,
           source: "flowm-desktop",
-          command: "refresh-loan-schedules",
+          command: "refresh-forecast-schedules",
           pid: process.pid,
           changedAt: nowIso(),
         }
@@ -239,14 +241,14 @@ export class LedgerStore {
       })
   }
 
-  private scheduleNextLoanRefresh(): void {
-    this.loanScheduleTimer = setTimeout(() => {
-      this.loanScheduleTimer = null
+  private scheduleNextForecastRefresh(): void {
+    this.forecastScheduleTimer = setTimeout(() => {
+      this.forecastScheduleTimer = null
       if (this.api == null || this.activeFilePath == null) {
         return
       }
-      this.refreshLoanSchedules(this.api, this.activeFilePath, true)
-      this.scheduleNextLoanRefresh()
+      this.refreshForecastSchedules(this.api, this.activeFilePath, true)
+      this.scheduleNextForecastRefresh()
     }, millisecondsUntilNextLocalDay())
   }
 
