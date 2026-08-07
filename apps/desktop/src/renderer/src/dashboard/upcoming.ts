@@ -1,11 +1,12 @@
 /**
- * @purpose Build the dashboard's upcoming obligation rows from forecast occurrences.
+ * @purpose Build dashboard upcoming rows from subscription plans and loan forecast occurrences.
  * @role    Pure renderer helper for the overview's next-30-day charge list.
- * @deps    Browser-safe Flowm occurrence contracts.
+ * @deps    Browser-safe subscription projection rules and Flowm loan occurrence contracts.
  * @gotcha  Date-only comparisons keep local-day boundaries stable and never materialize cashflow.
  */
 
-import type { LoanPaymentOccurrenceSummary, SubscriptionOccurrenceSummary } from "@flowm/api"
+import type { LoanPaymentOccurrenceSummary } from "@flowm/api"
+import { projectSubscriptionPlans, type SubscriptionProjectionPlan } from "@flowm/shared"
 
 export interface UpcomingCharge {
   name: string
@@ -16,8 +17,7 @@ export interface UpcomingCharge {
   dueDate: string
 }
 
-interface NamedSubscription {
-  id: string | number
+interface NamedSubscription extends SubscriptionProjectionPlan {
   name: string
 }
 
@@ -31,24 +31,22 @@ export function buildUpcomingCharges(
   dateFrom: string,
   dateTo: string,
   subscriptions: NamedSubscription[],
-  subscriptionOccurrences: SubscriptionOccurrenceSummary[],
   loans: NamedLoan[],
   loanOccurrences: LoanPaymentOccurrenceSummary[],
 ): UpcomingCharge[] {
   const subNames = new Map(subscriptions.map((sub) => [String(sub.id), sub.name]))
   const loanNames = new Map(loans.map((loan) => [String(loan.id), loan.name]))
   const loanCurrencies = new Map(loans.map((loan) => [String(loan.id), loan.currency ?? "CNY"]))
+  const subscriptionOccurrences = projectSubscriptionPlans(subscriptions, dateFrom, dateTo)
   const rows: UpcomingCharge[] = [
-    ...subscriptionOccurrences
-      .filter((occurrence) => occurrence.status !== "skipped")
-      .map((occurrence) => ({
-        name: subNames.get(String(occurrence.subscriptionId)) ?? "订阅",
-        d: occurrence.dueDate.slice(5),
-        amt: Math.abs(Number(occurrence.amount) || 0),
-        cur: occurrence.currency,
-        kind: "订阅" as const,
-        dueDate: occurrence.dueDate,
-      })),
+    ...subscriptionOccurrences.map((occurrence) => ({
+      name: subNames.get(String(occurrence.subscriptionId)) ?? "订阅",
+      d: occurrence.dueDate.slice(5),
+      amt: Math.abs(Number(occurrence.amount) || 0),
+      cur: occurrence.currency,
+      kind: "订阅" as const,
+      dueDate: occurrence.dueDate,
+    })),
     ...loanOccurrences
       .filter((occurrence) => occurrence.status !== "skipped" && occurrence.status !== "paid")
       .map((occurrence) => ({

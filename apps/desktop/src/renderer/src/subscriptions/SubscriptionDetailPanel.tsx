@@ -1,8 +1,8 @@
 /**
  * @purpose Render and manage the subscription detail panel workflow.
  * @role    Renderer feature surface for recurring future obligations.
- * @deps    React, tRPC subscription queries, calendar/list UI, and forms.
- * @gotcha  Subscription occurrences are forecasts until an explicit actual-cashflow workflow records them.
+ * @deps    React, tRPC plans/linked cashflow, shared projection rules, detail UI, and forms.
+ * @gotcha  Projected charges are not actual deductions; only linked cashflow is deduction evidence.
  */
 
 import { useMemo, useState } from "react"
@@ -11,15 +11,14 @@ import { Button, Input, Modal } from "@heroui/react"
 import { Controller, useForm } from "react-hook-form"
 import { trpc } from "@/lib/trpc"
 import { CYCLE_LABELS } from "@/lib/domainDisplay"
-import { dateKey } from "@/lib/dates"
+import { localDateKey } from "@/lib/dates"
 import { useMoney } from "@/lib/useMoney"
 import { useConfirm } from "../components/ui/ConfirmModal"
 import { BackButton } from "../components/ui/BackButton"
-import type { SubscriptionOccurrenceSummary } from "@flowm/api"
 import { FormField } from "../components/ui/FormField"
 import { CurrencySelect } from "../components/ui/CurrencySelect"
 import { DateInput } from "../components/ui/DateInput"
-import { currencySymbol } from "@flowm/shared"
+import { currencySymbol, nextSubscriptionChargeDate, projectSubscriptionPlan } from "@flowm/shared"
 import { LinkedCashflowDrawer } from "../cashflow-links/LinkedCashflowDrawer"
 
 function InfoRow({ label, children }: { label: string; children: React.ReactNode }) {
@@ -45,6 +44,14 @@ interface Props {
   onBack: () => void
 }
 
+interface SubscriptionEditForm {
+  name: string
+  amount: string
+  nextChargeDate: string
+  note: string
+  cur: string
+}
+
 /** Subscription detail rendered in-place inside the right panel (no route change). */
 export function SubscriptionDetailPanel({ id, onBack }: Props) {
   const fmt = useMoney()
@@ -55,33 +62,25 @@ export function SubscriptionDetailPanel({ id, onBack }: Props) {
   const archiveSubscription = useMutation(trpc.subscriptions.archive.mutationOptions())
   const updateSubscription = useMutation(trpc.subscriptions.update.mutationOptions())
 
-  const today = useMemo(() => dateKey(new Date()), [])
-  const sixMonthsAgo = useMemo(() => {
+  const today = localDateKey()
+  const fiveYearsAhead = (() => {
     const d = new Date()
-    d.setMonth(d.getMonth() - 6)
-    return dateKey(d)
-  }, [])
-  const twoMonthsAhead = useMemo(() => {
-    const d = new Date()
-    d.setMonth(d.getMonth() + 2)
-    return dateKey(d)
-  }, [])
+    d.setFullYear(d.getFullYear() + 5)
+    return localDateKey(d)
+  })()
 
   const subscriptionsQuery = useQuery(trpc.subscriptions.list.queryOptions({ status: "active" }))
-  const occurrencesQuery = useQuery(
-    trpc.subscriptions.occurrences.queryOptions({
-      subscriptionId: id as any,
-      dateFrom: sixMonthsAgo,
-      dateTo: twoMonthsAhead,
-    }),
+  const linkedCashflowQuery = useQuery(
+    trpc.cashflow.linkedTo.queryOptions({ ownerType: "subscription", ownerId: id }),
   )
 
   const sub = subscriptionsQuery.data?.find((s) => String(s.id) === id)
-  const editForm = useForm({
+  const effectiveNextChargeDate = sub ? nextSubscriptionChargeDate(sub, today) : null
+  const editForm = useForm<SubscriptionEditForm>({
     values: {
       name: sub?.name ?? "",
       amount: sub?.amount ?? "",
-      nextChargeDate: sub?.nextChargeDate ?? dateKey(new Date()),
+      nextChargeDate: effectiveNextChargeDate ?? sub?.nextChargeDate ?? localDateKey(),
       note: sub?.note ?? "",
       cur: sub?.currency ?? "CNY",
     },
@@ -89,65 +88,54 @@ export function SubscriptionDetailPanel({ id, onBack }: Props) {
 
   async function refreshSubscriptionViews() {
     await queryClient.invalidateQueries(trpc.subscriptions.list.queryFilter())
-    await queryClient.invalidateQueries(trpc.subscriptions.occurrences.queryFilter())
     await queryClient.invalidateQueries(trpc.loans.futurePressure.queryFilter())
     await queryClient.invalidateQueries(trpc.reference.currentRates.queryFilter())
   }
 
-  const {
-    pastOccs,
-    totalPaid,
-    startDate,
-    monthsSubscribed,
-    amount,
-    yearlyAmt,
-    cycleLabel,
-    nextDateFormatted,
-  } = useMemo(() => {
-    if (!sub) return {} as any
+  async function saveSubscriptionEdit(values: SubscriptionEditForm) {
+    await updateSubscription.mutateAsync({
+      id,
+      name: values.name.trim(),
+      amount: Math.abs(Number(values.amount) || 0).toFixed(2),
+      note: values.note.trim() || null,
+      currency: values.cur,
+      ...(values.nextChargeDate === effectiveNextChargeDate
+        ? {}
+        : { nextChargeDate: values.nextChargeDate }),
+    })
+    await refreshSubscriptionViews()
+    setEditing(false)
+  }
 
-    const allOccs = (occurrencesQuery.data ?? []).filter((o) => String(o.subscriptionId) === id)
-    const pastOccs = allOccs
-      .filter((o) => o.dueDate <= today)
-      .sort((a, b) => b.dueDate.localeCompare(a.dueDate))
-    const futureOccs = allOccs
-      .filter((o) => o.dueDate > today)
-      .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
-    const firstFutureOcc = futureOccs[0] ?? null
-
-    const totalPaid = pastOccs.reduce((s, o) => s + parseFloat(o.amount), 0)
-    const lastPastOcc = pastOccs[pastOccs.length - 1]
-    const startDate = lastPastOcc?.dueDate ?? sub.nextChargeDate
-
-    const startD = new Date(startDate)
-    const todayD = new Date(today)
-    const monthsSubscribed =
-      (todayD.getFullYear() - startD.getFullYear()) * 12 + (todayD.getMonth() - startD.getMonth())
-
-    const amount = parseFloat(sub.amount)
-    const yearlyAmt =
-      sub.billingCycle === "monthly"
-        ? amount * 12
-        : sub.billingCycle === "yearly"
-          ? amount
-          : sub.billingCycle === "weekly"
-            ? amount * 52
-            : amount
-
-    const cycleLabel = CYCLE_LABELS[sub.billingCycle] ?? sub.billingCycle
-    const nextDateFormatted = firstFutureOcc?.dueDate.slice(5) ?? sub.nextChargeDate.slice(5)
-
-    return {
-      pastOccs,
-      totalPaid,
-      startDate,
-      monthsSubscribed,
-      amount,
-      yearlyAmt,
-      cycleLabel,
-      nextDateFormatted,
-    }
-  }, [sub, occurrencesQuery.data, id, today])
+  const amount = parseFloat(sub?.amount ?? "0")
+  const yearlyAmt = sub
+    ? sub.billingCycle === "monthly"
+      ? amount * 12
+      : sub.billingCycle === "yearly"
+        ? amount
+        : sub.billingCycle === "weekly"
+          ? amount * 52
+          : amount
+    : 0
+  const cycleLabel = sub ? (CYCLE_LABELS[sub.billingCycle] ?? sub.billingCycle) : ""
+  const projectedCharges = useMemo(
+    () => (sub ? projectSubscriptionPlan(sub, today, fiveYearsAhead).slice(0, 5) : []),
+    [fiveYearsAhead, sub, today],
+  )
+  const nextChargeDate = effectiveNextChargeDate
+  const actualDeductions = useMemo(
+    () =>
+      (linkedCashflowQuery.data ?? [])
+        .filter((item) => item.event.direction === "out")
+        .sort((left, right) => right.event.date.localeCompare(left.event.date)),
+    [linkedCashflowQuery.data],
+  )
+  const actualTotal = actualDeductions.reduce(
+    (sum, item) => sum + Math.abs(Number(item.event.amount) || 0),
+    0,
+  )
+  const actualTotalUsesPlanCurrency =
+    sub != null && actualDeductions.every((item) => item.event.currency === sub.currency)
 
   return (
     <div style={{ padding: "20px 24px 112px" }}>
@@ -275,15 +263,13 @@ export function SubscriptionDetailPanel({ id, onBack }: Props) {
               }}
             >
               <div>
-                <div style={{ fontSize: 12, color: "var(--ink-4)" }}>
-                  已订阅 {monthsSubscribed} 个月
-                </div>
+                <div style={{ fontSize: 12, color: "var(--ink-4)" }}>下次计划扣费</div>
                 <div style={{ fontSize: 12.5, fontWeight: 500, color: "var(--ink)", marginTop: 2 }}>
-                  自 {startDate} 起
+                  {nextChargeDate ?? "暂无计划"} · {sub.autoRenew ? "自动" : "手动"}
                 </div>
               </div>
               <div style={{ textAlign: "right" }}>
-                <div style={{ fontSize: 11, color: "var(--ink-4)" }}>累计已扣</div>
+                <div style={{ fontSize: 11, color: "var(--ink-4)" }}>已关联实际扣款</div>
                 <div
                   style={{
                     fontFamily: "var(--mono)",
@@ -294,13 +280,16 @@ export function SubscriptionDetailPanel({ id, onBack }: Props) {
                     marginTop: 2,
                   }}
                 >
-                  {currencySymbol(sub.currency)}
-                  {fmt(totalPaid, 0)}
+                  {actualDeductions.length === 0
+                    ? "0 笔"
+                    : actualTotalUsesPlanCurrency
+                      ? `${currencySymbol(sub.currency)}${fmt(actualTotal, 0)}`
+                      : `${actualDeductions.length} 笔`}
                 </div>
               </div>
             </div>
 
-            {/* Charges section */}
+            {/* Read-time projected plan */}
             <div style={{ marginTop: 20 }}>
               <div
                 style={{
@@ -310,14 +299,12 @@ export function SubscriptionDetailPanel({ id, onBack }: Props) {
                   marginBottom: 4,
                 }}
               >
-                <span style={{ fontSize: 12, fontWeight: 600, color: "var(--ink)" }}>扣款</span>
-                <span style={{ fontSize: 11, color: "var(--ink-4)" }}>
-                  下次 {nextDateFormatted} · {sub.autoRenew ? "自动" : "手动"}
-                </span>
+                <span style={{ fontSize: 12, fontWeight: 600, color: "var(--ink)" }}>扣费计划</span>
+                <span style={{ fontSize: 11, color: "var(--ink-4)" }}>按当前计划即时计算</span>
               </div>
-              {(pastOccs as SubscriptionOccurrenceSummary[]).slice(0, 5).map((occ) => (
+              {projectedCharges.map((occurrence) => (
                 <div
-                  key={occ.id}
+                  key={occurrence.id}
                   style={{
                     display: "flex",
                     alignItems: "center",
@@ -326,19 +313,66 @@ export function SubscriptionDetailPanel({ id, onBack }: Props) {
                   }}
                 >
                   <span style={{ fontSize: 11.5, color: "var(--ink-4)", width: 50, flexShrink: 0 }}>
-                    {occ.dueDate.slice(5)}
+                    {occurrence.dueDate.slice(5)}
                   </span>
                   <span style={{ fontSize: 13, color: "var(--ink-2)", flex: 1, marginLeft: 12 }}>
-                    {sub.name}
+                    预计扣费
                   </span>
-                  <span style={{ fontFamily: "var(--mono)", fontSize: 13, color: "var(--red)" }}>
-                    −{fmt(parseFloat(occ.amount), 0)}
+                  <span style={{ fontFamily: "var(--mono)", fontSize: 13, color: "var(--ink-2)" }}>
+                    {currencySymbol(occurrence.currency)}
+                    {fmt(Math.abs(Number(occurrence.amount) || 0), 0)}
                   </span>
                 </div>
               ))}
-              {pastOccs.length === 0 && (
+              {projectedCharges.length === 0 && (
                 <div style={{ fontSize: 12, color: "var(--ink-4)", padding: "8px 0" }}>
-                  暂无扣款记录
+                  暂无未来扣费计划
+                </div>
+              )}
+            </div>
+
+            {/* Explicitly linked actual cashflow */}
+            <div style={{ marginTop: 20 }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  marginBottom: 4,
+                }}
+              >
+                <span style={{ fontSize: 12, fontWeight: 600, color: "var(--ink)" }}>
+                  实际扣款流水
+                </span>
+                <Button size="sm" variant="ghost" onPress={() => setLinkOpen(true)}>
+                  管理流水
+                </Button>
+              </div>
+              {actualDeductions.slice(0, 5).map(({ linkId, event }) => (
+                <div
+                  key={linkId}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    padding: "8px 0",
+                    borderBottom: "1px solid var(--hair-3)",
+                  }}
+                >
+                  <span style={{ fontSize: 11.5, color: "var(--ink-4)", width: 50, flexShrink: 0 }}>
+                    {event.date.slice(5)}
+                  </span>
+                  <span style={{ fontSize: 13, color: "var(--ink-2)", flex: 1, marginLeft: 12 }}>
+                    {event.title || event.counterparty || sub.name}
+                  </span>
+                  <span style={{ fontFamily: "var(--mono)", fontSize: 13, color: "var(--red)" }}>
+                    −{currencySymbol(event.currency)}
+                    {fmt(Math.abs(Number(event.amount) || 0), 0)}
+                  </span>
+                </div>
+              ))}
+              {!linkedCashflowQuery.isPending && actualDeductions.length === 0 && (
+                <div style={{ fontSize: 12, color: "var(--ink-4)", padding: "8px 0" }}>
+                  暂无已关联扣款流水
                 </div>
               )}
             </div>
@@ -386,14 +420,6 @@ export function SubscriptionDetailPanel({ id, onBack }: Props) {
               >
                 编辑
               </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                style={{ borderRadius: 5 }}
-                onPress={() => setLinkOpen(true)}
-              >
-                扣款流水
-              </Button>
               <div style={{ flex: 1 }} />
               <Button
                 size="sm"
@@ -431,7 +457,7 @@ export function SubscriptionDetailPanel({ id, onBack }: Props) {
             <Modal.Header>
               <Modal.Heading>编辑订阅</Modal.Heading>
               <p style={{ fontSize: 12, color: "var(--ink-4)", marginTop: 2 }}>
-                修改名称、金额和下次扣费日期
+                修改名称、金额和下一次扣费日期
               </p>
             </Modal.Header>
             <Modal.Body>
@@ -439,18 +465,7 @@ export function SubscriptionDetailPanel({ id, onBack }: Props) {
                 id="subscription-edit-form"
                 onSubmit={(event) => {
                   event.preventDefault()
-                  void editForm.handleSubmit(async (values) => {
-                    await updateSubscription.mutateAsync({
-                      id,
-                      name: values.name.trim(),
-                      amount: Math.abs(Number(values.amount) || 0).toFixed(2),
-                      nextChargeDate: values.nextChargeDate,
-                      note: values.note.trim() || null,
-                      currency: values.cur,
-                    })
-                    await refreshSubscriptionViews()
-                    setEditing(false)
-                  })()
+                  void editForm.handleSubmit(saveSubscriptionEdit)()
                 }}
                 style={{ display: "flex", flexDirection: "column", gap: 14 }}
               >
@@ -489,7 +504,7 @@ export function SubscriptionDetailPanel({ id, onBack }: Props) {
                   />
                 </FormField>
                 <FormField
-                  label="下次扣费日期"
+                  label="下一次扣费日期"
                   required
                   error={editForm.formState.errors.nextChargeDate?.message}
                 >
@@ -515,20 +530,7 @@ export function SubscriptionDetailPanel({ id, onBack }: Props) {
               <Button
                 variant="primary"
                 isDisabled={editForm.formState.isSubmitting || updateSubscription.isPending}
-                onPress={() =>
-                  void editForm.handleSubmit(async (values) => {
-                    await updateSubscription.mutateAsync({
-                      id,
-                      name: values.name.trim(),
-                      amount: Math.abs(Number(values.amount) || 0).toFixed(2),
-                      nextChargeDate: values.nextChargeDate,
-                      note: values.note.trim() || null,
-                      currency: values.cur,
-                    })
-                    await refreshSubscriptionViews()
-                    setEditing(false)
-                  })()
-                }
+                onPress={() => void editForm.handleSubmit(saveSubscriptionEdit)()}
               >
                 {updateSubscription.isPending ? "保存中…" : "保存"}
               </Button>

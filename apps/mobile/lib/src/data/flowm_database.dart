@@ -132,6 +132,7 @@ class Subscriptions extends Table {
 }
 
 @DataClassName('SubscriptionOccurrenceRow')
+// Legacy Desktop compatibility table. Mobile projections read subscription plans instead.
 class SubscriptionOccurrences extends Table {
   TextColumn get id => text()();
   TextColumn get subscriptionId => text().named('subscription_id')();

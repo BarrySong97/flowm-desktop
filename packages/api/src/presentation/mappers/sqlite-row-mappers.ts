@@ -18,7 +18,6 @@ import type {
   ObjectLinkRow,
   StatementImportRow,
   StatementLineRow,
-  SubscriptionOccurrenceRow,
   SubscriptionRow,
   TagRow,
 } from "@flowm/db"
@@ -39,7 +38,6 @@ import type {
   ObjectLinkSummary,
   StatementImportSummary,
   StatementLineSummary,
-  SubscriptionOccurrenceSummary,
   SubscriptionSummary,
   TagSummary,
 } from "../../index"
@@ -172,19 +170,6 @@ export function mapSubscription(row: SubscriptionRow): SubscriptionSummary {
     categoryId: row.categoryId,
     status: row.status,
     note: row.note,
-  }
-}
-
-export function mapSubscriptionOccurrence(
-  row: SubscriptionOccurrenceRow,
-): SubscriptionOccurrenceSummary {
-  return {
-    id: row.id,
-    subscriptionId: row.subscriptionId,
-    dueDate: row.dueDate,
-    amount: row.amount,
-    currency: row.currency,
-    status: row.status,
   }
 }
 

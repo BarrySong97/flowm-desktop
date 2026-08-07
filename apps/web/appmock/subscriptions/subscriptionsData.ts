@@ -97,59 +97,6 @@ const subscriptionsList = [
   },
 ]
 
-// ── Subscription occurrences (June 2026) ───────────────────────────────────
-// Scattered across the month so several calendar days get a colored highlight.
-const subscriptionsOccurrences = [
-  {
-    id: "subocc-1",
-    subscriptionId: "sub-1",
-    dueDate: "2026-06-09",
-    amount: "15",
-    currency: "CNY",
-    status: "scheduled",
-  },
-  {
-    id: "subocc-2",
-    subscriptionId: "sub-2",
-    dueDate: "2026-06-12",
-    amount: "248",
-    currency: "CNY",
-    status: "scheduled",
-  },
-  {
-    id: "subocc-3",
-    subscriptionId: "sub-3",
-    dueDate: "2026-06-15",
-    amount: "19.99",
-    currency: "USD",
-    status: "scheduled",
-  },
-  {
-    id: "subocc-4",
-    subscriptionId: "sub-4",
-    dueDate: "2026-06-18",
-    amount: "68",
-    currency: "CNY",
-    status: "scheduled",
-  },
-  {
-    id: "subocc-5",
-    subscriptionId: "sub-5",
-    dueDate: "2026-06-22",
-    amount: "468",
-    currency: "CNY",
-    status: "scheduled",
-  },
-  {
-    id: "subocc-6",
-    subscriptionId: "sub-6",
-    dueDate: "2026-06-26",
-    amount: "888",
-    currency: "CNY",
-    status: "scheduled",
-  },
-]
-
 // ── Reference / FX ─────────────────────────────────────────────────────────
 // Drives useCurrentRates: base = CNY, USD rate converts the Netflix amount.
 const referenceCurrentRates = {
@@ -165,6 +112,5 @@ const referenceCurrentRates = {
 
 export const subscriptionsData: Record<string, unknown> = {
   "subscriptions.list": subscriptionsList,
-  "subscriptions.occurrences": subscriptionsOccurrences,
   "reference.currentRates": referenceCurrentRates,
 }

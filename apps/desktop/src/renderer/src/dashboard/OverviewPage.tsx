@@ -1,7 +1,7 @@
 /**
  * @purpose Render the dashboard overview across Flowm finance layers.
  * @role    Renderer overview that composes cashflow, assets, and obligations.
- * @deps    React, tRPC dashboard queries, charts, and UI primitives.
+ * @deps    React, tRPC dashboard queries, subscription read-time projection, charts, and UI primitives.
  * @gotcha  Show layers together without implying they reconcile into one ledger.
  */
 
@@ -276,9 +276,6 @@ export function OverviewPage() {
   const assetHistoryQuery = useQuery(trpc.assets.snapshots.queryOptions({ latestOnly: false }))
   const netWorthQuery = useQuery(trpc.assets.netWorth.queryOptions())
   const subscriptionsQuery = useQuery(trpc.subscriptions.list.queryOptions({ status: "active" }))
-  const subscriptionOccurrencesQuery = useQuery(
-    trpc.subscriptions.occurrences.queryOptions({ dateFrom: today, dateTo: futureThrough }),
-  )
   const loansQuery = useQuery(trpc.loans.list.queryOptions({ status: "active" }))
   const loanOccurrencesQuery = useQuery(
     // Fetch the full history so the dashboard can derive each loan's remaining
@@ -305,7 +302,6 @@ export function OverviewPage() {
     { name: "assets.snapshots.history", query: assetHistoryQuery },
     { name: "assets.netWorth", query: netWorthQuery },
     { name: "subscriptions.list", query: subscriptionsQuery },
-    { name: "subscriptions.occurrences", query: subscriptionOccurrencesQuery },
     { name: "loans.list", query: loansQuery },
     { name: "loans.occurrences", query: loanOccurrencesQuery },
     { name: "loans.futurePressure", query: futurePressureQuery },
@@ -410,7 +406,6 @@ export function OverviewPage() {
     today,
     addDateKeyDays(today, 30),
     subscriptionsQuery.data ?? [],
-    subscriptionOccurrencesQuery.data ?? [],
     loansQuery.data ?? [],
     loanOccurrencesQuery.data ?? [],
   )

@@ -1,5 +1,8 @@
 # 订阅预测自动补齐计划
 
+> 已由 [0010：订阅读取时投影](../decisions/0010-project-subscriptions-at-read-time.md) 取代。
+> 订阅不再维护持久化 occurrence；本文件保留为历史背景。
+
 ## 背景
 
 生产账本中的 active 订阅计划仍然存在，但部分计划没有未来的

@@ -225,7 +225,7 @@ export async function seedPersonalStarterData(db: Database): Promise<void> {
     },
   ]
   for (const sub of subscriptionExamples) {
-    const created = expectOk(
+    expectOk(
       await api.createSubscription({
         ...sub,
         currency: "CNY",
@@ -233,7 +233,6 @@ export async function seedPersonalStarterData(db: Database): Promise<void> {
         note: "可修改示例：订阅只是未来扣费计划",
       }),
     )
-    await api.generateSubscriptionOccurrences({ id: created.id, throughDate })
   }
 
   const loanExamples = [

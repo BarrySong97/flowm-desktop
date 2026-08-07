@@ -8,3 +8,4 @@
 export * from "./account"
 export * from "./currency"
 export * from "./platform"
+export * from "./subscription-projection"

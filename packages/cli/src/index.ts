@@ -1001,46 +1001,6 @@ function makeProgram(): Command {
       })
     })
 
-  addCommitOption(
-    program
-      .command("generate-subscription-occurrences")
-      .description("Generate projected subscription occurrences, defaulting to dry-run")
-      .requiredOption("--through-date <date>", "Generate through this date")
-      .option("--subscription-id <id>", "Subscription id"),
-  ).action(async (options: { throughDate: string; subscriptionId?: string; commit?: boolean }) => {
-    const resolved = resolveLedgerPath(program.opts<GlobalOptions>())
-    const { dbPath } = resolved
-    const input = removeUndefined({
-      id: options.subscriptionId,
-      throughDate: options.throughDate,
-    }) as GenerateOccurrenceInput
-    await withLedger(dbPath, async ({ api }) => {
-      const subscription = options.subscriptionId
-        ? await findSubscription(api, options.subscriptionId)
-        : null
-      if (options.subscriptionId && !subscription) {
-        throw new Error(`Subscription not found: ${options.subscriptionId}`)
-      }
-      if (!shouldCommit(options)) {
-        printJson({
-          dbPath,
-          dryRun: true,
-          operation: "generate-subscription-occurrences",
-          subscription,
-          wouldWrite: input,
-        })
-        return
-      }
-      printJson({
-        dbPath,
-        generated: unwrap(await api.generateSubscriptionOccurrences(input)),
-      })
-    })
-    if (shouldCommit(options)) {
-      await notifyLedgerChanged(resolved, "generate-subscription-occurrences")
-    }
-  })
-
   program
     .command("list-loans")
     .description("List loan plans")

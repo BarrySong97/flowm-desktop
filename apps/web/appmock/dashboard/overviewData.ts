@@ -426,33 +426,6 @@ const subscriptionsList = [
   },
 ]
 
-const subscriptionsOccurrences = [
-  {
-    id: "subocc-1",
-    subscriptionId: "sub-1",
-    dueDate: "2026-06-25",
-    amount: "15",
-    currency: "CNY",
-    status: "scheduled",
-  },
-  {
-    id: "subocc-2",
-    subscriptionId: "sub-2",
-    dueDate: "2026-06-28",
-    amount: "21",
-    currency: "CNY",
-    status: "scheduled",
-  },
-  {
-    id: "subocc-3",
-    subscriptionId: "sub-3",
-    dueDate: "2026-07-05",
-    amount: "25",
-    currency: "CNY",
-    status: "scheduled",
-  },
-]
-
 // ── Loans ─────────────────────────────────────────────────────────────────
 const loansList = [
   {
@@ -577,7 +550,6 @@ export const overviewData: Record<string, unknown> = {
   "assets.snapshots": assetsSnapshots,
   "assets.netWorth": assetsNetWorth,
   "subscriptions.list": subscriptionsList,
-  "subscriptions.occurrences": subscriptionsOccurrences,
   "loans.list": loansList,
   "loans.occurrences": loansOccurrences,
   "loans.futurePressure": loansFuturePressure,

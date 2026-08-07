@@ -270,6 +270,7 @@ export const subscriptions = sqliteTable(
   }),
 )
 
+/** @deprecated Subscription schedules project from plans at read time; retained for ledger compatibility. */
 export const subscriptionOccurrences = sqliteTable(
   "subscription_occurrences",
   {

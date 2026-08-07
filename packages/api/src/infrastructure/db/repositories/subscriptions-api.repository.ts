@@ -5,18 +5,12 @@
  * @gotcha  Preserve Flowm layer boundaries and avoid raw SQL except targeted Drizzle sql fragments.
  */
 
-import { and, asc, eq, gte, inArray, lte, type SQL } from "drizzle-orm"
-import {
-  subscriptionOccurrences,
-  subscriptions,
-  type SubscriptionInsert,
-  type SubscriptionRow,
-} from "@flowm/db"
-import type { Result } from "@flowm/shared"
+import { and, asc, eq, type SQL } from "drizzle-orm"
+import { subscriptions, type SubscriptionInsert, type SubscriptionRow } from "@flowm/db"
+import { nextSubscriptionChargeDate, projectSubscriptionPlans, type Result } from "@flowm/shared"
 import type {
   CreateSubscriptionInput,
   FlowmId,
-  GenerateOccurrenceInput,
   ListSubscriptionOccurrencesInput,
   ListSubscriptionsInput,
   SubscriptionOccurrenceSummary,
@@ -24,15 +18,20 @@ import type {
   UpdateSubscriptionInput,
 } from "../../../index"
 import { AssetsApiRepository } from "./assets-api.repository"
-import {
-  addInterval,
-  fail,
-  newId,
-  normalizeCurrency,
-  nowIso,
-  ok,
-  toSqlId,
-} from "../../../shared/api-helpers"
+import { fail, newId, normalizeCurrency, nowIso, ok, toSqlId } from "../../../shared/api-helpers"
+
+function localDateKey(date = new Date()): string {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, "0")
+  const day = String(date.getDate()).padStart(2, "0")
+  return `${year}-${month}-${day}`
+}
+
+function addDaysKey(dateKey: string, days: number): string {
+  const date = new Date(`${dateKey}T00:00:00.000Z`)
+  date.setUTCDate(date.getUTCDate() + days)
+  return date.toISOString().slice(0, 10)
+}
 
 export abstract class SubscriptionsApiRepository extends AssetsApiRepository {
   async listSubscriptions(
@@ -49,7 +48,16 @@ export abstract class SubscriptionsApiRepository extends AssetsApiRepository {
         )
         .orderBy(asc(subscriptions.nextChargeDate))
         .all()
-      return ok(rows.map((row) => this.mapSubscription(row)))
+      const today = localDateKey()
+      return ok(
+        rows
+          .map((row) => this.mapSubscription(row))
+          .sort((left, right) => {
+            const leftNext = nextSubscriptionChargeDate(left, today) ?? "9999-12-31"
+            const rightNext = nextSubscriptionChargeDate(right, today) ?? "9999-12-31"
+            return leftNext.localeCompare(rightNext) || left.name.localeCompare(right.name)
+          }),
+      )
     } catch (error) {
       return fail(error)
     }
@@ -128,67 +136,7 @@ export abstract class SubscriptionsApiRepository extends AssetsApiRepository {
         .set({ status: "canceled", updatedAt: nowIso() })
         .where(eq(subscriptions.id, toSqlId(input.id)))
         .run()
-      // Drop unrealized future charges so a canceled subscription stops surfacing
-      // in upcoming/pressure views. Confirmed occurrences stay as real history.
-      this.db
-        .delete(subscriptionOccurrences)
-        .where(
-          and(
-            eq(subscriptionOccurrences.subscriptionId, toSqlId(input.id)),
-            eq(subscriptionOccurrences.status, "forecast"),
-          ),
-        )
-        .run()
       return ok(undefined)
-    } catch (error) {
-      return fail(error)
-    }
-  }
-
-  async generateSubscriptionOccurrences(
-    input: GenerateOccurrenceInput,
-  ): Promise<Result<{ generated: number }>> {
-    try {
-      const conds: SQL[] = [eq(subscriptions.status, "active")]
-      if (input.id) conds.push(eq(subscriptions.id, toSqlId(input.id)))
-      const subs = this.db
-        .select()
-        .from(subscriptions)
-        .where(and(...conds))
-        .all()
-      let generated = 0
-      for (const sub of subs) {
-        let due = sub.nextChargeDate
-        let safety = 0
-        while (due <= input.throughDate && safety++ < 500) {
-          const exists = this.db
-            .select({ id: subscriptionOccurrences.id })
-            .from(subscriptionOccurrences)
-            .where(
-              and(
-                eq(subscriptionOccurrences.subscriptionId, sub.id),
-                eq(subscriptionOccurrences.dueDate, due),
-              ),
-            )
-            .get()
-          if (!exists) {
-            this.db
-              .insert(subscriptionOccurrences)
-              .values({
-                id: newId("subocc"),
-                subscriptionId: sub.id,
-                dueDate: due,
-                amount: sub.amount,
-                currency: sub.currency,
-                createdAt: nowIso(),
-              })
-              .run()
-            generated++
-          }
-          due = addInterval(due, sub.billingCycle, sub.intervalCount ?? 1)
-        }
-      }
-      return ok({ generated })
     } catch (error) {
       return fail(error)
     }
@@ -198,30 +146,20 @@ export abstract class SubscriptionsApiRepository extends AssetsApiRepository {
     input: ListSubscriptionOccurrencesInput = {},
   ): Promise<Result<SubscriptionOccurrenceSummary[]>> {
     try {
-      const conds: SQL[] = []
-      if (input.subscriptionId)
-        conds.push(eq(subscriptionOccurrences.subscriptionId, toSqlId(input.subscriptionId)))
-      // When listing across subscriptions, exclude occurrences whose parent is no
-      // longer active so canceled subscriptions never leak ghost charges.
-      else
-        conds.push(
-          inArray(
-            subscriptionOccurrences.subscriptionId,
-            this.db
-              .select({ id: subscriptions.id })
-              .from(subscriptions)
-              .where(eq(subscriptions.status, "active")),
-          ),
-        )
-      if (input.dateFrom) conds.push(gte(subscriptionOccurrences.dueDate, input.dateFrom))
-      if (input.dateTo) conds.push(lte(subscriptionOccurrences.dueDate, input.dateTo))
-      const rows = this.db
+      const conds: SQL[] = [eq(subscriptions.status, "active")]
+      if (input.subscriptionId) conds.push(eq(subscriptions.id, toSqlId(input.subscriptionId)))
+      const plans = this.db
         .select()
-        .from(subscriptionOccurrences)
-        .where(conds.length ? and(...conds) : undefined)
-        .orderBy(asc(subscriptionOccurrences.dueDate))
+        .from(subscriptions)
+        .where(and(...conds))
         .all()
-      return ok(rows.map((row) => this.mapSubscriptionOccurrence(row)))
+      if (plans.length === 0) return ok([])
+      const today = localDateKey()
+      const dateFrom =
+        input.dateFrom ??
+        (input.dateTo ? plans.map((plan) => plan.nextChargeDate).sort()[0] : today)
+      const dateTo = input.dateTo ?? addDaysKey(dateFrom, 366)
+      return ok(projectSubscriptionPlans(plans, dateFrom, dateTo))
     } catch (error) {
       return fail(error)
     }

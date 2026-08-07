@@ -52,7 +52,6 @@ import {
   type ObjectLinkRow,
   type StatementImportRow,
   type StatementLineRow,
-  type SubscriptionOccurrenceRow,
   type SubscriptionRow,
   type TagRow,
 } from "@flowm/db"
@@ -76,7 +75,6 @@ import type {
   ObjectLinkSummary,
   StatementImportSummary,
   StatementLineSummary,
-  SubscriptionOccurrenceSummary,
   SubscriptionSummary,
   TagSummary,
 } from "../../index"
@@ -93,7 +91,6 @@ import {
   mapStatementImport,
   mapStatementLine,
   mapSubscription,
-  mapSubscriptionOccurrence,
   mapTag,
 } from "../../presentation/mappers/sqlite-row-mappers"
 import {
@@ -461,12 +458,6 @@ export abstract class FlowmApiBase {
 
   protected mapSubscription(row: SubscriptionRow): SubscriptionSummary {
     return mapSubscription(row)
-  }
-
-  protected mapSubscriptionOccurrence(
-    row: SubscriptionOccurrenceRow,
-  ): SubscriptionOccurrenceSummary {
-    return mapSubscriptionOccurrence(row)
   }
 
   protected mapLoan(row: LoanRow): LoanSummary {

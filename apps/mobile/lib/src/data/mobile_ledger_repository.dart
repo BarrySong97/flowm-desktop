@@ -1,8 +1,8 @@
 /*
  * @purpose Map the read-only Desktop SQLite schema into Flowm mobile UI data.
  * @role    Uses Drift typed table access to build display snapshots for screens.
- * @deps    flowm_database.dart, ledger_seed.dart, demo_data.dart.
- * @gotcha  Keep the asymmetric model: net worth liabilities come from asset snapshots, not loan plans.
+ * @deps    flowm_database.dart, ledger_seed.dart, demo_data.dart, and local read-time plan projection.
+ * @gotcha  Subscription projections are not stored or actual cashflow; liabilities still come from snapshots.
  */
 import 'dart:math' as math;
 
@@ -388,10 +388,6 @@ class MobileLedgerRepository {
     final subRows = await (db.select(
       db.subscriptions,
     )..where((row) => row.status.equals('active'))).get();
-    final subNames = {for (final row in subRows) row.id: row.name};
-    final subOccurrences = await (db.select(
-      db.subscriptionOccurrences,
-    )..where((row) => row.status.equals('forecast'))).get();
 
     final loanRows = await (db.select(
       db.loans,
@@ -404,20 +400,24 @@ class MobileLedgerRepository {
 
     final through = anchorDate.add(const Duration(days: 30));
     final items = <_UpcomingCandidate>[];
-    for (final occurrence in subOccurrences) {
-      final due = _parseDate(occurrence.dueDate);
-      if (due.isBefore(anchorDate) || due.isAfter(through)) continue;
-      items.add(
-        _UpcomingCandidate(
-          due: due,
-          item: UpcomingItem(
-            date: _monthDay(due),
-            name: subNames[occurrence.subscriptionId] ?? '订阅扣费',
-            amount: convert(_num(occurrence.amount), occurrence.currency),
-            kind: '订阅',
+    for (final subscription in subRows) {
+      for (final due in _projectSubscriptionDates(
+        subscription,
+        anchorDate,
+        through,
+      )) {
+        items.add(
+          _UpcomingCandidate(
+            due: due,
+            item: UpcomingItem(
+              date: _monthDay(due),
+              name: subscription.name,
+              amount: convert(_num(subscription.amount), subscription.currency),
+              kind: '订阅',
+            ),
           ),
-        ),
-      );
+        );
+      }
     }
     for (final occurrence in loanOccurrences) {
       final due = _parseDate(occurrence.dueDate);
@@ -575,6 +575,36 @@ num _sumEvents(
     0,
     (sum, event) => sum + convert(_num(event.amount), event.currency),
   );
+}
+
+Iterable<DateTime> _projectSubscriptionDates(
+  SubscriptionRow plan,
+  DateTime dateFrom,
+  DateTime dateTo,
+) sync* {
+  final anchor = _parseDate(plan.nextChargeDate);
+  final interval = math.max(plan.intervalCount, 1);
+  for (var index = 0; index < 100000; index += 1) {
+    final step = interval * index;
+    final DateTime due;
+    if (plan.billingCycle == 'weekly') {
+      due = DateTime(anchor.year, anchor.month, anchor.day + step * 7);
+    } else if (plan.billingCycle == 'yearly') {
+      due = _clampedDate(anchor.year + step, anchor.month, anchor.day);
+    } else {
+      final zeroBasedMonth = anchor.month - 1 + step;
+      final year = anchor.year + zeroBasedMonth ~/ 12;
+      final month = zeroBasedMonth % 12 + 1;
+      due = _clampedDate(year, month, anchor.day);
+    }
+    if (due.isAfter(dateTo)) return;
+    if (!due.isBefore(dateFrom)) yield due;
+  }
+}
+
+DateTime _clampedDate(int year, int month, int day) {
+  final maxDay = DateTime(year, month + 1, 0).day;
+  return DateTime(year, month, math.min(day, maxDay));
 }
 
 num _signedEventAmount(

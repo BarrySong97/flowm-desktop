@@ -280,15 +280,6 @@ export const appRouter = router({
       .mutation(({ ctx, input }) =>
         callApi(ctx, (api) => api.archiveSubscription(requiredInput<"archiveSubscription">(input))),
       ),
-    generateOccurrences: publicProcedure
-      .input(apiInput<"generateSubscriptionOccurrences">())
-      .mutation(({ ctx, input }) =>
-        callApi(ctx, (api) =>
-          api.generateSubscriptionOccurrences(
-            requiredInput<"generateSubscriptionOccurrences">(input),
-          ),
-        ),
-      ),
   }),
   loans: router({
     list: publicProcedure

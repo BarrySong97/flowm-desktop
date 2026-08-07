@@ -2,7 +2,7 @@
  * @purpose Create deterministic demo data across Flowm cashflow, assets, budgets, subscriptions, and loans.
  * @role    Demo fixture builder for app previews, tests, and packaged sample ledgers.
  * @deps    @flowm/db schema and API seed utilities.
- * @gotcha  Demo forecasts and snapshots still follow the asymmetric model; do not reconcile them artificially.
+ * @gotcha  Subscription dates project from plans; only linked demo cashflow represents actual deductions.
  */
 
 import { and, eq, gte, inArray, like, lte, or, sql, type SQL } from "drizzle-orm"
@@ -935,28 +935,14 @@ function buildDemoStatements(ctx: SeedContext): DemoBuildResult {
           autoRenew: true,
           categoryId: categoryId("订阅"),
           status: "active",
-          note: "demo seed subscription forecast only",
+          note: "demo seed subscription plan only",
           createdAt: now,
           updatedAt: now,
         })
         .run()
     })
     for (const dueDate of occurrenceDates(startMonth, sub.day, ctx.forecastThrough, sub.cycle)) {
-      const occurrenceId = demoId("subocc", sub.key, compact(dueDate))
       const past = isOnOrBefore(dueDate, ctx.anchorDate)
-      push("subscription_occurrences", (db) => {
-        db.insert(subscriptionOccurrences)
-          .values({
-            id: occurrenceId,
-            subscriptionId: demoId("sub", sub.key),
-            dueDate,
-            amount: amount(sub.amount),
-            currency: sub.currency,
-            status: past ? "confirmed" : "forecast",
-            createdAt: now,
-          })
-          .run()
-      })
       addFxRows(fxDates, dueDate, sub.currency)
       const cashflowId = past
         ? addCashflow({
@@ -979,15 +965,15 @@ function buildDemoStatements(ctx: SeedContext): DemoBuildResult {
         push("object_links", (db) => {
           db.insert(objectLinks)
             .values({
-              id: demoId("link", "subocc", sub.key, compact(dueDate)),
-              fromType: "subscription_occurrence",
-              fromId: occurrenceId,
+              id: demoId("link", "subscription", sub.key, compact(dueDate)),
+              fromType: "subscription",
+              fromId: demoId("sub", sub.key),
               toType: "cashflow_event",
               toId: cashflowId,
               linkType: "confirmed_matches",
               confidence: 95,
               createdBy: "system",
-              note: "demo occurrence explanation",
+              note: "demo subscription deduction evidence",
               createdAt: now,
             })
             .run()
@@ -1489,6 +1475,10 @@ export async function validateDemoData(
   const metrics: Record<string, string | number | boolean> = {}
 
   for (const table of TARGET_TABLES) {
+    if (table === "subscription_occurrences") {
+      if (counts[table] > 0) issues.push("legacy subscription_occurrences still has rows")
+      continue
+    }
     if (counts[table] <= 0) issues.push(`${table} has no rows`)
   }
 

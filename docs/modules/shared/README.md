@@ -26,6 +26,8 @@
 - `utils/account.ts` - account hierarchy and display helpers.
 - `utils/currency.ts` - curated common-currency registry (code, localized name, display symbol) with `currencySymbol` and `formatMoney` helpers used by renderer pickers and money formatting.
 - `utils/platform.ts` - cross-package platform helpers that do not import Electron.
+- `utils/subscription-projection.ts` - pure read-time subscription recurrence projection shared by
+  renderer and API compatibility reads; month-end dates stay anchored to the original plan.
 
 ## Data Flow
 

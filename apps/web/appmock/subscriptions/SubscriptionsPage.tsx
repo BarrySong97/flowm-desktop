@@ -1,8 +1,8 @@
 /**
  * @purpose Render and manage the subscriptions overview page workflow.
  * @role    Renderer feature surface for recurring future obligations.
- * @deps    React, tRPC subscription queries, calendar/list UI, and forms.
- * @gotcha  Subscription occurrences are forecasts until an explicit actual-cashflow workflow records them.
+ * @deps    React, tRPC subscription plans, shared read-time projection, and calendar/list UI.
+ * @gotcha  Projected charges are ephemeral display data, not actual deductions.
  */
 
 import "./subscriptions.css"
@@ -13,12 +13,13 @@ import { Outlet, useRouterState } from "@mock/_shim/router"
 import { ScrollArea } from "../components/ui/ScrollArea"
 import { trpc } from "@mock/lib/trpc"
 import { usePagePerf } from "@mock/lib/debug/perf"
-import { addDays, dateKey, monthCells } from "@mock/lib/dates"
+import { localDateKey, monthCells } from "@mock/lib/dates"
 import { SUBSCRIPTION_CATEGORY_COLORS } from "@mock/lib/domainDisplay"
 import { useMoney } from "@mock/lib/useMoney"
 import { SubscriptionDetailPanel } from "./SubscriptionDetailPanel"
 import { MoneyAmount } from "../components/ui/MoneyAmount"
 import { useCurrentRates } from "@mock/lib/useCurrentRates"
+import { nextSubscriptionChargeDate, projectSubscriptionPlans } from "@flowm/shared"
 
 interface Sub {
   id: string
@@ -49,15 +50,10 @@ export function SubscriptionsPage() {
   const mon = now.getMonth() + 1
   const today = now.getDate()
   const monthStart = `${year}-${String(mon).padStart(2, "0")}-01`
-  const futureThrough = dateKey(addDays(now, 60))
+  const monthEnd = `${year}-${String(mon).padStart(2, "0")}-${String(new Date(year, mon, 0).getDate()).padStart(2, "0")}`
+  const localToday = localDateKey(now)
   const subscriptionsQuery = useQuery(trpc.subscriptions.list.queryOptions({ status: "active" }))
-  const occurrencesQuery = useQuery(
-    trpc.subscriptions.occurrences.queryOptions({ dateFrom: monthStart, dateTo: futureThrough }),
-  )
-  usePagePerf("subscriptions", [
-    { name: "subscriptions.list", query: subscriptionsQuery },
-    { name: "subscriptions.occurrences", query: occurrencesQuery },
-  ])
+  usePagePerf("subscriptions", [{ name: "subscriptions.list", query: subscriptionsQuery }])
 
   const fmt = useMoney()
   const { toDisplay, baseSymbol, base } = useCurrentRates()
@@ -73,16 +69,19 @@ export function SubscriptionsPage() {
         cat: sub.billingCycle === "yearly" ? "shop" : "sub",
         cycle: sub.billingCycle === "yearly" ? "年" : "月",
         amt: Math.abs(Number(sub.amount) || 0),
-        next: sub.nextChargeDate.slice(5),
+        next: (nextSubscriptionChargeDate(sub, localToday) ?? sub.nextChargeDate).slice(5),
         cur: sub.currency,
         auto: sub.autoRenew,
       })),
-    [subscriptionsQuery.data],
+    [localToday, subscriptionsQuery.data],
+  )
+  const projectedOccurrences = useMemo(
+    () => projectSubscriptionPlans(subscriptionsQuery.data ?? [], monthStart, monthEnd),
+    [monthEnd, monthStart, subscriptionsQuery.data],
   )
   const byDay = useMemo(() => {
     const output: Record<number, Sub[]> = {}
-    for (const occurrence of occurrencesQuery.data ?? []) {
-      if (!occurrence.dueDate.startsWith(monthStart.slice(0, 7))) continue
+    for (const occurrence of projectedOccurrences) {
       const sub = subNameById.get(String(occurrence.subscriptionId))
       const day = Number(occurrence.dueDate.slice(8, 10))
       const row: Sub = {
@@ -98,7 +97,7 @@ export function SubscriptionsPage() {
       output[day] = [...(output[day] ?? []), row]
     }
     return output
-  }, [monthStart, occurrencesQuery.data, subNameById])
+  }, [projectedOccurrences, subNameById])
   const monthCharges = Object.values(byDay).flat()
   // Convert each charge to the base currency before summing; mixed-currency totals
   // are meaningless otherwise. Buckets without a rate contribute 0 (see useCurrentRates).

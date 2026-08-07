@@ -246,8 +246,6 @@ async function createGoldenFixture(api: FlowmApi) {
       nextChargeDate: "2026-06-15",
     }),
   )
-  expectOk(await api.generateSubscriptionOccurrences({ id: iCloud.id, throughDate: "2026-06-30" }))
-
   const mortgage = expectOk(
     await api.createLoan({
       name: "房贷",
@@ -1012,32 +1010,42 @@ describe("@flowm/api — clean-slate data model", () => {
     expect(liabilities.map((asset) => asset.name)).toEqual(["信用卡欠款"])
   }, 30_000)
 
-  it("backfills a rolling subscription forecast window idempotently", async () => {
-    const { api } = await createApi("subscription-forecast-window")
+  it("projects subscription schedules from plans without persisting occurrence rows", async () => {
+    const { api, db } = await createApi("subscription-read-time-projection")
     const fixture = await createGoldenFixture(api)
+    const window = { dateFrom: "2026-06-01", dateTo: "2026-08-31" }
 
-    const first = expectOk(
-      await api.generateSubscriptionOccurrences({
-        throughDate: "2026-08-31",
+    const before = expectOk(
+      await api.listSubscriptionOccurrences({
+        subscriptionId: fixture.future.iCloud.id,
+        ...window,
       }),
     )
-    expect(first.generated).toBe(2)
-
-    const occurrences = expectOk(
-      await api.listSubscriptionOccurrences({ subscriptionId: fixture.future.iCloud.id }),
-    )
-    expect(occurrences.map((occurrence) => occurrence.dueDate)).toEqual([
+    expect(before.map((occurrence) => occurrence.dueDate)).toEqual([
       "2026-06-15",
       "2026-07-15",
       "2026-08-15",
     ])
+    expect(await countRows(db, "subscription_occurrences")).toBe(0)
 
-    const second = expectOk(
-      await api.generateSubscriptionOccurrences({
-        throughDate: "2026-08-31",
+    expectOk(
+      await api.updateSubscription({
+        id: fixture.future.iCloud.id,
+        amount: "30.00",
+        nextChargeDate: "2026-07-01",
       }),
     )
-    expect(second.generated).toBe(0)
+    const after = expectOk(
+      await api.listSubscriptionOccurrences({
+        subscriptionId: fixture.future.iCloud.id,
+        ...window,
+      }),
+    )
+    expect(after.map((occurrence) => [occurrence.dueDate, occurrence.amount])).toEqual([
+      ["2026-07-01", "30.00"],
+      ["2026-08-01", "30.00"],
+    ])
+    expect(await countRows(db, "subscription_occurrences")).toBe(0)
   }, 30_000)
 
   it("clears forecast occurrences when a subscription or loan is archived so they stop surfacing", async () => {
@@ -1053,7 +1061,7 @@ describe("@flowm/api — clean-slate data model", () => {
     expectOk(await api.archiveSubscription({ id: fixture.future.iCloud.id }))
     expectOk(await api.archiveLoan({ id: fixture.future.mortgage.id }))
 
-    // Forecast occurrences are gone, not just orphaned by a status flip.
+    // Read-time subscription projections and persisted loan forecasts both stop surfacing.
     expect(
       expectOk(await api.listSubscriptionOccurrences({ subscriptionId: fixture.future.iCloud.id })),
     ).toEqual([])
@@ -1223,15 +1231,12 @@ describe("@flowm/api — clean-slate data model", () => {
       }),
     ).amount
 
-    const occurrences = expectOk(
-      await api.listSubscriptionOccurrences({ subscriptionId: fixture.future.iCloud.id }),
-    )
     expectOk(
       await api.createObjectLink({
-        fromType: "cashflow_event",
-        fromId: fixture.cashflow.foodExpense.id,
-        toType: "subscription_occurrence",
-        toId: occurrences[0].id,
+        fromType: "subscription",
+        fromId: fixture.future.iCloud.id,
+        toType: "cashflow_event",
+        toId: fixture.cashflow.foodExpense.id,
         linkType: "likely_matches",
         confidence: 20,
         createdBy: "system",
@@ -1265,7 +1270,6 @@ describe("@flowm/api — clean-slate data model", () => {
       "asset_items",
       "asset_snapshots",
       "subscriptions",
-      "subscription_occurrences",
       "loans",
       "loan_payment_occurrences",
       "budget_sets",
@@ -1276,6 +1280,7 @@ describe("@flowm/api — clean-slate data model", () => {
     ]) {
       expect(report.tableCounts[table]).toBeGreaterThan(0)
     }
+    expect(report.tableCounts.subscription_occurrences).toBe(0)
 
     const events = expectOk(await api.listCashflowEvents({ limit: 1000 }))
     expect(events.map((event) => event.flowKind)).toEqual(
@@ -1516,7 +1521,7 @@ describe("@flowm/api — clean-slate data model", () => {
     expect(await countRows(db, "asset_items")).toBe(2)
     expect(await countRows(db, "asset_snapshots")).toBe(2)
     expect(await countRows(db, "subscriptions")).toBe(2)
-    expect(await countRows(db, "subscription_occurrences")).toBeGreaterThan(0)
+    expect(await countRows(db, "subscription_occurrences")).toBe(0)
     expect(await countRows(db, "loans")).toBe(2)
     expect(await countRows(db, "loan_payment_occurrences")).toBeGreaterThan(0)
     expect(await countRows(db, "cashflow_events")).toBe(0)

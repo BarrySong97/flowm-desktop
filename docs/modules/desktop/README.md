@@ -34,7 +34,8 @@
 - `imports/` - imported statement and cashflow event views.
 - `loans/` - future loan obligation views and schedule calculations.
 - `settings/` - ledger, category, and app configuration surfaces.
-- `subscriptions/` - recurring future obligation views, calendar/list surfaces, and detail panels.
+- `subscriptions/` - recurring future obligation views that project calendar/list dates from plans at
+  read time and show explicitly linked cashflow as separate actual-deduction history.
 - `components/charts/` - renderer chart components.
 - `components/layout/` - desktop shell, title bar, dock, and banners.
 - `components/ui/` - renderer-local UI atoms that are more product-shaped than `@flowm/ui`, including `CurrencySelect` (autocomplete currency picker over the common-currency set), `DateInput` (HeroUI date picker for ISO date form values), `MoneyAmount` (currency-aware amount with hide-amounts masking), and `BackButton` (the one ghost back affordance — text variant `← 返回X` or icon-only — shared by every detail page/panel).
@@ -117,11 +118,18 @@ Update `apps/desktop/src/preload/index.d.ts` whenever the preload contract chang
   `apps/web/components/releases/ReleaseTimeline.tsx`; the release script refuses
   to continue unless the first note and the single `latest` badge match the
   target version.
-- UI copy and flows must preserve the separation between cashflow, assets, and obligations. The subscription/loan detail pages expose a 「扣款流水」 entry that opens `cashflow-links/LinkedCashflowDrawer` (bound flows + 解绑) and `cashflow-links/CashflowPickerModal` (filtered multi-select binding). These are read/link surfaces only: binding flows must never alter the forecast plan or its statistics. The picker reuses the shared filter controls extracted to `imports/filterControls.tsx`.
-- Loan progress is a date-derived projection: non-skipped occurrences due on or
+- UI copy and flows must preserve the separation between cashflow, assets, and obligations. The
+  subscription detail separates read-time 「扣费计划」 from 「实际扣款流水」; subscription/loan
+  details use `cashflow-links/LinkedCashflowDrawer` (bound flows + 解绑) and
+  `cashflow-links/CashflowPickerModal` (filtered multi-select binding). These are read/link surfaces
+  only: binding flows must never alter the forecast plan or its statistics. The picker reuses the
+  shared filter controls extracted to `imports/filterControls.tsx`.
+- Subscription schedules are browser-safe read-time projections from active plans. They are not
+  written on ledger open or at a date boundary, and elapsed projected dates never count as actual
+  deductions. Loan progress is a date-derived projection: non-skipped occurrences due on or
   before the local current date count as elapsed, regardless of stored forecast
-  status or linked cashflow. `LedgerStore` extends subscription and loan
-  forecasts 60 days ahead on ledger open and at the next local date boundary.
+  status or linked cashflow. `LedgerStore` extends loan forecasts 60 days ahead on ledger open and
+  at the next local date boundary.
   Generation is idempotent by plan and due date, and emits a renderer refresh
   hint after the maintenance pass. This workflow never creates cashflow,
   changes occurrence status or stored principal, or modifies asset snapshots.

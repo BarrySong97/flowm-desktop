@@ -128,9 +128,6 @@ export interface FlowmApi {
   createSubscription(input: CreateSubscriptionInput): Promise<Result<SubscriptionSummary>>
   updateSubscription(input: UpdateSubscriptionInput): Promise<Result<SubscriptionSummary>>
   archiveSubscription(input: { id: FlowmId }): Promise<Result<void>>
-  generateSubscriptionOccurrences(
-    input: GenerateOccurrenceInput,
-  ): Promise<Result<{ generated: number }>>
   listSubscriptionOccurrences(
     input?: ListSubscriptionOccurrencesInput,
   ): Promise<Result<SubscriptionOccurrenceSummary[]>>
@@ -759,6 +756,7 @@ export interface ListSubscriptionOccurrencesInput {
   dateTo?: string
 }
 
+/** Read-time projected subscription charge; never backed by a persisted occurrence row. */
 export interface SubscriptionOccurrenceSummary {
   id: FlowmId
   subscriptionId: FlowmId

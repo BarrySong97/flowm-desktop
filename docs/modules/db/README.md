@@ -19,9 +19,10 @@
   cashflow records so the app can deduplicate by source.
 - `asset_snapshots` describes present assets and liabilities.
 - Budgets, categories, subscriptions, and loans support planning and review workflows.
-- Subscription and loan occurrence tables are forecast artifacts. Passing a due
-  date may change date-derived presentation, but it does not update occurrence
-  status or create an actual event in `cashflow_events`.
+- Subscription forecasts are derived from `subscriptions` at read time and are not persisted.
+  `subscription_occurrences` remains temporarily in the schema only as an ignored compatibility
+  table for existing ledgers. Loan occurrence rows remain forecast artifacts; passing a due date may
+  change date-derived presentation, but it does not create an actual event in `cashflow_events`.
 
 ## Data Flow
 

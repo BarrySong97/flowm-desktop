@@ -9,15 +9,11 @@ import { useMemo, useState } from "react"
 import { Dropdown } from "@heroui/react"
 import { useQuery } from "@tanstack/react-query"
 import { Link } from "@mock/_shim/router"
-import type {
-  CashflowEventSummary,
-  LoanPaymentOccurrenceSummary,
-  SubscriptionOccurrenceSummary,
-} from "@flowm/api"
+import type { CashflowEventSummary, LoanPaymentOccurrenceSummary } from "@flowm/api"
 import type { AssetSnapshotSummary } from "@flowm/shared/contracts"
 import { trpc } from "@mock/lib/trpc"
 import { usePagePerf } from "@mock/lib/debug/perf"
-import { addDays, dateKey, monthStart } from "@mock/lib/dates"
+import { addDays, dateKey, localDateKey, monthStart } from "@mock/lib/dates"
 import { useMoney, useSignedMoney } from "@mock/lib/useMoney"
 import { Kicker } from "../components/ui/Kicker"
 import { BigNumber } from "../components/ui/BigNumber"
@@ -32,7 +28,11 @@ import { NetWorthTrend } from "../components/charts/NetWorthTrend"
 import { DailyBars } from "../components/charts/DailyBars"
 import { ScrollArea } from "../components/ui/ScrollArea"
 import { useCurrentRates } from "@mock/lib/useCurrentRates"
-import { currencySymbol } from "@flowm/shared"
+import {
+  currencySymbol,
+  projectSubscriptionPlans,
+  type SubscriptionProjectionPlan,
+} from "@flowm/shared"
 
 type CashflowRangeKey = "this_month" | "last_month" | "last_30" | "last_90" | "year" | "all"
 const DEFAULT_CASHFLOW_RANGE_KEY: CashflowRangeKey = "this_month"
@@ -166,7 +166,7 @@ function useDailyBars(
   range: ReturnType<typeof cashflowRange>,
 ): number[] {
   return useMemo(() => {
-    const bars = new Array<number>(30).fill(0)
+    const bars = Array.from({ length: 30 }, () => 0)
     const from = range.dateFrom ? new Date(range.dateFrom).getTime() : null
     const to = new Date(range.dateTo).getTime()
     const span = Math.max(1, Math.ceil(((from ?? to) === to ? 29 : to - (from ?? to)) / 86400000))
@@ -185,7 +185,7 @@ function useDailyBars(
 function useNetWorthTrend(snapshots: AssetSnapshotSummary[]): number[] {
   const { toDisplay } = useCurrentRates()
   return useMemo(() => {
-    if (snapshots.length === 0) return new Array(12).fill(0)
+    if (snapshots.length === 0) return Array.from({ length: 12 }, () => 0)
     const buckets = new Map<string, Map<string, AssetSnapshotSummary>>()
     for (const snapshot of snapshots) {
       const month = snapshot.snapshotAt.slice(0, 7)
@@ -208,18 +208,20 @@ function useNetWorthTrend(snapshots: AssetSnapshotSummary[]): number[] {
         }, 0),
       )
     if (values.length >= 12) return values.slice(-12)
-    return [...new Array(12 - values.length).fill(values[0] ?? 0), ...values]
+    return [...Array.from({ length: 12 - values.length }, () => values[0] ?? 0), ...values]
   }, [snapshots, toDisplay])
 }
 
 function useUpcoming(
-  subscriptions: Array<{ id: string | number; name: string }>,
-  subscriptionOccurrences: SubscriptionOccurrenceSummary[],
+  subscriptions: Array<SubscriptionProjectionPlan & { name: string }>,
   loans: Array<{ id: string | number; name: string; currency?: string }>,
   loanOccurrences: LoanPaymentOccurrenceSummary[],
 ) {
   return useMemo(() => {
     const now = new Date()
+    const dateFrom = localDateKey(now)
+    const dateTo = localDateKey(addDays(now, 30))
+    const subscriptionOccurrences = projectSubscriptionPlans(subscriptions, dateFrom, dateTo)
     const subNames = new Map(subscriptions.map((sub) => [String(sub.id), sub.name]))
     const loanNames = new Map(loans.map((loan) => [String(loan.id), loan.name]))
     // Loan occurrences inherit the loan's currency.
@@ -231,7 +233,7 @@ function useUpcoming(
         amt: Math.abs(Number(occ.amount) || 0),
         cur: occ.currency,
         kind: "订阅",
-        dueDate: new Date(occ.dueDate),
+        dueDate: occ.dueDate,
       })),
       ...loanOccurrences.map((occ) => ({
         name: loanNames.get(String(occ.loanId)) ?? "贷款",
@@ -239,17 +241,14 @@ function useUpcoming(
         amt: Math.abs(Number(occ.paymentAmount) || 0),
         cur: loanCur.get(String(occ.loanId)) ?? "CNY",
         kind: "贷款",
-        dueDate: new Date(occ.dueDate),
+        dueDate: occ.dueDate,
       })),
     ]
     return rows
-      .filter((u) => {
-        const diffDays = (u.dueDate.getTime() - now.getTime()) / 86400000
-        return diffDays >= 0 && diffDays <= 30
-      })
+      .filter((row) => row.dueDate >= dateFrom && row.dueDate <= dateTo)
       .sort((a, b) => a.d.localeCompare(b.d))
       .slice(0, 6)
-  }, [loans, loanOccurrences, subscriptions, subscriptionOccurrences])
+  }, [loans, loanOccurrences, subscriptions])
 }
 
 export function OverviewPage() {
@@ -271,9 +270,6 @@ export function OverviewPage() {
   const assetHistoryQuery = useQuery(trpc.assets.snapshots.queryOptions({ latestOnly: false }))
   const netWorthQuery = useQuery(trpc.assets.netWorth.queryOptions())
   const subscriptionsQuery = useQuery(trpc.subscriptions.list.queryOptions({ status: "active" }))
-  const subscriptionOccurrencesQuery = useQuery(
-    trpc.subscriptions.occurrences.queryOptions({ dateFrom: today, dateTo: futureThrough }),
-  )
   const loansQuery = useQuery(trpc.loans.list.queryOptions({ status: "active" }))
   const loanOccurrencesQuery = useQuery(
     trpc.loans.occurrences.queryOptions({ dateFrom: today, dateTo: futureThrough }),
@@ -295,7 +291,6 @@ export function OverviewPage() {
     { name: "assets.snapshots.history", query: assetHistoryQuery },
     { name: "assets.netWorth", query: netWorthQuery },
     { name: "subscriptions.list", query: subscriptionsQuery },
-    { name: "subscriptions.occurrences", query: subscriptionOccurrencesQuery },
     { name: "loans.list", query: loansQuery },
     { name: "loans.occurrences", query: loanOccurrencesQuery },
     { name: "loans.futurePressure", query: futurePressureQuery },
@@ -336,7 +331,6 @@ export function OverviewPage() {
 
   const upcoming = useUpcoming(
     subscriptionsQuery.data ?? [],
-    subscriptionOccurrencesQuery.data ?? [],
     loansQuery.data ?? [],
     loanOccurrencesQuery.data ?? [],
   )

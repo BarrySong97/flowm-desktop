@@ -9,12 +9,11 @@ import { and, asc, eq, gte, inArray, lte, type SQL } from "drizzle-orm"
 import {
   loanPaymentOccurrences,
   loans,
-  subscriptionOccurrences,
   subscriptions,
   type LoanInsert,
   type LoanRow,
 } from "@flowm/db"
-import type { Result } from "@flowm/shared"
+import { projectSubscriptionPlans, type Result } from "@flowm/shared"
 import type {
   CreateLoanInput,
   FlowmId,
@@ -267,28 +266,21 @@ export abstract class LoansApiRepository extends SubscriptionsApiRepository {
       )
       // Mixed-currency obligations are summed per currency, then each bucket is converted
       // to the display currency at the current rate before adding the totals together.
-      const subRows = this.db
-        .select({
-          currency: subscriptionOccurrences.currency,
-          total: sumReal(subscriptionOccurrences.amount),
-        })
-        .from(subscriptionOccurrences)
-        .where(
-          and(
-            gte(subscriptionOccurrences.dueDate, dateFrom),
-            lte(subscriptionOccurrences.dueDate, dateTo),
-            inArray(subscriptionOccurrences.status, ["forecast", "confirmed"]),
-            inArray(
-              subscriptionOccurrences.subscriptionId,
-              this.db
-                .select({ id: subscriptions.id })
-                .from(subscriptions)
-                .where(eq(subscriptions.status, "active")),
-            ),
-          ),
-        )
-        .groupBy(subscriptionOccurrences.currency)
+      const subscriptionPlans = this.db
+        .select()
+        .from(subscriptions)
+        .where(eq(subscriptions.status, "active"))
         .all()
+      const subscriptionBuckets = new Map<string, number>()
+      for (const occurrence of projectSubscriptionPlans(subscriptionPlans, dateFrom, dateTo)) {
+        const amount = Number(occurrence.amount)
+        if (!Number.isFinite(amount)) continue
+        subscriptionBuckets.set(
+          occurrence.currency,
+          (subscriptionBuckets.get(occurrence.currency) ?? 0) + amount,
+        )
+      }
+      const subRows = [...subscriptionBuckets].map(([currency, total]) => ({ currency, total }))
       // Loan payment occurrences inherit the loan's currency, so join to group by it.
       const loanRows = this.db
         .select({

@@ -63,7 +63,8 @@ Mobile mapping must preserve Flowm's asymmetric model:
   daily spend calendar. Mobile should not expose a full ledger-style
   transaction list as a primary surface.
 - Present assets and net-worth liabilities come from asset snapshots.
-- Future obligations come from subscription and loan plans/forecasts.
+- Future subscription obligations are projected locally from subscription plans; loan obligations
+  continue to use the read-only loan forecast schedule.
 
 ## Watchouts
 

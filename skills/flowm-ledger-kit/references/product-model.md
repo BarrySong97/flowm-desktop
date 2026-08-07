@@ -9,8 +9,8 @@ book.
 - Past cashflow: actual historical activity in `cashflow_events`.
 - Present assets: current values and liabilities in `asset_items` and
   `asset_snapshots`.
-- Future obligations: forecast plans in `subscriptions`, `subscription_occurrences`,
-  `loans`, and `loan_payment_occurrences`.
+- Future obligations: subscription plans in `subscriptions` with read-time projected dates, plus
+  loan plans and amortization forecasts in `loans` and `loan_payment_occurrences`.
 
 ## Invariants
 

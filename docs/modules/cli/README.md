@@ -64,7 +64,6 @@ be executed as `npx @barrysongdev4real/flowm-cli ...` or through the installed
 - `pnpm flowm-cli update-subscription <id> [fields...] [--clear-category] [--commit] [--db path]`
 - `pnpm flowm-cli archive-subscription <id> [--commit] [--db path]`
 - `pnpm flowm-cli list-subscription-occurrences [--subscription-id id] [--date-from date] [--date-to date] [--db path]`
-- `pnpm flowm-cli generate-subscription-occurrences --through-date date [--subscription-id id] [--commit] [--db path]`
 - `pnpm flowm-cli list-loans [--status status] [--db path]`
 - `pnpm flowm-cli get-loan <id> [--db path]`
 - `pnpm flowm-cli create-loan --name name --payment-amount amount --start-date date [--commit] [--db path]`
@@ -101,10 +100,11 @@ lower-level repeatable `--scope kind:value` flags. `budget-progress` summarizes
 past active expense cashflow inside the selected period; it does not materialize
 planned spend or future obligations.
 
-Subscription and loan write commands also default to dry-run and write only when
-callers pass `--commit`. These commands maintain future-obligation forecast
-plans and their generated forecast occurrences. They do not create actual
-cashflow events, asset snapshots, or net-worth liabilities.
+Subscription and loan write commands also default to dry-run and write only when callers pass
+`--commit`. Subscription commands maintain plans; `list-subscription-occurrences` projects the
+requested date window at read time and never writes rows. Loan commands continue to maintain their
+amortization forecast occurrences. Neither workflow creates actual cashflow events, asset snapshots,
+or net-worth liabilities.
 
 Cashflow-binding commands record which real cashflow events back a subscription
 or loan as its deductions, stored as `object_links`. `bind-cashflow` accepts

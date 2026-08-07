@@ -1,8 +1,8 @@
 /**
  * @purpose Render and manage the subscriptions overview page workflow.
  * @role    Renderer feature surface for recurring future obligations.
- * @deps    React, tRPC subscription queries, calendar/list UI, and forms.
- * @gotcha  Subscription occurrences are forecasts until an explicit actual-cashflow workflow records them.
+ * @deps    React, tRPC subscription plans, shared read-time projection rules, calendar/list UI, and forms.
+ * @gotcha  Projected charges are ephemeral forecasts; actual deductions come only from linked cashflow.
  */
 
 import { useMemo, useState } from "react"
@@ -14,7 +14,7 @@ import { Dock } from "../components/layout/Dock"
 import { ScrollArea } from "../components/ui/ScrollArea"
 import { trpc } from "@/lib/trpc"
 import { usePagePerf } from "@/lib/debug/perf"
-import { addDays, dateKey, monthCells, todayKey } from "@/lib/dates"
+import { localDateKey, monthCells } from "@/lib/dates"
 import { SUBSCRIPTION_CATEGORY_COLORS } from "@/lib/domainDisplay"
 import { useMoney } from "@/lib/useMoney"
 import { SubscriptionDetailPanel } from "./SubscriptionDetailPanel"
@@ -23,6 +23,7 @@ import { CurrencySelect } from "../components/ui/CurrencySelect"
 import { DateInput } from "../components/ui/DateInput"
 import { MoneyAmount } from "../components/ui/MoneyAmount"
 import { useCurrentRates } from "@/lib/useCurrentRates"
+import { nextSubscriptionChargeDate, projectSubscriptionPlans } from "@flowm/shared"
 
 interface Sub {
   id: string
@@ -43,7 +44,14 @@ type SubForm = {
   auto: boolean
   cur: string
 }
-const EMPTY: SubForm = { name: "", cycle: "月", amt: "", next: todayKey(), auto: true, cur: "CNY" }
+const EMPTY: SubForm = {
+  name: "",
+  cycle: "月",
+  amt: "",
+  next: localDateKey(),
+  auto: true,
+  cur: "CNY",
+}
 
 function AddSubModal({
   open,
@@ -236,22 +244,14 @@ export function SubscriptionsPage() {
   const mon = now.getMonth() + 1
   const today = now.getDate()
   const monthStart = `${year}-${String(mon).padStart(2, "0")}-01`
-  const futureThrough = dateKey(addDays(now, 60))
+  const monthEnd = `${year}-${String(mon).padStart(2, "0")}-${String(new Date(year, mon, 0).getDate()).padStart(2, "0")}`
+  const localToday = localDateKey(now)
   const subscriptionsQuery = useQuery(trpc.subscriptions.list.queryOptions({ status: "active" }))
-  const occurrencesQuery = useQuery(
-    trpc.subscriptions.occurrences.queryOptions({ dateFrom: monthStart, dateTo: futureThrough }),
-  )
-  usePagePerf("subscriptions", [
-    { name: "subscriptions.list", query: subscriptionsQuery },
-    { name: "subscriptions.occurrences", query: occurrencesQuery },
-  ])
-  const generateOccurrences = useMutation(trpc.subscriptions.generateOccurrences.mutationOptions())
+  usePagePerf("subscriptions", [{ name: "subscriptions.list", query: subscriptionsQuery }])
   const createSubscription = useMutation(
     trpc.subscriptions.create.mutationOptions({
-      onSuccess: async (subscription) => {
-        await generateOccurrences.mutateAsync({ id: subscription.id, throughDate: futureThrough })
+      onSuccess: async () => {
         await queryClient.invalidateQueries(trpc.subscriptions.list.queryFilter())
-        await queryClient.invalidateQueries(trpc.subscriptions.occurrences.queryFilter())
         await queryClient.invalidateQueries(trpc.loans.futurePressure.queryFilter())
         // Awaited so a brand-new foreign currency's rate is fetched before the save
         // resolves — the total is correct the moment the modal closes.
@@ -274,16 +274,19 @@ export function SubscriptionsPage() {
         cat: sub.billingCycle === "yearly" ? "shop" : "sub",
         cycle: sub.billingCycle === "yearly" ? "年" : "月",
         amt: Math.abs(Number(sub.amount) || 0),
-        next: sub.nextChargeDate.slice(5),
+        next: (nextSubscriptionChargeDate(sub, localToday) ?? sub.nextChargeDate).slice(5),
         cur: sub.currency,
         auto: sub.autoRenew,
       })),
-    [subscriptionsQuery.data],
+    [localToday, subscriptionsQuery.data],
+  )
+  const projectedOccurrences = useMemo(
+    () => projectSubscriptionPlans(subscriptionsQuery.data ?? [], monthStart, monthEnd),
+    [monthEnd, monthStart, subscriptionsQuery.data],
   )
   const byDay = useMemo(() => {
     const output: Record<number, Sub[]> = {}
-    for (const occurrence of occurrencesQuery.data ?? []) {
-      if (!occurrence.dueDate.startsWith(monthStart.slice(0, 7))) continue
+    for (const occurrence of projectedOccurrences) {
       const sub = subNameById.get(String(occurrence.subscriptionId))
       const day = Number(occurrence.dueDate.slice(8, 10))
       const row: Sub = {
@@ -299,7 +302,7 @@ export function SubscriptionsPage() {
       output[day] = [...(output[day] ?? []), row]
     }
     return output
-  }, [monthStart, occurrencesQuery.data, subNameById])
+  }, [projectedOccurrences, subNameById])
   const monthCharges = Object.values(byDay).flat()
   // Convert each charge to the base currency before summing; mixed-currency totals
   // are meaningless otherwise. Buckets without a rate contribute 0 (see useCurrentRates).

@@ -79,7 +79,7 @@ export class LedgerStore {
   private drizzleDb: DrizzleDatabase | null = null
   private api: FlowmApi | null = null
   private activeFilePath: string | null = null
-  private forecastScheduleTimer: ReturnType<typeof setTimeout> | null = null
+  private loanForecastTimer: ReturnType<typeof setTimeout> | null = null
 
   // ---- paths -------------------------------------------------------------
 
@@ -189,14 +189,14 @@ export class LedgerStore {
     // self-skips currency pairs already refreshed today, so launches and ledger switches
     // stay cheap and never block opening.
     void api.refreshExchangeRates().catch(() => {})
-    this.refreshForecastSchedules(api, absPath, false)
-    this.scheduleNextForecastRefresh()
+    this.refreshLoanForecastSchedule(api, absPath, false)
+    this.scheduleNextLoanForecastRefresh()
   }
 
   close(): void {
-    if (this.forecastScheduleTimer != null) {
-      clearTimeout(this.forecastScheduleTimer)
-      this.forecastScheduleTimer = null
+    if (this.loanForecastTimer != null) {
+      clearTimeout(this.loanForecastTimer)
+      this.loanForecastTimer = null
     }
     this.api = null
     this.drizzleDb = null
@@ -205,17 +205,18 @@ export class LedgerStore {
   }
 
   /**
-   * Keep subscription and loan forecast rows available through a rolling window.
-   * Generation is idempotent by plan and due date, so reopening a ledger repairs
-   * older plans without duplicating existing forecast rows.
+   * Keep loan forecast rows available through a rolling window. Subscription
+   * schedules are projected from plans at read time and require no maintenance.
    */
-  private refreshForecastSchedules(api: FlowmApi, dbPath: string, notifyRenderer: boolean): void {
+  private refreshLoanForecastSchedule(
+    api: FlowmApi,
+    dbPath: string,
+    notifyRenderer: boolean,
+  ): void {
     const today = localDateKey()
     const throughDate = addDaysKey(today, FORECAST_DAYS)
-    void Promise.all([
-      api.generateSubscriptionOccurrences({ throughDate }),
-      api.generateLoanPaymentOccurrences({ throughDate }),
-    ])
+    void api
+      .generateLoanPaymentOccurrences({ throughDate })
       .catch(() => {
         // A ledger switch can close the previous database while this background
         // refresh is still pending. The next view/open refresh will retry.
@@ -228,7 +229,7 @@ export class LedgerStore {
           type: "ledger.changed",
           dbPath,
           source: "flowm-desktop",
-          command: "refresh-forecast-schedules",
+          command: "refresh-loan-forecast-schedule",
           pid: process.pid,
           changedAt: nowIso(),
         }
@@ -241,14 +242,14 @@ export class LedgerStore {
       })
   }
 
-  private scheduleNextForecastRefresh(): void {
-    this.forecastScheduleTimer = setTimeout(() => {
-      this.forecastScheduleTimer = null
+  private scheduleNextLoanForecastRefresh(): void {
+    this.loanForecastTimer = setTimeout(() => {
+      this.loanForecastTimer = null
       if (this.api == null || this.activeFilePath == null) {
         return
       }
-      this.refreshForecastSchedules(this.api, this.activeFilePath, true)
-      this.scheduleNextForecastRefresh()
+      this.refreshLoanForecastSchedule(this.api, this.activeFilePath, true)
+      this.scheduleNextLoanForecastRefresh()
     }, millisecondsUntilNextLocalDay())
   }
 

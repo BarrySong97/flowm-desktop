@@ -39,7 +39,8 @@
 - `loans/loans-api.ts` - loan plans and projected payment occurrences; elapsed
   dates do not materialize cashflow.
 - `reference/reference-api.ts` - reference/category/tag data, currency settings (display/base currency), and foreign-exchange rates. `getCurrentRates` returns the latest per-currency rate to the base currency; `refreshExchangeRates` fetches and caches rates (via the FX provider) for the currencies actually held across assets, subscriptions, and loans.
-- `subscriptions/subscriptions-api.ts` - subscription plans and projected occurrences.
+- `subscriptions/subscriptions-api.ts` - subscription plans plus compatibility reads that project
+  requested date windows without storing occurrence rows.
 
 ## Data Flow
 
@@ -69,7 +70,7 @@ latest monthly budget period's active items and scopes into the target month.
 
 `demo-seed.ts` owns the larger packaged sample ledger used by `flowm-demo.sqlite3`.
 
-The personal starter seed should be idempotent and conservative. It should only run for new non-demo ledgers and must use the public Flowm API facade for domain objects instead of inserting cross-domain starter rows directly. This keeps the seed aligned with validation, occurrence generation, and the asymmetric finance model.
+The personal starter seed should be idempotent and conservative. It should only run for new non-demo ledgers and must use the public Flowm API facade for domain objects instead of inserting cross-domain starter rows directly. This keeps the seed aligned with validation, read-time subscription projection, loan occurrence generation, and the asymmetric finance model.
 
 ## Watchouts
 
@@ -80,7 +81,8 @@ The personal starter seed should be idempotent and conservative. It should only 
 - Asset item archive/restore must preserve snapshot history. Default asset
   snapshot and net worth queries use active accounts only; explicit archived
   queries are for history/recovery surfaces.
-- Do not materialize subscription or loan forecasts as actual cashflow. Loan
+- Do not persist subscription schedule projections or materialize subscription/loan forecasts as
+  actual cashflow. Loan
   progress is derived from elapsed due dates in the renderer, without changing
   occurrence status, stored principal, cashflow, links, or asset snapshots.
 - Cashflow-to-obligation binding (`bindCashflowEvents` / `listLinkedCashflowEvents` / `unbindCashflowEvent`) records the deduction link in `object_links` (`fromType` `subscription`/`loan` → `toType` `cashflow_event`, `linkType` `confirmed_matches`). Binding is idempotent (existing owner/event pairs are skipped) and strictly explanatory: it must not change forecast pressure, net worth, or any cashflow aggregate.
