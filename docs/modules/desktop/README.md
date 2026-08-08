@@ -19,7 +19,8 @@ renderer, routing, local app resources, and desktop packaging configuration.
 - `apps/desktop/src/renderer/src` - React renderer routes, feature pages, providers, and app styles.
 - `apps/desktop/src/renderer/src/env.d.ts` - typed `window.flowm` renderer contract.
 - `apps/desktop/src/renderer/src/lib/desktop-runtime.ts` - Tauri adapter for native commands, import/reveal, CLI refresh, version, and manual download.
-- `apps/desktop/resources/icons` - packaged desktop app icon sources and macOS `.icns` asset.
+- `apps/desktop/resources/icons` - shared desktop app icon sources and macOS `.icns` asset.
+- `apps/desktop/src-tauri/icons/icon.ico` - generated Windows executable/installer resource icon required by `tauri-build`.
 - `apps/desktop/scripts/seed-demo.ts` - developer script for seeding local demo data.
 - `apps/desktop/scripts/build-demo-ledger.ts` - script for building the packaged demo ledger resource.
 - `apps/desktop/vite.config.ts` - Vite build for the renderer.

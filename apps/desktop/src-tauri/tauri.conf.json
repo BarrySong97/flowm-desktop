@@ -40,6 +40,7 @@
       "../resources/flowm-demo.sqlite3": "resources/flowm-demo.sqlite3"
     },
     "icon": [
+      "icons/icon.ico",
       "../resources/icons/flowm.iconset/icon_32x32.png",
       "../resources/icons/flowm.iconset/icon_128x128.png",
       "../resources/icons/flowm.iconset/icon_256x256.png",

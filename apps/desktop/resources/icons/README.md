@@ -2,6 +2,8 @@
 
 `flowm.icns` is the packaged macOS app icon used by `src-tauri/tauri.conf.json`.
 `flowm.iconset/` keeps the source PNG sizes from the design export.
+`../../src-tauri/icons/icon.ico` is the generated Windows resource icon used by
+Tauri and comes from `flowm.iconset/icon_512x512@2x.png`.
 The visible rounded-square tile is inset to roughly 78% of the 1024px canvas,
 matching the transparent padding seen in bundled macOS app icons so it does not
 look oversized in the Dock.
@@ -27,3 +29,7 @@ iconset directory to contain only icon PNG assets.
 | icon_512x512@2x.png | 1024   |
 
 Background: off-white `#f4f6f2`.
+
+To regenerate the Windows icon, run Tauri's icon generator against the 1024px
+PNG in a temporary output directory, then retain its `icon.ico` at
+`apps/desktop/src-tauri/icons/icon.ico`.

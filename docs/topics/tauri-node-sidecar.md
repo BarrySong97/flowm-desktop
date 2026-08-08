@@ -43,6 +43,8 @@ the CLI, and the sidecar build.
   `pnpm.cmd` shim directly because Node rejects that batch-file invocation on
   Windows runners.
 - The sidecar filename ends with the Rust host triple expected by Tauri.
+- `src-tauri/icons/icon.ico` exists and remains listed in `bundle.icon` because
+  `tauri-build` requires that Windows resource before compiling the app.
 - `src-tauri/binaries/` is generated and ignored by Git.
 - The final app contains the executable as `flowm-sidecar` plus bundled
   migrations and `flowm-demo.sqlite3`.

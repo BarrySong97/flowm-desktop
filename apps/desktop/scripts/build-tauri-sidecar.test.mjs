@@ -1,14 +1,18 @@
 /**
  * @purpose Prevent Windows sidecar packaging from regressing to unsupported command shims.
  * @role    Unit coverage for host-triple mapping and the direct Node pkg CLI invocation.
- * @deps    Vitest and build-tauri-sidecar.mjs.
+ * @deps    Vitest, Node filesystem helpers, Tauri config, and build-tauri-sidecar.mjs.
  * @gotcha  Inspect the generated command only; do not package a native executable in this test.
  */
 
-import { basename } from "node:path"
+import { existsSync, readFileSync } from "node:fs"
+import { basename, dirname, join } from "node:path"
+import { fileURLToPath } from "node:url"
 import { describe, expect, it } from "vitest"
 
 import { pkgTargetFor, sidecarBuildSpec } from "./build-tauri-sidecar.mjs"
+
+const desktopDir = join(dirname(fileURLToPath(import.meta.url)), "..")
 
 describe("Tauri sidecar build command", () => {
   it("invokes the pkg JavaScript CLI directly for Windows", () => {
@@ -24,5 +28,15 @@ describe("Tauri sidecar build command", () => {
     expect(() => pkgTargetFor("aarch64-apple-darwin", "24.1.0")).toThrow(
       "FlowM sidecars must be built with Node 22; found 24.1.0",
     )
+  })
+
+  it("keeps the Windows resource icon required by tauri-build", () => {
+    const iconPath = join(desktopDir, "src-tauri", "icons", "icon.ico")
+    const tauriConfig = JSON.parse(
+      readFileSync(join(desktopDir, "src-tauri", "tauri.conf.json"), "utf8"),
+    )
+
+    expect(existsSync(iconPath)).toBe(true)
+    expect(tauriConfig.bundle.icon).toContain("icons/icon.ico")
   })
 })
