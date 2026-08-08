@@ -15,10 +15,10 @@
 
 ## Architecture Boundaries
 
-- Renderer code must not import Electron main-process modules or open SQLite directly.
-- The preload bridge is the renderer boundary. Add typed preload APIs in `apps/desktop/src/preload` and serve product operations through the main tRPC router.
+- Renderer code must not import Node-sidecar or Rust persistence implementations, or open SQLite directly.
+- `window.flowm` is the renderer boundary. Keep its contract typed in `apps/desktop/src/renderer/src/env.d.ts`; expose narrow native operations through Tauri commands and product data through the private sidecar tRPC router.
 - Product-facing data access belongs in `packages/api`; schema and migrations belong in `packages/db`.
-- `packages/shared` must stay platform-light and reusable. Do not put Electron, DOM, or database concerns there.
+- `packages/shared` must stay platform-light and reusable. Do not put Tauri, DOM, or database concerns there.
 - `packages/ui` owns reusable primitives and styles, not product-specific finance workflows.
 
 ## Renderer UI Rules
@@ -73,7 +73,7 @@ Generated files and ambient tool declarations should be excluded in `check-docs.
 ## Review Checklist
 
 - [ ] The change respects the asymmetric finance model.
-- [ ] Electron main/preload/renderer boundaries remain intact.
+- [ ] Tauri command, Node sidecar, and renderer boundaries remain intact.
 - [ ] SQLite access goes through the Drizzle-backed API layer.
 - [ ] Relevant module docs and file headers are updated.
 - [ ] Tests or manual verification cover the changed behavior.

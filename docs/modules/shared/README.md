@@ -20,12 +20,11 @@
 - `contracts/assets/asset.contract.ts` - asset item/archive state, asset snapshot,
   net worth, and asset change contracts shared by renderer and API.
 - `ipc/index.ts` - ledger-change events emitted by the CLI or desktop background
-  maintenance, the local socket path helper used for CLI commit refresh
-  notifications, and the `UpdateStatusEvent` lifecycle relayed from the desktop
-  main process to the renderer.
+  maintenance and the local socket path helper used for CLI commit refresh
+  notifications.
 - `utils/account.ts` - account hierarchy and display helpers.
 - `utils/currency.ts` - curated common-currency registry (code, localized name, display symbol) with `currencySymbol` and `formatMoney` helpers used by renderer pickers and money formatting.
-- `utils/platform.ts` - cross-package platform helpers that do not import Electron.
+- `utils/platform.ts` - cross-package desktop/browser/server helpers that do not import Tauri.
 - `utils/subscription-projection.ts` - pure read-time subscription recurrence projection shared by
   renderer and API compatibility reads; month-end dates stay anchored to the original plan.
 
@@ -41,7 +40,7 @@ contracts can be imported from `@flowm/shared/ipc`.
 
 ## Watchouts
 
-- Keep this package free of Electron, DOM, SQLite, and renderer state concerns.
+- Keep this package free of Tauri, DOM, SQLite, and renderer state concerns.
 - Contracts must remain DTO/input shapes only; workflow code belongs in `packages/api/use-cases` or renderer feature modules.
 - If a helper needs product data access or UI state, it belongs in a higher layer.
 - Do not confuse this package with `packages/api/src/shared`, which contains

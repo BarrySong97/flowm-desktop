@@ -2,7 +2,7 @@
  * @purpose Provide renderer dates helper functions.
  * @role    Shared utility module for React feature code.
  * @deps    Browser-safe TypeScript utilities and local domain types.
- * @gotcha  Keep Node, Electron main, and SQLite access behind preload/tRPC.
+ * @gotcha  Keep Node, the Tauri sidecar, and SQLite access behind the desktop bridge/tRPC.
  */
 
 export function dateKey(date: Date): string {

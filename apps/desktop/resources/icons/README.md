@@ -1,6 +1,6 @@
 # FlowM App Icon
 
-`flowm.icns` is the packaged macOS app icon used by `electron-builder.yml`.
+`flowm.icns` is the packaged macOS app icon used by `src-tauri/tauri.conf.json`.
 `flowm.iconset/` keeps the source PNG sizes from the design export.
 The visible rounded-square tile is inset to roughly 78% of the 1024px canvas,
 matching the transparent padding seen in bundled macOS app icons so it does not

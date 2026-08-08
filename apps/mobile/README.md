@@ -36,7 +36,7 @@ dart run build_runner build --delete-conflicting-outputs
 
 The mobile app is initialized as a separate Flutter app inside the monorepo. In
 development it reads a copied `flowm-demo.sqlite3` fixture through Drift. It
-does not access the user's desktop SQLite directory, Electron IPC, or
+does not access the user's desktop SQLite directory, the Tauri desktop sidecar, or
 `better-sqlite3`.
 
 Future mobile data access should use an explicit Desktop sync/API boundary and

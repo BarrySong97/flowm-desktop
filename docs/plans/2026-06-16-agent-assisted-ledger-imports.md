@@ -48,7 +48,7 @@ scripts may be local and iterative, but they must preserve the asymmetric model:
 2. [x] Add import-source fields to `cashflow_events`, such as source name,
        source record id, file hash, and imported timestamp, with idempotent
        constraints.
-3. [ ] Add a helper module that opens a ledger with Electron-compatible
+3. [ ] Add a helper module that opens a ledger with Node 22-compatible
        `better-sqlite3`, applies migrations, and exposes the `@flowm/api` facade to
        agent-authored extraction/import scripts.
 4. [x] Add a reusable normalized import format for agent-produced cashflow

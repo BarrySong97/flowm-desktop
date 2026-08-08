@@ -54,6 +54,7 @@
     "use-cases": "api",
     "sqlite": "api",
     "cli": "cli",
+    "contracts": "shared",
     "types": "shared",
     "utils": "shared",
     "ipc": "shared",

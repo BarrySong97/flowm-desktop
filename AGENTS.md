@@ -1,7 +1,7 @@
 # Flowm Desktop - Agent Guide
 
-**What:** Flowm Desktop is an Electron app for asymmetric personal finance tracking.
-**Architecture:** Electron main/preload + React renderer + tRPC IPC + Drizzle/SQLite. Run commands from [docs/run.md](docs/run.md).
+**What:** Flowm Desktop is a Tauri app for asymmetric personal finance tracking.
+**Architecture:** Tauri + React renderer + narrow Rust commands + bundled Node/tRPC sidecar + Drizzle/SQLite. Run commands from [docs/run.md](docs/run.md).
 
 ## Product Model
 
@@ -18,9 +18,9 @@ Imported statements, asset snapshots, and future plans may inform each other in 
 - Keep the asymmetric model intact; do not infer asset balances from imported statement lines. See [docs/topics/asymmetric-finance-model.md](docs/topics/asymmetric-finance-model.md).
 - Subscription and loan plans are forecasts. Do not turn them into actual expenses or asset-liability changes unless a feature explicitly asks for that workflow.
 - Liabilities in net worth come from liability asset snapshots, not from loan plans.
-- Preserve Electron boundaries: renderer code reaches app data only through preload/tRPC IPC. See [docs/topics/electron-ipc-trpc.md](docs/topics/electron-ipc-trpc.md).
+- Preserve Tauri boundaries: renderer code reaches app data only through the `window.flowm` adapter and narrow Rust commands; only the private sidecar owns SQLite. See [docs/topics/tauri-sidecar-trpc.md](docs/topics/tauri-sidecar-trpc.md).
 - Access SQLite through Drizzle against `@flowm/db` schema. Do not write raw SQL strings or reach through `db.$client`; use `sql\`...\`` only for expressions Drizzle cannot express.
-- Keep `better-sqlite3` on the Electron ABI. Do not run plain Vitest escape hatches unless you intentionally plan to rebuild app deps afterward. See [docs/topics/electron-node-abi.md](docs/topics/electron-node-abi.md).
+- Keep `better-sqlite3` on the Node 22 ABI used by the bundled sidecar and workspace tests. See [docs/topics/tauri-node-sidecar.md](docs/topics/tauri-node-sidecar.md).
 
 ## Workflow
 
@@ -36,8 +36,8 @@ Ratchet rule: when an agent mistake reveals a repeatable risk, add a test, lint 
 ## Navigation
 
 - Product model: [docs/topics/asymmetric-finance-model.md](docs/topics/asymmetric-finance-model.md)
-- Runtime and IPC: [docs/architecture.md](docs/architecture.md), [docs/topics/electron-ipc-trpc.md](docs/topics/electron-ipc-trpc.md)
-- Native dependency ABI: [docs/topics/electron-node-abi.md](docs/topics/electron-node-abi.md)
+- Runtime and IPC: [docs/architecture.md](docs/architecture.md), [docs/topics/tauri-sidecar-trpc.md](docs/topics/tauri-sidecar-trpc.md)
+- Native sidecar and ABI: [docs/topics/tauri-node-sidecar.md](docs/topics/tauri-node-sidecar.md)
 - Modules: [desktop](docs/modules/desktop/), [api](docs/modules/api/), [db](docs/modules/db/), [shared](docs/modules/shared/), [ui](docs/modules/ui/), [hooks](docs/modules/hooks/)
 - Design system: [design.md](design.md)
 - Runbook: [docs/run.md](docs/run.md)

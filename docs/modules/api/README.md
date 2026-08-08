@@ -2,7 +2,10 @@
 
 ## Responsibility
 
-`packages/api` is the product facade used by the Electron main process. It translates renderer-facing operations into domain-shaped results through use cases, domain rules, infrastructure repositories, and presentation mappers.
+`packages/api` is the product facade used by the Tauri Node sidecar and CLI. It
+translates renderer-facing operations into domain-shaped
+results through use cases, domain rules, infrastructure repositories, and
+presentation mappers.
 
 ## Key Files
 
@@ -44,7 +47,12 @@
 
 ## Data Flow
 
-The Electron main router calls this package with a typed `Database` handle from `@flowm/db`. Public facade methods keep the existing tRPC-facing API stable while use-case wrappers delegate persistence to `infrastructure/db/repositories/`, pure rules live in `domain/`, and row-to-contract conversion lives in `presentation/mappers/`.
+The shared desktop tRPC router calls this package with a typed `Database` handle
+from `@flowm/db`. Tauri hosts the router and facade in its private bundled Node
+sidecar. Public facade methods keep the
+existing tRPC-facing API stable while use-case wrappers delegate persistence to
+`infrastructure/db/repositories/`, pure rules live in `domain/`, and row-to-
+contract conversion lives in `presentation/mappers/`.
 
 ## Interfaces
 

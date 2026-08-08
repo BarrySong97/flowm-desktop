@@ -14,7 +14,7 @@ DTOs returned by the Flowm API facade.
 
 ## Data Flow
 
-Drizzle row -> presentation mapper -> API contract -> tRPC/preload -> renderer.
+Drizzle row -> presentation mapper -> API contract -> sidecar tRPC -> Tauri renderer bridge.
 
 ## Watchouts
 

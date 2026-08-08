@@ -2,10 +2,11 @@
 
 ## Principles
 
-- Verify by running the affected path, not by reading code alone.
-- Start with the smallest meaningful test or typecheck for the touched package.
-- Broaden to full workspace checks before finishing substantial changes.
-- Prefer deterministic assertions over screenshots for automated checks.
+- Verify the affected runtime path, not only the source text.
+- Start with the smallest meaningful test or typecheck.
+- Broaden to the workspace checks before finishing substantial changes.
+- Keep production ledgers out of mutation tests; use disposable SQLite files or
+  the `com.flowm.desktop.dev` application identity.
 
 ## Standard Commands
 
@@ -17,61 +18,68 @@ pnpm check-types
 pnpm test
 pnpm build
 pnpm check-docs
+cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml
 ```
-
-Run all of them before finishing substantial changes when feasible.
 
 ## Native Dependency Rule
 
-`better-sqlite3` must stay compiled for Electron. Use:
+Workspace tests, CLI development, and the packaged sidecar all use the Node 22
+ABI for `better-sqlite3`. A clean `pnpm install` establishes that ABI. If a
+checkout contains an old Electron rebuild, repair it with:
 
 ```bash
-pnpm test
+pnpm -F desktop rebuild better-sqlite3
 ```
 
-Do not use plain `vitest run` unless you intend to repair the ABI afterward with:
-
-```bash
-pnpm rebuild:electron
-```
-
-When manually inspecting SQLite with `better-sqlite3`, run through Electron's Node ABI too:
-
-```bash
-ELECTRON_RUN_AS_NODE=1 apps/desktop/node_modules/.bin/electron -e 'const Database = require("better-sqlite3")'
-```
+Do not rebuild the shared native module for another runtime.
 
 ## What To Test
 
-- Product facade and database behavior: package tests under `packages/*/tests`.
-- Renderer workflows: component or integration tests near the desktop renderer when available, plus manual app verification for user-facing flows.
-- Database schema changes: migration generation, migration application, and API tests that exercise the new shape.
-- Harness changes: `pnpm lint`, `pnpm format:check`, `pnpm check-architecture`, and `pnpm check-docs`.
+- Product facade/database behavior: package tests under `packages/*/tests`.
+- Sidecar boundary: isolated SQLite creation, real tRPC mutation/readback,
+  ledger lifecycle, and refresh-queue behavior.
+- Renderer workflows: nearby unit/component tests plus manual app verification.
+- Database schema changes: migration generation/application and API tests.
+- Packaging: target-specific sidecar, migrations/demo resource presence,
+  bundle identifier, and platform signature.
+- Harness changes: lint, format, architecture, and documentation checks.
 
-## Manual Verification
+## Manual Tauri Verification
 
-For UI changes, run:
+Run the isolated development app:
 
 ```bash
-pnpm dev
+pnpm -F desktop dev:tauri
 ```
 
-Then walk the affected page in the Electron app. Confirm loading, empty, error, and populated states when the workflow can show them.
+Confirm:
 
-### First-Launch Ledger Seed Verification
+- The page URL is `tauri://localhost` and the data-backed dashboard loads.
+- Hash-route, mouse side-button, browser back/forward, and Command+[ / Command+]
+  navigation use TanStack Router history.
+- Ledger import opens a native SQLite chooser and registers the selected file
+  through the sidecar.
+- Reveal opens the selected ledger in Finder/Explorer.
+- CLI `--commit` refresh hints invalidate renderer queries for the active
+  database only.
+- Settings show the app version and a manual “下载最新版” link.
 
-When changing ledger bootstrap or seed behavior, verify the actual Electron startup path, not only the seed helper:
+Use a disposable ledger for writes. File selection and reveal may be tested on
+known development data; do not overwrite or delete production data.
 
-1. Close FlowM.
-2. Delete the development ledger files under `~/Library/Application Support/com.flowm.desktop`: `flowm.sqlite3`, `flowm-demo.sqlite3`, `flowm-ledgers.json`, and any matching `-wal` or `-shm` files.
-3. Run `pnpm -F desktop dev` so `LedgerStore.bootstrap()` recreates both built-in ledgers.
-4. Inspect the generated databases with Electron ABI, not plain Node.
+## Release Bundle Verification
 
-Expected fresh development state:
+```bash
+pnpm -F desktop package
+codesign --verify --deep --strict apps/desktop/src-tauri/target/release/bundle/macos/FlowM.app
+```
 
-- `flowm-demo.sqlite3` exists and contains the full demo ledger copied from the packaged resource.
-- `flowm.sqlite3` exists and contains default categories, starter budgets, two asset examples, two subscription examples, and two loan examples.
-- `flowm.sqlite3` should not contain imported statements or cashflow events from starter seed.
-- `flowm-ledgers.json` lists both ledgers; fresh installs may start on demo, but the personal ledger must already be usable when switching out of demo.
+Also confirm the macOS bundle contains:
 
-If `flowm.sqlite3` already exists, bootstrap must not overwrite it. That path represents user data, even if the current starter seed has changed.
+- `Contents/MacOS/flowm-sidecar`
+- `Contents/Resources/migrations/`
+- `Contents/Resources/resources/flowm-demo.sqlite3`
+- `CFBundleIdentifier = com.flowm.desktop`
+
+Windows CI must build the x64 sidecar and NSIS installer on the Windows runner;
+native sidecar artifacts are not cross-OS reusable.

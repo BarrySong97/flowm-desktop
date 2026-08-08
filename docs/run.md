@@ -2,12 +2,11 @@
 
 ## Environment
 
-- Runtime: Node.js compatible with the workspace `pnpm` lockfile.
-- Package manager: `pnpm@10.12.1`.
-- Desktop runtime: Electron with native `better-sqlite3`.
-- Mobile runtime: Flutter stable. The initial `apps/mobile` shell was generated
-  with Flutter 3.41.4 and Dart 3.11.1.
-- Data location: `~/Library/Application Support/com.flowm.desktop/flowm.sqlite3`.
+- Node.js 22 for workspace tools, tests, CLI development, and sidecar packaging.
+- `pnpm@10.12.1`.
+- Rust stable and platform Tauri prerequisites for desktop builds.
+- Flutter stable for `apps/mobile`.
+- Production data identity: `com.flowm.desktop`.
 
 ## Install
 
@@ -15,150 +14,125 @@
 pnpm install
 ```
 
-## Start Development App
+A clean install builds `better-sqlite3` for Node 22. If this checkout previously
+used Electron and reports an ABI mismatch, run once:
+
+```bash
+pnpm -F desktop rebuild better-sqlite3
+```
+
+## Start Desktop Development
 
 ```bash
 pnpm dev
 ```
 
-This runs the Electron desktop app through `turbo -F desktop dev`.
+This builds the self-contained sidecar and launches `FlowM Dev` through Tauri
+with identifier `com.flowm.desktop.dev`. It serves the existing React renderer
+through Vite and keeps development ledgers separate from production.
 
-The development app uses `.flowm/dev-user-data` as its user data directory when
-started from the workspace, so local verification can use a copied ledger
-without touching the installed app's production data.
-
-On macOS, the desktop package dev script first prepares
-`apps/desktop/.electron-dev/FlowM.app` from Electron's npm-bundled
-`Electron.app` and launches it through `ELECTRON_EXEC_PATH`. This keeps the
-Dock, app menu, and process name aligned with the production app while still
-using electron-vite's development server.
-
-## Start Mobile App
-
-Flutter commands run directly inside the mobile app directory rather than
-through pnpm or Turbo:
+Equivalent direct command:
 
 ```bash
-cd apps/mobile
-flutter pub get
-flutter run
+pnpm -F desktop dev:tauri
 ```
 
-The initial mobile shell targets Android and iOS. It is not wired to the
-Electron IPC or the user's live Desktop data directory. For development, it
-copies the bundled Desktop demo SQLite fixture into the simulator/device app
-sandbox and reads it through Drift with a read-only SQLite connection.
-
-## Prepare Blog Images
-
-Copy `.env.example` to `.env` and fill the Cloudflare R2 credentials, then run:
+Useful build checks:
 
 ```bash
-pnpm img <blog-slug> --dry-run
-pnpm img <blog-slug>
+pnpm -F desktop build:tauri-renderer
+pnpm -F desktop build:tauri-sidecar:js
+pnpm -F desktop build:tauri-sidecar
+cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml
 ```
 
-The first command previews compression and MDX rewriting without uploading or
-changing files. The second uploads content-addressed WebP assets and writes
-dimensions plus ThumbHash placeholders into the article. See
-[Blog Image Pipeline](topics/blog-images.md).
+## Build And Package
 
-## Build
+Build every workspace package without creating installers:
 
 ```bash
 pnpm build
 ```
 
-Package the desktop app:
+Build the native Tauri app bundle:
 
 ```bash
 pnpm package
 ```
 
-Package and install the macOS app into `/Applications/FlowM.app`:
-
-```bash
-pnpm install:local
-```
-
-Use `pnpm install:local -- --restart` when you want the script to quit the
-running FlowM app before installation and reopen it afterward.
-
-Create distribution artifacts:
+Create the configured distribution artifacts:
 
 ```bash
 pnpm dist
 ```
 
+The macOS app bundle is under
+`apps/desktop/src-tauri/target/release/bundle/macos/FlowM.app`. Local builds use
+an ad-hoc signature; CI overrides it with the configured Developer ID and
+notarization credentials.
+
+Build an isolated debug bundle for manual verification:
+
+```bash
+pnpm -F desktop exec tauri build --debug --bundles app --config src-tauri/tauri.dev.conf.json
+```
+
+Do not distribute the debug bundle.
+
+## Install Locally On macOS
+
+```bash
+pnpm install:local
+pnpm install:local -- --restart
+```
+
+The script packages Tauri, copies `FlowM.app` to `/Applications`, and optionally
+restarts it. Existing app data is untouched.
+
 ## Release
 
-Before running a release, add the new first entry in
-`apps/web/components/releases/ReleaseTimeline.tsx` and move `badge: "latest"` to
-that entry. Then run the release command from `main`:
+Add the new first entry in
+`apps/web/components/releases/ReleaseTimeline.tsx` and move the single
+`badge: "latest"` marker to it, then run from `main`:
 
 ```bash
 pnpm release 0.2.2
 ```
 
-The release script validates the release note, bumps the root/desktop/web/CLI
-package versions, commits the release, pushes `main`, pushes tag `v<version>`,
-and waits for the tag-triggered GitHub Actions build. CI creates the published
-GitHub Release before the macOS and Windows jobs upload their installers, then
-the script publishes `@barrysongdev4real/flowm-cli` to npm from `packages/cli/npm`.
-Before committing, it runs `pnpm check-docs`,
-`pnpm format:check`, `pnpm lint`, and `pnpm build`. Use `--dry-run`,
-`--no-publish`, `--no-npm`, `--no-cask`, `--no-wait`, or `--no-checks` while
-testing.
+The script bumps root/desktop/web/CLI versions plus Tauri JSON/Cargo versions,
+runs checks, commits, pushes `main`, tags `v<version>`, and waits for GitHub
+Actions. CI creates the GitHub Release, builds target-native Node sidecars,
+creates Tauri DMG/NSIS installers, signs/notarizes where configured, and uploads
+them. The first Tauri release and later updates are installed by downloading
+the latest artifact; there is no in-app updater.
 
-## Typecheck
+Supported release flags include `--dry-run`, `--no-publish`, `--no-npm`,
+`--no-cask`, `--no-wait`, and `--no-checks`.
+
+## Typecheck, Lint, Format, And Test
 
 ```bash
 pnpm check-types
-```
-
-The alias `pnpm typecheck` also runs `turbo check-types`.
-
-## Lint And Format
-
-```bash
 pnpm lint
 pnpm lint:fix
 pnpm format:check
 pnpm format
-```
-
-`pnpm lint` runs Oxlint across the workspace. `pnpm format:check` checks Oxfmt formatting without writing files; `pnpm format` writes Oxfmt changes in place.
-
-## Test
-
-```bash
 pnpm test
+pnpm check-architecture
+pnpm check-docs
 ```
 
-`pnpm test` runs `pnpm run test:electron`, which rebuilds Electron app dependencies and runs Vitest through Electron's Node runtime.
-
-Avoid plain `vitest run` unless you intentionally want to recompile native dependencies for the system Node ABI. If that happens, repair the desktop ABI with:
-
-```bash
-pnpm rebuild:electron
-```
-
-Mobile app checks:
-
-```bash
-cd apps/mobile
-flutter analyze
-flutter test
-dart run build_runner build --delete-conflicting-outputs
-```
+`pnpm test` runs Vitest with the same Node ABI used by the sidecar build.
 
 ## Demo Data
 
 ```bash
 pnpm seed:demo
+pnpm -F desktop build:demo
 ```
 
-This delegates to the desktop package demo seed script.
+The seed command is dry-run unless explicitly told to write by its own flags.
+The build command regenerates the committed packaged demo ledger.
 
 ## Flowm CLI
 
@@ -169,27 +143,30 @@ pnpm flowm-cli budget-progress --budget-period-id <id>
 pnpm flowm-cli apply-patch patch.json --dry-run
 ```
 
-This runs the `@flowm/cli` workspace package through Electron's Node runtime so
-ledger inspection and guarded agent patch application use the correct
-`better-sqlite3` ABI.
+The workspace CLI runs directly on Node 22 and uses the same
+`better-sqlite3` ABI as the sidecar. Use `pnpm --silent flowm-cli ...` when
+another program parses its JSON stdout.
 
-Use `pnpm --silent flowm-cli ...` when another program needs to parse stdout as
-JSON.
-
-## Harness Checks
+## Mobile App
 
 ```bash
-pnpm check-docs
+cd apps/mobile
+flutter pub get
+flutter run
+flutter analyze
+flutter test
 ```
 
-Equivalent direct command:
+The mobile development fixture lives in the mobile sandbox and does not open
+the user's desktop ledger.
+
+## Blog Images
+
+After configuring Cloudflare R2 credentials from `.env.example`:
 
 ```bash
-node scripts/check-docs.mjs
+pnpm img <blog-slug> --dry-run
+pnpm img <blog-slug>
 ```
 
-Use strict mode when you want drift warnings to fail the command:
-
-```bash
-node scripts/check-docs.mjs --strict
-```
+See [Blog Image Pipeline](topics/blog-images.md).

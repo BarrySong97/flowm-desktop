@@ -2,27 +2,32 @@
 
 ## Responsibility
 
-`apps/desktop` owns the Electron shell, preload bridge, React renderer, routing, local app resources, and packaging configuration.
+`apps/desktop` owns the Tauri v2 shell, bundled Node data sidecar, React
+renderer, routing, local app resources, and desktop packaging configuration.
 
 ## Key Files
 
-- `apps/desktop/src/main/index.ts` - Electron app bootstrap, user data path, SQLite connection, migrations, and main process lifecycle.
-- `apps/desktop/src/main/ledgers.ts` - ledger path switching between the user's app data database and packaged demo database.
+- `apps/desktop/src-tauri/src/lib.rs` - Tauri composition root, narrow commands, and managed sidecar lifecycle.
+- `apps/desktop/src-tauri/tauri.conf.json` - production identity, window, resource, external binary, and bundle configuration.
+- `apps/desktop/src-tauri/tauri.dev.conf.json` - isolated `FlowM Dev` identity overlay.
+- `apps/desktop/src/tauri-sidecar/index.ts` - NDJSON process entry point.
+- `apps/desktop/src/tauri-sidecar/ledger-store.ts` - ledger registry, migrations, one active SQLite connection, and `@flowm/api` facade.
 - `apps/desktop/src/main/local-ledger-change-server.ts` - local socket listener for CLI commit refresh hints.
-- `apps/desktop/src/main/native-navigation.ts` - native browser-style back/forward command, macOS mouse-driver shortcut, and swipe adapter over Electron navigation history.
-- `apps/desktop/src/main/bootstrap/auto-update.ts` - electron-updater wiring against the public GitHub Releases feed: launch + manual checks, download-on-click, and quit-to-install; relays lifecycle as `flowm:updater:status` events and no-ops in dev/local dir installs that lack `app-update.yml`.
-- `apps/desktop/src/renderer/src/providers/auto-update.tsx` - renderer controller that mirrors update status into `updateStatusAtom` and drives the bottom-right update toast.
-- `.github/workflows/release.yml` - tag-triggered (`v*`) CI that creates a published GitHub Release, then builds, signs, notarizes, and uploads installers (macOS arm64 dmg/zip, Windows nsis).
-- `apps/desktop/src/main/trpc/router.ts` - tRPC IPC router exposed to the renderer.
-- `apps/desktop/src/main/trpc/trpc.ts` - tRPC helpers for the Electron main process.
-- `apps/desktop/src/preload/index.ts` - typed preload bridge exposed as `window.flowm`.
+- `apps/desktop/src/main/trpc/router.ts` - tRPC router exposed through the private sidecar.
+- `apps/desktop/src/main/trpc/transport.ts` - compact sidecar request dispatcher.
+- `apps/desktop/src/main/trpc/ledger-service.ts` - runtime-neutral ledger lifecycle contract.
 - `apps/desktop/src/renderer/src` - React renderer routes, feature pages, providers, and app styles.
+- `apps/desktop/src/renderer/src/env.d.ts` - typed `window.flowm` renderer contract.
+- `apps/desktop/src/renderer/src/lib/desktop-runtime.ts` - Tauri adapter for native commands, import/reveal, CLI refresh, version, and manual download.
 - `apps/desktop/resources/icons` - packaged desktop app icon sources and macOS `.icns` asset.
 - `apps/desktop/scripts/seed-demo.ts` - developer script for seeding local demo data.
 - `apps/desktop/scripts/build-demo-ledger.ts` - script for building the packaged demo ledger resource.
-- `apps/desktop/electron-builder.yml` - desktop packaging configuration.
+- `apps/desktop/vite.config.ts` - Vite build for the renderer.
+- `apps/desktop/vite.sidecar.config.ts` - Vite build for sidecar JavaScript.
+- `apps/desktop/scripts/build-tauri-sidecar.mjs` - maps Rust host triples to self-contained Node 22 sidecars.
+- `apps/desktop/pkg.sidecar.config.cjs` - includes the dynamic `better-sqlite3` native binding in the sidecar.
+- `.github/workflows/release.yml` - tag-triggered Tauri DMG/NSIS build and upload pipeline.
 - `scripts/release.mjs` - release automation entrypoint behind `pnpm release <version>`; validates the web release note, bumps package versions, commits, pushes `main`, tags, waits for CI, validates the published release, and publishes `@barrysongdev4real/flowm-cli` to npm.
-- `scripts/prepare-electron-dev-app.mjs` - prepares the macOS branded `FlowM.app` used by the desktop dev command.
 
 ## Renderer Feature Map
 
@@ -40,25 +45,31 @@
 - `components/layout/` - desktop shell, title bar, dock, and banners.
 - `components/ui/` - renderer-local UI atoms that are more product-shaped than `@flowm/ui`, including `CurrencySelect` (autocomplete currency picker over the common-currency set), `DateInput` (HeroUI date picker for ISO date form values), `MoneyAmount` (currency-aware amount with hide-amounts masking), and `BackButton` (the one ghost back affordance — text variant `← 返回X` or icon-only — shared by every detail page/panel).
 - `lib/` - browser-safe renderer helpers, tRPC client wiring, command parsing, and UI state atoms; `lib/useCurrentRates.ts` exposes the base currency and a `toDisplay` conversion helper used by cross-currency totals.
-- `lib/mouseHistoryNavigation.ts` maps raw macOS mouse side buttons to TanStack Router history; mouse drivers that synthesize browser shortcuts are handled by the main-process native navigation adapter, while Windows/Linux use Electron app commands.
+- `lib/mouseHistoryNavigation.ts` maps side buttons, browser history keys, and macOS Command+[ / Command+] to TanStack Router history on Tauri.
 - `routes/` - TanStack Router route modules; `routeTree.gen.ts` is generated and intentionally excluded from file-header enforcement.
 
 ## Data Flow
 
-React renderer -> tRPC client -> preload IPC -> Electron main router -> `@flowm/api` -> `@flowm/db` -> SQLite.
+React renderer -> `window.flowm` adapter -> Tauri Command -> private NDJSON
+sidecar -> shared tRPC router -> `@flowm/api` -> `@flowm/db` -> SQLite.
 
-The renderer should never open SQLite directly and should not import Node-only main process code.
+The sidecar owns the connection and ledger lifecycle. Rust serializes requests
+through one managed process; the renderer does not receive shell, filesystem,
+or raw SQL access. There is one SQLite implementation and no LocalStorage data
+compatibility layer.
+
+The renderer should never open SQLite directly and should not import Node-only sidecar code.
 
 ## Built-In Ledgers
 
-On first launch, `apps/desktop/src/main/ledgers.ts` materializes two SQLite files under `~/Library/Application Support/com.flowm.desktop`:
+On first launch, `TauriLedgerStore` materializes two SQLite files under the production `com.flowm.desktop` app-data directory:
 
 - `flowm-demo.sqlite3` - copied from the packaged demo resource and used for the full sample ledger.
 - `flowm.sqlite3` - migrated in place and seeded as the user's editable personal ledger with default categories plus small starter budgets, assets, subscriptions, and loans.
 
 Fresh installs start on the demo ledger, while the personal ledger is already present so the user can switch out of demo mode without landing on an empty database.
 
-Ledger switching changes the active SQLite connection in the Electron main process, not a renderer-side filter. After any successful switch, renderer code must clear query state, route to a stable screen, show a short transition state, and reload the window so already-mounted pages cannot keep showing data from the previous ledger.
+Ledger switching changes the active SQLite connection in the sidecar, not a renderer-side filter. After any successful switch, renderer code must clear query state, route to a stable screen, show a short transition state, and reload the window so already-mounted pages cannot keep showing data from the previous ledger.
 
 ## Interfaces
 
@@ -66,8 +77,12 @@ Ledger switching changes the active SQLite connection in the Electron main proce
 - `window.flowm.getDatabasePath()`
 - `window.flowm.databaseExists()`
 - `window.flowm.onLedgerChanged(callback)` - renderer event hook used to invalidate cached queries after an external CLI commit against the active ledger.
-- `window.flowm.getAppVersion()` - resolves the running `app.getVersion()` for the settings "关于" version row.
-- `window.flowm.updater.check()` / `.download()` / `.onStatus(callback)` - trigger an update check, start the download, and subscribe to `flowm:updater:status` lifecycle events.
+- `window.flowm.getAppVersion()` - resolves the running Tauri application version.
+- `window.flowm.openDownloadPage()` - opens the latest GitHub Release in the default browser.
+
+Tauri's official dialog/opener plugins provide ledger import, file reveal, and
+the manual download page. The sidecar receives external CLI refresh hints and
+the renderer polls the narrow Rust drain command while subscribed.
 
 Developer and agent scripts can call the `@flowm/cli` workspace package through
 `pnpm flowm-cli ...` to inspect a ledger or apply a guarded agent ledger patch
@@ -75,22 +90,28 @@ through the API layer.
 
 When the desktop app is running, it also opens a local ledger-change socket in
 the app data directory. Successful CLI `--commit` commands send a best-effort
-`ledger.changed` event to that socket; the main process forwards events only
+`ledger.changed` event to that socket; the sidecar queues events only
 when the changed database path matches the current active ledger. The renderer
 then invalidates React Query state so open screens refetch without reloading.
 
-Update `apps/desktop/src/preload/index.d.ts` whenever the preload contract changes.
+Update `apps/desktop/src/renderer/src/env.d.ts` whenever the `window.flowm` contract changes.
 
 ## Watchouts
 
-- Keep `app.setPath("userData", ...)` compatible with `~/Library/Application Support/com.flowm.desktop`.
-- Development may override `userData` through `FLOWM_USER_DATA_DIR`; keep this
-  dev-only so packaged installs remain on `com.flowm.desktop`.
-- The desktop-visible app name is `FlowM`; keep the bundle id and userData path stable for existing installs.
-- macOS development launches a generated `apps/desktop/.electron-dev/FlowM.app`; use `isDevRuntime()` for dev resource paths because that bundle can look packaged to Electron.
+- Keep the desktop-visible app name `FlowM` and production identifier `com.flowm.desktop` stable so existing data stays in place.
+- Tauri development uses `com.flowm.desktop.dev` / `FlowM Dev`; do not test writes through the production identity.
+- Keep Tauri SQLite access behind Rust commands and the private sidecar. Do not
+  expose sidecar execution, raw SQL, Node, or filesystem access to the renderer.
+- Build sidecars with Node 22 on the matching OS/architecture. The generated
+  executable includes the `better-sqlite3` binding and requires no system Node.
+- Tauri dialog/opener capabilities stay limited to file selection and revealing
+  a known ledger path. Selected files are migrated and registered inside the
+  sidecar; the renderer never opens them.
+- Sidecar stdout is the NDJSON protocol. All diagnostics, including local socket
+  startup messages, must go to stderr or be suppressed.
 - Do not overwrite `flowm.sqlite3` when it already exists; that file is user data, even if the starter seed changes later.
 - New non-demo ledgers created from settings use the same personal starter seed as `flowm.sqlite3`.
-- Ledger switching happens in the main process. Invalidating one route's queries is not enough; use the shared renderer switch helper so cache clearing, transition UI, navigation, and reload stay consistent.
+- Ledger switching happens in the sidecar. Invalidating one route's queries is not enough; use the shared renderer switch helper so cache clearing, transition UI, navigation, and reload stay consistent.
 - The local ledger-change socket is only a refresh hint for external commits. Do not use it for writes or direct renderer database access.
 - Renderer CRUD forms should use React Hook Form for state and validation, with current HeroUI controls plus `components/ui/FormField.tsx` for field-level labels and error state.
 - Renderer feature UI should prefer HeroUI controls and Tailwind utilities.
@@ -113,7 +134,7 @@ Update `apps/desktop/src/preload/index.d.ts` whenever the preload contract chang
   multi-select controls. Leaving the selection empty means an overall expense
   budget; detail-page transaction lists must use the bound category ids returned
   by budget progress so they match the backend used amount.
-- Desktop tests and development depend on the Electron ABI for `better-sqlite3`.
+- Desktop tests, CLI development, and sidecar packaging depend on the Node 22 ABI for `better-sqlite3`.
 - Releases start with a human/AI-authored note in
   `apps/web/components/releases/ReleaseTimeline.tsx`; the release script refuses
   to continue unless the first note and the single `latest` badge match the
@@ -128,7 +149,7 @@ Update `apps/desktop/src/preload/index.d.ts` whenever the preload contract chang
   written on ledger open or at a date boundary, and elapsed projected dates never count as actual
   deductions. Loan progress is a date-derived projection: non-skipped occurrences due on or
   before the local current date count as elapsed, regardless of stored forecast
-  status or linked cashflow. `LedgerStore` extends loan forecasts 60 days ahead on ledger open and
+  status or linked cashflow. `TauriLedgerStore` extends loan forecasts 60 days ahead on ledger open and
   at the next local date boundary.
   Generation is idempotent by plan and due date, and emits a renderer refresh
   hint after the maintenance pass. This workflow never creates cashflow,

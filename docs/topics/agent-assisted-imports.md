@@ -39,7 +39,7 @@ not arbitrary hand-written SQL against the app database. The kit should provide:
 
 - a short document telling agents which product rules, schema files, and module
   docs to read first;
-- a helper for opening SQLite with Electron-compatible `better-sqlite3`;
+- a helper for opening SQLite with Node 22-compatible `better-sqlite3`;
 - a helper for applying migrations before writes;
 - typed functions that call `@flowm/api` methods for categories, cashflow,
   assets, budgets, subscriptions, loans, and links;

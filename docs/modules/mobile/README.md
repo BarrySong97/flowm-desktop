@@ -54,7 +54,7 @@ fixture into the simulator/device Application Support directory and opens it
 through Drift with a read-only SQLite connection.
 
 The mobile app does not open `~/Library/Application Support/com.flowm.desktop`
-directly and does not use Electron IPC, `better-sqlite3`, or Drizzle. Drift is
+directly and does not use the Tauri desktop sidecar, `better-sqlite3`, or Drizzle. Drift is
 a mobile-side schema mirror used only to query and map display data.
 
 Mobile mapping must preserve Flowm's asymmetric model:
@@ -74,7 +74,7 @@ Mobile mapping must preserve Flowm's asymmetric model:
 - Do not use raw SQL for product mapping when a Drift table/query can express
   the read. Raw SQLite access is only acceptable for opening the connection
   read-only before handing it to Drift.
-- Do not add `better-sqlite3`, Electron, or Node-specific dependencies to the
+- Do not add `better-sqlite3`, Tauri desktop, or Node-specific dependencies to the
   Flutter app.
 - Use the shared chart wrappers in `ui_components.dart` for mobile charting.
   They use `fl_chart` for line/bar charts so screens do not depend on raw chart

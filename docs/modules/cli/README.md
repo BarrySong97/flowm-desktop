@@ -9,8 +9,6 @@ developers use to inspect Flowm ledgers and submit guarded business patches.
 
 - `packages/cli/src/index.ts` - Commander.js command surface for ledger
   inspection and patch application.
-- `packages/cli/src/launcher.cjs` - cross-platform launcher that runs the CLI
-  through Electron's Node runtime so `better-sqlite3` stays on the Electron ABI.
 - `packages/cli/scripts/build.mjs` - npm packaging build: bundles workspace
   Flowm code, copies DB migrations, and writes a sanitized publish directory.
 - `packages/cli/package.json` - package scripts, workspace dependencies, and
@@ -36,11 +34,11 @@ into `dist/index.mjs`, copies `packages/db/migrations` into `dist/migrations`,
 and keeps `better-sqlite3`, `commander`, and `drizzle-orm` as normal npm
 runtime dependencies.
 
-The workspace command still uses `packages/cli/src/launcher.cjs` and Electron's
-Node runtime to preserve the desktop app's native dependency ABI. The npm
-package installs its own `better-sqlite3` for the user's Node runtime, so it can
-be executed as `npx @barrysongdev4real/flowm-cli ...` or through the installed
-`flowm-cli` binary.
+The workspace command runs through `tsx` on Node 22, matching the desktop
+sidecar's `better-sqlite3` ABI. The npm package installs its own native module
+for the user's supported Node runtime and can run as
+`npx @barrysongdev4real/flowm-cli ...` or through the installed `flowm-cli`
+binary.
 
 ## Interfaces
 
@@ -149,8 +147,8 @@ The CLI resolves a ledger path in this order:
   SQLite asset mutation commands.
 - Keep imported statement parsing outside durable product code. Agents normalize
   source files into patch operations before calling this CLI.
-- Preserve the Electron ABI for `better-sqlite3`; do not replace the launcher
-  with a plain Node runtime command.
+- Keep the CLI and bundled desktop sidecar on Node 22's ABI when rebuilding
+  `better-sqlite3`.
 - Keep npm publish output generated. If package metadata changes, update
   `packages/cli/scripts/build.mjs` and verify with
   `pnpm -F @barrysongdev4real/flowm-cli pack:dry`.

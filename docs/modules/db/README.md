@@ -2,7 +2,8 @@
 
 ## Responsibility
 
-`packages/db` owns the SQLite schema, Drizzle migrations, and the typed database handle used by the Electron main process and API package.
+`packages/db` owns the SQLite schema, Drizzle migrations, and the typed database
+handle used by the Tauri Node sidecar, CLI, and API package.
 
 ## Key Files
 
@@ -26,7 +27,9 @@
 
 ## Data Flow
 
-Electron main opens the SQLite file, runs migrations, and passes the typed database handle into `@flowm/api`. Product code queries exported schema objects through Drizzle.
+The private Tauri Node sidecar opens the active SQLite file, runs migrations,
+and passes the typed database handle into `@flowm/api` behind narrow Rust
+commands. Product code queries exported schema objects through Drizzle.
 
 ## Interfaces
 

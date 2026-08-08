@@ -22,3 +22,6 @@ Record durable architecture and product-model decisions here so agents do not re
 | 0006   | Add Flutter Mobile App                           | Accepted | 2026-06-27 |
 | 0007   | Build The Web Blog With Velite                   | Accepted | 2026-07-14 |
 | 0008   | Content-Address Blog Images                      | Accepted | 2026-07-14 |
+| 0009   | Derive Loan Progress From Due Dates              | Accepted | 2026-07-27 |
+| 0010   | Project Subscriptions At Read Time               | Accepted | 2026-08-07 |
+| 0011   | Migrate The Desktop Runtime To Tauri             | Accepted | 2026-08-08 |

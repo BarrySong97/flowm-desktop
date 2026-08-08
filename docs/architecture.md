@@ -1,7 +1,7 @@
 # Flowm Desktop Architecture
 
-Flowm Desktop is an Electron workspace with a TypeScript renderer, shared
-business packages, a Next.js web app, and a Flutter mobile app shell.
+Flowm Desktop uses Tauri v2 while retaining the existing React renderer,
+TypeScript business packages, Drizzle schema, and SQLite ledger format.
 
 ## Runtime Path
 
@@ -9,65 +9,59 @@ business packages, a Next.js web app, and a Flutter mobile app shell.
 React UI
   -> @flowm/shared/contracts DTOs
   -> React Query / tRPC client
-  -> Electron preload IPC
-  -> Electron main tRPC router
+  -> window.flowm Tauri adapter
+  -> narrow Rust commands
+  -> private NDJSON Node 22 sidecar
+  -> tRPC router
   -> @flowm/api
-  -> @flowm/db
-  -> better-sqlite3 connection
+  -> @flowm/db / better-sqlite3
   -> SQLite
 ```
 
-The renderer never imports Node or Electron main-process modules directly.
-Database calls cross the preload bridge through:
+The sidecar owns the only active SQLite connection and all ledger lifecycle
+operations. Rust owns the process and request serialization. The renderer
+receives neither generic sidecar execution nor raw SQL/filesystem access. There
+is one SQLite implementation and no LocalStorage/SQLite compatibility layer.
 
-- `window.flowm.trpcRequest(operation)`
-- `window.flowm.getDatabasePath()`
-- `window.flowm.databaseExists()`
+Native file selection and reveal use official Tauri plugins. External CLI
+refresh hints enter through a local socket owned by the sidecar and leave
+through a narrow drain command. TanStack Router remains the source of truth for
+desktop history navigation.
 
 ## Workspace Ownership
 
-- `apps/desktop` owns the Electron app, preload bridge, renderer UI, routes,
-  Vite config, and packaging config.
-- `apps/mobile` owns the Flutter Android/iOS app shell. It is a read-only
-  display surface for synced Desktop data and must not open the user's desktop
-  SQLite directory or expose local financial writes. Development builds can map
-  an explicitly bundled Desktop demo SQLite fixture through Drift in the mobile
-  sandbox.
-- `apps/web` owns the Next.js marketing site and public release note surface.
-- `packages/api` owns the product facade used by the UI, with backend-style
-  `domain/`, `use-cases/`, `infrastructure/`, and `presentation/` folders as
-  modules migrate.
-- `packages/db` owns schema, migrations, and SQL execution primitives used by
-  the main process.
-- `packages/shared` owns browser-safe contracts, shared primitives, and
-  utilities.
+- `apps/desktop` owns the Tauri shell, bundled Node sidecar, React renderer,
+  routes, resources, and desktop packaging.
+- `apps/mobile` owns the Flutter Android/iOS shell and does not open the user's
+  desktop SQLite directory.
+- `apps/web` owns the Next.js marketing site and public release notes.
+- `packages/api` owns product use cases, domain rules, repositories, and
+  renderer-facing mappers.
+- `packages/db` owns the Drizzle schema, migrations, and typed database handle.
+- `packages/shared` owns browser-safe contracts and platform-light utilities.
 - `packages/ui` owns reusable UI primitives and global styles.
 
 ## SQLite Location
 
-The Electron main process explicitly points `app.getPath("userData")` at:
+The production Tauri identifier is `com.flowm.desktop`, preserving the
+existing platform app-data identity and ledger directory. On macOS this is:
 
 ```text
 ~/Library/Application Support/com.flowm.desktop
 ```
 
-The database file is:
-
-```text
-flowm.sqlite3
-```
-
-This preserves compatibility with the previous desktop app data location.
+The personal database is `flowm.sqlite3`; the packaged demo is copied to
+`flowm-demo.sqlite3`. Development uses `com.flowm.desktop.dev` and therefore a
+separate app-data directory.
 
 ## Layered Package Shape
 
-The workspace maps the frontend/backend layered reference architecture onto the
-existing Electron monorepo:
-
 ```text
-apps/desktop/src/renderer/          frontend
-packages/shared/src/contracts/      shared contracts
+apps/desktop/src/renderer/          browser frontend
+apps/desktop/src-tauri/             native command/process boundary
+apps/desktop/src/tauri-sidecar/     Node ledger host
 apps/desktop/src/main/trpc/         presentation / tRPC adapter
+packages/shared/src/contracts/      shared contracts
 packages/api/src/use-cases/         application workflows
 packages/api/src/domain/            pure business rules
 packages/api/src/infrastructure/    database and side-effect adapters
@@ -75,16 +69,16 @@ packages/api/src/presentation/      renderer-safe DTO mappers
 packages/db/                        Drizzle schema and migrations
 ```
 
-Renderer code should prefer `@flowm/shared/contracts` for DTO-like types.
-Backend code may re-export contracts from `@flowm/api` for compatibility, but
-shared contracts must not import API, DB, Electron, or renderer modules.
+Renderer code should prefer `@flowm/shared/contracts` for DTO-like types and
+must not import Tauri, Node, DB, or sidecar implementation modules.
 
-The mobile app is a separate Flutter app under `apps/mobile`. Its development
-SQLite fixture is copied into the simulator/device sandbox and opened read-only
-through Drift, which mirrors only the Desktop schema fields needed for display.
-Future mobile data access needs an explicit cross-platform API or Desktop sync
-boundary; it should not import the Electron preload/main runtime, infer balances
-from imported cashflow, or add local create/update/delete flows.
+## Packaging
+
+`@yao-pkg/pkg` turns the Vite-bundled sidecar into a target-specific Node 22
+executable containing the `better-sqlite3` native binding. Tauri embeds that
+binary with migrations and the demo ledger. GitHub Actions builds macOS and
+Windows installers on their matching runners, signs/notarizes macOS when
+credentials exist, and uploads artifacts to the tag's GitHub Release.
 
 ## Validation
 
@@ -93,12 +87,8 @@ pnpm install
 pnpm check-types
 pnpm test
 pnpm build
-pnpm -F desktop dev
-cd apps/mobile
-flutter analyze
-flutter test
+pnpm -F desktop package
+cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml
 ```
 
-When validating against the existing database, open the app and confirm that
-the dashboard and data-backed pages load without creating sample data or
-performing write actions.
+Use `FlowM Dev` for manual data checks so production ledgers are not modified.
