@@ -2,7 +2,7 @@
  * @purpose Define ledger-refresh IPC contracts shared by Flowm desktop and CLI.
  * @role    Browser-safe refresh events and socket-path helpers for app/CLI writes.
  * @deps    TypeScript runtime only.
- * @gotcha  Keep this module free of Node/Electron imports so shared stays platform-light.
+ * @gotcha  Keep this module free of Node/Tauri imports so shared stays platform-light.
  */
 
 export type LedgerChangeSource = "flowm-cli" | "flowm-desktop"
@@ -15,29 +15,6 @@ export interface LedgerChangeEvent {
   command: string
   pid: number
   changedAt: string
-}
-
-/**
- * Lifecycle of an in-app auto-update, broadcast from the main process to the
- * renderer. The renderer drives the bottom-right popup and the settings row
- * from these states; the main process owns the actual electron-updater flow.
- */
-export type UpdateState =
-  | "checking"
-  | "available"
-  | "not-available"
-  | "downloading"
-  | "downloaded"
-  | "error"
-
-export interface UpdateStatusEvent {
-  state: UpdateState
-  /** Target version once known (available/downloading/downloaded). */
-  version?: string
-  /** Download progress 0-100 while state is "downloading". */
-  percent?: number
-  /** Human-readable detail, primarily for the "error" state. */
-  message?: string
 }
 
 function trimTrailingSeparators(path: string): string {

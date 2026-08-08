@@ -1,8 +1,8 @@
 /**
  * @purpose Exercise the Flowm API facade against an isolated SQLite database.
  * @role    Integration safety net for product behavior and schema/API contracts.
- * @deps    Vitest, @flowm/api, @flowm/db, and Electron-compatible SQLite setup.
- * @gotcha  Run through Electron Node when touching better-sqlite3.
+ * @deps    Vitest, @flowm/api, @flowm/db, and Node-compatible SQLite setup.
+ * @gotcha  Run through Node 22 when touching better-sqlite3, matching the Tauri sidecar.
  */
 
 import { mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs"

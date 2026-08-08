@@ -2,7 +2,7 @@
  * @purpose Provide renderer domain display helper functions.
  * @role    Shared utility module for React feature code.
  * @deps    Browser-safe TypeScript utilities and local domain types.
- * @gotcha  Keep Node, Electron main, and SQLite access behind preload/tRPC.
+ * @gotcha  Keep Node, Rust, and SQLite access behind the Tauri/tRPC bridge.
  */
 
 import type { AssetSnapshotType } from "@flowm/shared/contracts"

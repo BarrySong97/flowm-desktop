@@ -1,13 +1,15 @@
 /**
- * @purpose Verify macOS mouse side-button routing behavior.
- * @role    Regression test for the renderer history navigation adapter.
- * @deps    Vitest, jsdom, and the mouse history navigation helper.
+ * @purpose Verify browser-style mouse and keyboard history navigation.
+ * @role    Regression test for Tauri renderer history adapters.
+ * @deps    Vitest, jsdom, and the browser history navigation helpers.
  * @gotcha  Dispatch cancelable events so preventDefault behavior remains observable.
  */
 
 import { afterEach, describe, expect, it, vi } from "vitest"
 import {
+  directionForHistoryKey,
   directionForMouseButton,
+  installKeyboardHistoryNavigation,
   installMouseHistoryNavigation,
 } from "../lib/mouseHistoryNavigation"
 
@@ -43,5 +45,42 @@ describe("mouse history navigation", () => {
 
     expect(window.dispatchEvent(event)).toBe(false)
     expect(history.back).not.toHaveBeenCalled()
+  })
+})
+
+describe("keyboard history navigation", () => {
+  it("maps browser keys and macOS bracket shortcuts", () => {
+    expect(
+      directionForHistoryKey({
+        key: "BrowserBack",
+        code: "BrowserBack",
+        metaKey: false,
+        altKey: false,
+        ctrlKey: false,
+        shiftKey: false,
+      }),
+    ).toBe("back")
+    expect(
+      directionForHistoryKey({
+        key: "[",
+        code: "BracketLeft",
+        metaKey: true,
+        altKey: false,
+        ctrlKey: false,
+        shiftKey: false,
+      }),
+    ).toBe("back")
+  })
+
+  it("installs and removes a keyboard listener", () => {
+    const history = { back: vi.fn(), forward: vi.fn() }
+    const cleanup = installKeyboardHistoryNavigation(history)
+
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "BrowserForward" }))
+    expect(history.forward).toHaveBeenCalledOnce()
+
+    cleanup()
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "BrowserForward" }))
+    expect(history.forward).toHaveBeenCalledOnce()
   })
 })

@@ -6,7 +6,7 @@
  */
 
 import { useEffect, useState } from "react"
-import { useAtom, useAtomValue } from "jotai"
+import { useAtom } from "jotai"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 import { Dock } from "../components/layout/Dock"
@@ -16,27 +16,7 @@ import { LedgerSection } from "./LedgerSection"
 import { GroupLabel, LinkRow, Row, Toggle } from "./components"
 import { trpc } from "@/lib/trpc"
 import { usePagePerf } from "@/lib/debug/perf"
-import { amountsHiddenAtom, updateStatusAtom } from "@/lib/state/uiAtoms"
-import type { UpdateStatusEvent } from "@flowm/shared/ipc"
-
-function updateStatusNote(status: UpdateStatusEvent | null): string | undefined {
-  switch (status?.state) {
-    case "checking":
-      return "检查中…"
-    case "available":
-      return `发现新版本 ${status.version ?? ""}`.trim()
-    case "downloading":
-      return `下载中 ${status.percent ?? 0}%`
-    case "downloaded":
-      return "已就绪，重启中…"
-    case "not-available":
-      return "已是最新"
-    case "error":
-      return "检查失败"
-    default:
-      return undefined
-  }
-}
+import { amountsHiddenAtom } from "@/lib/state/uiAtoms"
 
 export function SettingsPage() {
   const navigate = useNavigate()
@@ -80,9 +60,6 @@ export function SettingsPage() {
   useEffect(() => {
     void window.flowm.getAppVersion().then(setAppVersion)
   }, [])
-  const updateStatus = useAtomValue(updateStatusAtom)
-  const updateNote = updateStatusNote(updateStatus)
-
   return (
     <div
       style={{
@@ -175,8 +152,11 @@ export function SettingsPage() {
                 {appVersion ? `v${appVersion}` : "—"}
               </span>
             </Row>
-            <LinkRow note={updateNote} onClick={() => void window.flowm.updater.check()}>
-              检查更新
+            <LinkRow
+              note="在浏览器打开 GitHub Releases"
+              onClick={() => void window.flowm.openDownloadPage()}
+            >
+              下载最新版
             </LinkRow>
             <LinkRow>服务条款</LinkRow>
             <LinkRow>隐私政策</LinkRow>

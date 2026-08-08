@@ -1,8 +1,8 @@
 /**
  * @purpose Define the tRPC IPC router that exposes Flowm product operations to the renderer.
- * @role    Main-process API boundary between preload IPC and @flowm/api services.
- * @deps    @trpc/server, @flowm/api, @flowm/db, and main-process context.
- * @gotcha  Keep renderer-facing contracts aligned with preload types and React callers.
+ * @role    Sidecar API boundary between Tauri commands and @flowm/api services.
+ * @deps    @trpc/server, @flowm/api, @flowm/db, and sidecar context.
+ * @gotcha  Keep renderer-facing contracts aligned with the Tauri bridge and React callers.
  */
 
 import { TRPCError } from "@trpc/server"

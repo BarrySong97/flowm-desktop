@@ -1,23 +1,23 @@
 /**
- * @purpose Receive local ledger-change events from flowm-cli and notify renderer windows.
- * @role    Main-process local IPC server over Unix domain sockets or Windows named pipes.
- * @deps    Electron BrowserWindow, Node net/fs/path, and shared IPC contracts.
+ * @purpose Receive local ledger-change events from flowm-cli for the active desktop ledger.
+ * @role    Runtime-neutral Node IPC server over Unix domain sockets or Windows named pipes.
+ * @deps    Node net/fs/path and shared IPC contracts.
  * @gotcha  Socket events are best-effort refresh hints; database writes still go through API/CLI.
  */
 
-import { BrowserWindow } from "electron"
 import { chmodSync, existsSync, unlinkSync } from "node:fs"
 import { createConnection, createServer, type Server, type Socket } from "node:net"
 import { resolve } from "node:path"
 import { getFlowmLedgerChangeSocketPath, type LedgerChangeEvent } from "@flowm/shared/ipc"
 
-const LEDGER_CHANGED_CHANNEL = "flowm:ledger-changed"
 const MAX_EVENT_BYTES = 64 * 1024
 const STALE_SOCKET_PROBE_MS = 250
 
-type StartLocalLedgerChangeServerOptions = {
+export type StartLocalLedgerChangeServerOptions = {
   userDataDir: string
   getActiveDbPath: () => string | null
+  onLedgerChanged: (event: LedgerChangeEvent & { receivedAt: string }) => void
+  onListening?: (socketPath: string) => void
 }
 
 type ErrorWithCode = Error & { code?: string }
@@ -53,16 +53,11 @@ function isEventForActiveLedger(
   return normalizePath(event.dbPath) === normalizePath(activeDbPath)
 }
 
-function broadcastLedgerChange(event: LedgerChangeEvent): void {
-  const payload = { ...event, receivedAt: new Date().toISOString() }
-  for (const window of BrowserWindow.getAllWindows()) {
-    if (!window.isDestroyed()) {
-      window.webContents.send(LEDGER_CHANGED_CHANNEL, payload)
-    }
-  }
-}
-
-function handleSocket(socket: Socket, getActiveDbPath: () => string | null): void {
+function handleSocket(
+  socket: Socket,
+  getActiveDbPath: () => string | null,
+  onLedgerChanged: StartLocalLedgerChangeServerOptions["onLedgerChanged"],
+): void {
   let raw = ""
   socket.setEncoding("utf8")
 
@@ -81,7 +76,7 @@ function handleSocket(socket: Socket, getActiveDbPath: () => string | null): voi
       const parsed = JSON.parse(text) as unknown
       if (!isLedgerChangeEvent(parsed)) return
       if (!isEventForActiveLedger(parsed, getActiveDbPath)) return
-      broadcastLedgerChange(parsed)
+      onLedgerChanged({ ...parsed, receivedAt: new Date().toISOString() })
     } catch {
       // Invalid local IPC payloads are ignored. This socket is a refresh hint only.
     }
@@ -139,12 +134,15 @@ function removeUnixSocket(socketPath: string): void {
 export async function startLocalLedgerChangeServer({
   userDataDir,
   getActiveDbPath,
+  onLedgerChanged,
+  onListening = (socketPath) =>
+    console.info("[flowm] Local ledger-change socket listening:", socketPath),
 }: StartLocalLedgerChangeServerOptions): Promise<Server | null> {
   const socketPath = getFlowmLedgerChangeSocketPath({
     platform: process.platform,
     userDataDir,
   })
-  const server = createServer((socket) => handleSocket(socket, getActiveDbPath))
+  const server = createServer((socket) => handleSocket(socket, getActiveDbPath, onLedgerChanged))
 
   try {
     await listen(server, socketPath)
@@ -181,6 +179,6 @@ export async function startLocalLedgerChangeServer({
   })
   server.on("close", () => removeUnixSocket(socketPath))
 
-  console.info("[flowm] Local ledger-change socket listening:", socketPath)
+  onListening(socketPath)
   return server
 }

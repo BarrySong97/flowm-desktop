@@ -1,17 +1,17 @@
 /**
- * @purpose Create shared tRPC primitives for the Electron main-process router.
- * @role    Small infrastructure helper for router and procedure definitions.
- * @deps    @trpc/server.
+ * @purpose Create shared tRPC primitives for the Tauri data router.
+ * @role    Runtime-neutral infrastructure used by the bundled Node sidecar.
+ * @deps    @trpc/server and the ledger service contract.
  * @gotcha  Keep this file framework glue only; product logic belongs in @flowm/api.
  */
 
 import { initTRPC } from "@trpc/server"
 import type { FlowmApi } from "@flowm/api"
-import type { LedgerStore } from "../ledgers"
+import type { LedgerService } from "./ledger-service"
 
 export interface TrpcContext {
   api: FlowmApi
-  ledgers: LedgerStore
+  ledgers: LedgerService
 }
 
 const t = initTRPC.context<TrpcContext>().create({ isServer: true })

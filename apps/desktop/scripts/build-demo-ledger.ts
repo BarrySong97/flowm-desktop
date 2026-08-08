@@ -16,7 +16,7 @@ import { seedDefaultCategories } from "@flowm/api/default-seed"
 import { schema } from "@flowm/db"
 
 // Regenerate the bundled sample ledger. The artifact is committed and shipped via
-// electron-builder extraResources, then copied into userData on first run.
+// Tauri resources, then copied into app data on first run.
 //
 // Re-run with `pnpm -F desktop build:demo` whenever the schema, migrations, default
 // categories, or demo data change.

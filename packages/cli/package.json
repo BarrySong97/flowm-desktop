@@ -19,7 +19,7 @@
     "check-types": "tsc --noEmit",
     "pack:dry": "pnpm build && npm pack --dry-run ./npm",
     "typecheck": "tsc --noEmit",
-    "flowm-cli": "node ./src/launcher.cjs"
+    "flowm-cli": "tsx ./src/index.ts"
   },
   "dependencies": {
     "@flowm/api": "workspace:*",

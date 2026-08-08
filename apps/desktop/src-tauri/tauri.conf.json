@@ -1,0 +1,53 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "FlowM",
+  "version": "0.1.12",
+  "identifier": "com.flowm.desktop",
+  "build": {
+    "beforeDevCommand": "pnpm build:tauri-sidecar && pnpm vite --config vite.config.ts",
+    "devUrl": "http://127.0.0.1:54321",
+    "beforeBuildCommand": "pnpm build:tauri-sidecar && pnpm build:tauri-renderer",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "FlowM",
+        "width": 1440,
+        "height": 900,
+        "minWidth": 860,
+        "minHeight": 560,
+        "decorations": true,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true,
+        "trafficLightPosition": {
+          "x": 12,
+          "y": 16
+        }
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "externalBin": ["binaries/flowm-sidecar"],
+    "resources": {
+      "../../../packages/db/migrations/": "migrations",
+      "../resources/flowm-demo.sqlite3": "resources/flowm-demo.sqlite3"
+    },
+    "icon": [
+      "../resources/icons/flowm.iconset/icon_32x32.png",
+      "../resources/icons/flowm.iconset/icon_128x128.png",
+      "../resources/icons/flowm.iconset/icon_256x256.png",
+      "../resources/icons/flowm.iconset/icon_512x512.png",
+      "../resources/icons/flowm.icns"
+    ],
+    "macOS": {
+      "signingIdentity": "-"
+    }
+  }
+}

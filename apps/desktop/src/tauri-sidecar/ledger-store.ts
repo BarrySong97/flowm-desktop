@@ -1,13 +1,14 @@
 /**
- * @purpose Resolve ledgers and run their open-time background maintenance.
- * @role    Main-process ledger lifecycle, switching, FX refresh, and loan-schedule refresh.
- * @deps    Node fs/path, Electron app paths, and packaged resources.
- * @gotcha  Due-date refresh may extend forecasts but must never create cashflow or asset changes.
+ * @purpose Own Flowm ledger files and the existing TypeScript data API inside the Tauri sidecar.
+ * @role    Node-side ledger host behind the Tauri command boundary.
+ * @deps    Node filesystem, better-sqlite3, Drizzle migrations, @flowm/api, and @flowm/db.
+ * @gotcha  File picker and reveal operations remain native-shell work for FLOWM-8.
  */
 
-import { app, BrowserWindow, dialog, shell } from "electron"
 import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { basename, dirname, isAbsolute, join } from "node:path"
+import type { Server } from "node:net"
+
 import Database from "better-sqlite3"
 import { drizzle } from "drizzle-orm/better-sqlite3"
 import { migrate } from "drizzle-orm/better-sqlite3/migrator"
@@ -16,38 +17,37 @@ import { createFlowmApi, createFrankfurterFxProvider, type FlowmApi } from "@flo
 import { seedDefaultCategories, seedPersonalStarterData } from "@flowm/api/default-seed"
 import { schema, type Database as DrizzleDatabase } from "@flowm/db"
 import type { LedgerChangeEvent } from "@flowm/shared/ipc"
-import { isDevRuntime } from "./bootstrap/runtime-env"
+import {
+  startLocalLedgerChangeServer,
+  type StartLocalLedgerChangeServerOptions,
+} from "../main/local-ledger-change-server"
+import type {
+  ActiveLedger,
+  LedgerListEntry,
+  LedgerRecord,
+  LedgerService,
+} from "../main/trpc/ledger-service"
 
 const PERSONAL_FILE = "flowm.sqlite3"
 const DEMO_FILE = "flowm-demo.sqlite3"
-const LEDGER_CHANGED_CHANNEL = "flowm:ledger-changed"
 const FORECAST_DAYS = 60
+const MAX_PENDING_LEDGER_CHANGES = 100
 
-export interface LedgerRecord {
-  id: string
-  name: string
-  /** Filename relative to userData for built-in/created ledgers, or an absolute path for imports. */
-  file: string
-  isDemo: boolean
-  createdAt: string
-}
+type RendererLedgerChangeEvent = LedgerChangeEvent & { receivedAt: string }
 
 interface LedgerRegistry {
   activeId: string
   ledgers: LedgerRecord[]
 }
 
-export interface LedgerListEntry {
-  id: string
-  name: string
-  isDemo: boolean
-  active: boolean
-}
-
-export interface ActiveLedger {
-  id: string
-  name: string
-  isDemo: boolean
+export interface TauriLedgerStoreOptions {
+  userDataDir: string
+  migrationsDir: string
+  resourcesDir: string
+  backgroundMaintenance?: boolean
+  ledgerChangeServerStarter?: (
+    options: StartLocalLedgerChangeServerOptions,
+  ) => Promise<Server | null>
 }
 
 function nowIso(): string {
@@ -67,50 +67,27 @@ function addDaysKey(dateKey: string, days: number): string {
   return date.toISOString().slice(0, 10)
 }
 
-function millisecondsUntilNextLocalDay(): number {
-  const now = new Date()
-  const next = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 1)
-  return Math.max(next.getTime() - now.getTime(), 1_000)
-}
-
-export class LedgerStore {
+export class TauriLedgerStore implements LedgerService {
   private registry: LedgerRegistry | null = null
   private client: Database.Database | null = null
   private drizzleDb: DrizzleDatabase | null = null
   private api: FlowmApi | null = null
   private activeFilePath: string | null = null
-  private loanForecastTimer: ReturnType<typeof setTimeout> | null = null
+  private ledgerChangeServer: Server | null = null
+  private pendingLedgerChanges: RendererLedgerChangeEvent[] = []
 
-  // ---- paths -------------------------------------------------------------
-
-  private userDataDir(): string {
-    return app.getPath("userData")
-  }
+  constructor(private readonly options: TauriLedgerStoreOptions) {}
 
   private registryPath(): string {
-    return join(this.userDataDir(), "flowm-ledgers.json")
+    return join(this.options.userDataDir, "flowm-ledgers.json")
   }
 
   private resolveFile(file: string): string {
-    return isAbsolute(file) ? file : join(this.userDataDir(), file)
+    return isAbsolute(file) ? file : join(this.options.userDataDir, file)
   }
-
-  private migrationsFolder(): string {
-    return isDevRuntime()
-      ? join(app.getAppPath(), "../../packages/db/migrations")
-      : join(process.resourcesPath, "migrations")
-  }
-
-  private demoResourcePath(): string {
-    return isDevRuntime()
-      ? join(app.getAppPath(), "resources", DEMO_FILE)
-      : join(process.resourcesPath, DEMO_FILE)
-  }
-
-  // ---- lifecycle ---------------------------------------------------------
 
   async init(): Promise<void> {
-    mkdirSync(this.userDataDir(), { recursive: true })
+    mkdirSync(this.options.userDataDir, { recursive: true })
     if (existsSync(this.registryPath())) {
       this.registry = JSON.parse(readFileSync(this.registryPath(), "utf8")) as LedgerRegistry
     } else {
@@ -118,20 +95,31 @@ export class LedgerStore {
       this.writeRegistry()
     }
     this.open(this.activeRecord())
+    const startLedgerChangeServer =
+      this.options.ledgerChangeServerStarter ?? startLocalLedgerChangeServer
+    this.ledgerChangeServer = await startLedgerChangeServer({
+      userDataDir: this.options.userDataDir,
+      getActiveDbPath: () => this.activeFilePath,
+      onLedgerChanged: (event) => {
+        this.pendingLedgerChanges.push(event)
+        if (this.pendingLedgerChanges.length > MAX_PENDING_LEDGER_CHANGES) {
+          this.pendingLedgerChanges.shift()
+        }
+      },
+      onListening: (socketPath) =>
+        console.error("[flowm-sidecar] Local ledger-change socket listening:", socketPath),
+    })
   }
 
-  /** First launch: materialize both built-in ledgers up front (never lazily on switch). */
   private async bootstrap(): Promise<LedgerRegistry> {
     const personalPath = this.resolveFile(PERSONAL_FILE)
     const personalExisted = existsSync(personalPath)
-
-    // Demo: copy the bundled prebuilt sample ledger into userData.
     const demoPath = this.resolveFile(DEMO_FILE)
-    if (!existsSync(demoPath) && existsSync(this.demoResourcePath())) {
-      copyFileSync(this.demoResourcePath(), demoPath)
-    }
+    const demoResourcePath = join(this.options.resourcesDir, DEMO_FILE)
 
-    // Personal: create a migrated ledger with default categories and lightweight editable starter data.
+    if (!existsSync(demoPath) && existsSync(demoResourcePath)) {
+      copyFileSync(demoResourcePath, demoPath)
+    }
     if (!personalExisted) {
       await this.createLedgerFile(personalPath, true)
     }
@@ -152,19 +140,17 @@ export class LedgerStore {
     }
 
     return {
-      // Existing users (legacy flowm.sqlite3 present) keep their data active; fresh installs start on the demo.
-      activeId: personalExisted ? personal.id : demo.id,
+      activeId: personalExisted || !existsSync(demoPath) ? personal.id : demo.id,
       ledgers: [personal, demo],
     }
   }
 
-  /** Create a brand-new ledger file: migrate the schema and optionally seed personal starter data. */
   private async createLedgerFile(absPath: string, seedStarterData: boolean): Promise<void> {
     mkdirSync(dirname(absPath), { recursive: true })
     const client = new Database(absPath)
     client.pragma("foreign_keys = ON")
     const db = drizzle(client, { schema })
-    migrate(db, { migrationsFolder: this.migrationsFolder() })
+    migrate(db, { migrationsFolder: this.options.migrationsDir })
     if (seedStarterData) {
       await seedDefaultCategories(db)
       await seedPersonalStarterData(db)
@@ -172,92 +158,46 @@ export class LedgerStore {
     client.close()
   }
 
-  /** Open (or re-open) a ledger as the live connection and rebuild the FlowmApi. */
   private open(record: LedgerRecord): void {
-    this.close()
+    this.closeConnection()
     const absPath = this.resolveFile(record.file)
     mkdirSync(dirname(absPath), { recursive: true })
     const client = new Database(absPath)
     client.pragma("foreign_keys = ON")
     this.client = client
     this.drizzleDb = drizzle(client, { schema })
-    migrate(this.drizzleDb, { migrationsFolder: this.migrationsFolder() })
+    migrate(this.drizzleDb, { migrationsFolder: this.options.migrationsDir })
     const api = createFlowmApi(this.drizzleDb, { fxProvider: createFrankfurterFxProvider() })
     this.api = api
     this.activeFilePath = absPath
-    // Refresh foreign-exchange rates in the background once the ledger is live. The call
-    // self-skips currency pairs already refreshed today, so launches and ledger switches
-    // stay cheap and never block opening.
-    void api.refreshExchangeRates().catch(() => {})
-    this.refreshLoanForecastSchedule(api, absPath, false)
-    this.scheduleNextLoanForecastRefresh()
+
+    if (this.options.backgroundMaintenance !== false) {
+      void api.refreshExchangeRates().catch(() => {})
+      const throughDate = addDaysKey(localDateKey(), FORECAST_DAYS)
+      void api.generateLoanPaymentOccurrences({ throughDate }).catch(() => {})
+    }
   }
 
   close(): void {
-    if (this.loanForecastTimer != null) {
-      clearTimeout(this.loanForecastTimer)
-      this.loanForecastTimer = null
-    }
+    this.ledgerChangeServer?.close()
+    this.ledgerChangeServer = null
+    this.closeConnection()
+  }
+
+  private closeConnection(): void {
     this.api = null
     this.drizzleDb = null
     this.client?.close()
     this.client = null
   }
 
-  /**
-   * Keep loan forecast rows available through a rolling window. Subscription
-   * schedules are projected from plans at read time and require no maintenance.
-   */
-  private refreshLoanForecastSchedule(
-    api: FlowmApi,
-    dbPath: string,
-    notifyRenderer: boolean,
-  ): void {
-    const today = localDateKey()
-    const throughDate = addDaysKey(today, FORECAST_DAYS)
-    void api
-      .generateLoanPaymentOccurrences({ throughDate })
-      .catch(() => {
-        // A ledger switch can close the previous database while this background
-        // refresh is still pending. The next view/open refresh will retry.
-      })
-      .finally(() => {
-        if (!notifyRenderer || this.activeFilePath !== dbPath) {
-          return
-        }
-        const event: LedgerChangeEvent = {
-          type: "ledger.changed",
-          dbPath,
-          source: "flowm-desktop",
-          command: "refresh-loan-forecast-schedule",
-          pid: process.pid,
-          changedAt: nowIso(),
-        }
-        const payload = { ...event, receivedAt: nowIso() }
-        for (const window of BrowserWindow.getAllWindows()) {
-          if (!window.isDestroyed()) {
-            window.webContents.send(LEDGER_CHANGED_CHANNEL, payload)
-          }
-        }
-      })
-  }
-
-  private scheduleNextLoanForecastRefresh(): void {
-    this.loanForecastTimer = setTimeout(() => {
-      this.loanForecastTimer = null
-      if (this.api == null || this.activeFilePath == null) {
-        return
-      }
-      this.refreshLoanForecastSchedule(this.api, this.activeFilePath, true)
-      this.scheduleNextLoanForecastRefresh()
-    }, millisecondsUntilNextLocalDay())
+  drainLedgerChanges(): RendererLedgerChangeEvent[] {
+    return this.pendingLedgerChanges.splice(0)
   }
 
   private writeRegistry(): void {
     writeFileSync(this.registryPath(), JSON.stringify(this.registry, null, 2), "utf8")
   }
-
-  // ---- accessors ---------------------------------------------------------
 
   private requireRegistry(): LedgerRegistry {
     if (this.registry == null) throw new Error("LedgerStore not initialized")
@@ -284,6 +224,10 @@ export class LedgerStore {
     return this.activeFilePath
   }
 
+  databaseExists(): boolean {
+    return this.activeFilePath != null && existsSync(this.activeFilePath)
+  }
+
   list(): LedgerListEntry[] {
     const registry = this.requireRegistry()
     return registry.ledgers.map((ledger) => ({
@@ -299,8 +243,6 @@ export class LedgerStore {
     return { id: record.id, name: record.name, isDemo: record.isDemo }
   }
 
-  // ---- mutations ---------------------------------------------------------
-
   switchTo(id: string): void {
     const record = this.recordById(id)
     this.requireRegistry().activeId = id
@@ -308,7 +250,6 @@ export class LedgerStore {
     this.writeRegistry()
   }
 
-  /** Switch to the built-in personal ledger (the first non-demo ledger). Used by the banner CTA. */
   switchToPersonal(): void {
     const personal = this.requireRegistry().ledgers.find((ledger) => !ledger.isDemo)
     if (personal == null) throw new Error("No personal ledger available")
@@ -332,21 +273,13 @@ export class LedgerStore {
   }
 
   async importFromFile(): Promise<LedgerRecord | null> {
-    const options = {
-      title: "导入账本",
-      properties: ["openFile" as const],
-      filters: [{ name: "SQLite", extensions: ["sqlite3", "sqlite", "db"] }],
-    }
-    const focused = BrowserWindow.getFocusedWindow()
-    const result = focused
-      ? await dialog.showOpenDialog(focused, options)
-      : await dialog.showOpenDialog(options)
-    if (result.canceled || result.filePaths.length === 0) return null
-    const absPath = result.filePaths[0]
-    // Bring an existing database up to the current schema; references the file in place.
+    throw new Error("Tauri 账本文件选择将在 FLOWM-8 接入")
+  }
+
+  importFromPath(absPath: string): LedgerRecord {
     const client = new Database(absPath)
     client.pragma("foreign_keys = ON")
-    migrate(drizzle(client, { schema }), { migrationsFolder: this.migrationsFolder() })
+    migrate(drizzle(client, { schema }), { migrationsFolder: this.options.migrationsDir })
     client.close()
     const record: LedgerRecord = {
       id: crypto.randomUUID(),
@@ -358,6 +291,10 @@ export class LedgerStore {
     this.requireRegistry().ledgers.push(record)
     this.writeRegistry()
     return record
+  }
+
+  ledgerPath(id: string): string {
+    return this.resolveFile(this.recordById(id).file)
   }
 
   rename(id: string, name: string): void {
@@ -372,7 +309,6 @@ export class LedgerStore {
     const record = this.recordById(id)
     registry.ledgers = registry.ledgers.filter((ledger) => ledger.id !== id)
     this.writeRegistry()
-    // Delete the underlying file only for internal (userData-relative) ledgers; never touch imported externals.
     if (!isAbsolute(record.file)) {
       const absPath = this.resolveFile(record.file)
       rmSync(absPath, { force: true })
@@ -386,9 +322,7 @@ export class LedgerStore {
     this.writeRegistry()
   }
 
-  /** Reveal the ledger's database file in the OS file manager (Finder/Explorer). */
   revealInFinder(id: string): void {
-    const record = this.recordById(id)
-    shell.showItemInFolder(this.resolveFile(record.file))
+    throw new Error(`Tauri 文件定位必须由原生壳执行：${basename(this.ledgerPath(id))}`)
   }
 }

@@ -1,5 +1,5 @@
 /**
- * @purpose Export the Flowm product facade consumed by the Electron main router.
+ * @purpose Export the Flowm product facade consumed by the Tauri data sidecar.
  * @role    Public API surface for cashflow, assets, budgets, imports, subscriptions, loans, and dashboard data.
  * @deps    @flowm/db schema, sqlite service modules, and seed helpers.
  * @gotcha  Preserve the asymmetric finance model across all facade methods.

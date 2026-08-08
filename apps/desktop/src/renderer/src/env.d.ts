@@ -1,18 +1,16 @@
 /**
- * @purpose Declare the renderer-visible Flowm preload bridge on window.
- * @role    Type contract shared by renderer code and preload implementation.
- * @deps    Electron preload types and IPC request shape.
- * @gotcha  Update this declaration whenever preload APIs change.
+ * @purpose Declare the renderer-visible FlowM bridge installed by the Tauri adapter.
+ * @role    Browser-safe contract for native commands and the private tRPC transport.
+ * @deps    Shared ledger-change event types only.
+ * @gotcha  Keep Node, SQLite, and Rust implementation details out of this declaration.
  */
 
-import type { ElectronAPI } from "@electron-toolkit/preload"
-import type { LedgerChangeEvent, UpdateStatusEvent } from "@flowm/shared/ipc"
+import type { LedgerChangeEvent } from "@flowm/shared/ipc"
 
 type RendererLedgerChangeEvent = LedgerChangeEvent & { receivedAt: string }
 
 declare global {
   interface Window {
-    electron: ElectronAPI
     flowm: {
       platform: {
         isMac: boolean
@@ -25,11 +23,7 @@ declare global {
       trpcRequest: (request: { type: string; path: string; input: unknown }) => Promise<unknown>
       onLedgerChanged: (callback: (event: RendererLedgerChangeEvent) => void) => () => void
       getAppVersion: () => Promise<string>
-      updater: {
-        check: () => Promise<void>
-        download: () => Promise<void>
-        onStatus: (callback: (event: UpdateStatusEvent) => void) => () => void
-      }
+      openDownloadPage: () => Promise<void>
     }
   }
 }

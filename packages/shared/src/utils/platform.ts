@@ -1,21 +1,21 @@
 /**
- * @purpose Expose platform helpers that can be shared without importing Electron.
+ * @purpose Expose platform helpers that can be shared without importing the desktop runtime.
  * @role    Small cross-package platform utility module.
  * @deps    Node/browser-safe platform values.
- * @gotcha  Keep Electron-specific detection in desktop preload or main process.
+ * @gotcha  The presence of window.flowm identifies the native desktop bridge.
  */
 
-export const isElectron = (): boolean => {
+export const isDesktop = (): boolean => {
   if (typeof window === "undefined") return false
   return "flowm" in window
 }
 
 export const isBrowser = (): boolean => {
   if (typeof window === "undefined") return false
-  return !isElectron()
+  return !isDesktop()
 }
 
-export const getPlatform = (): "electron" | "browser" | "server" => {
+export const getPlatform = (): "desktop" | "browser" | "server" => {
   if (typeof window === "undefined") return "server"
-  return isElectron() ? "electron" : "browser"
+  return isDesktop() ? "desktop" : "browser"
 }

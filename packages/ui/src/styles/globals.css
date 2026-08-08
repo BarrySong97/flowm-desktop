@@ -50,21 +50,12 @@
   --accent-soft: color-mix(in srgb, #14794a 12%, transparent);
 }
 
-/* Electron drag-region utilities */
+/* Desktop drag-region utilities; Tauri's title bar also carries data-tauri-drag-region. */
 .drag-region {
   -webkit-app-region: drag;
   app-region: drag;
 }
 .no-drag-region {
-  -webkit-app-region: no-drag;
-  app-region: no-drag;
-}
-
-*[data-electron-drag-region] {
-  -webkit-app-region: drag;
-  app-region: drag;
-}
-*[data-electron-no-drag-region] {
   -webkit-app-region: no-drag;
   app-region: no-drag;
 }

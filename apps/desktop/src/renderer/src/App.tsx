@@ -1,14 +1,17 @@
 /**
- * @purpose Mount the React application router and top-level renderer providers.
- * @role    Renderer composition root below Electron preload.
- * @deps    React effects, TanStack Router route tree, preload platform metadata, and app-level providers.
- * @gotcha  Keep native and database access behind the tRPC/preload boundary.
+ * @purpose Mount the React application router and desktop history adapters.
+ * @role    Renderer composition root for the Tauri desktop app.
+ * @deps    React effects, TanStack Router, and history adapters.
+ * @gotcha  Install each native history adapter once and clean it up with the root component.
  */
 
 import { useEffect } from "react"
 import { createHashHistory, createRouter, RouterProvider } from "@tanstack/react-router"
 import { routeTree } from "./routeTree.gen"
-import { installMouseHistoryNavigation } from "./lib/mouseHistoryNavigation"
+import {
+  installKeyboardHistoryNavigation,
+  installMouseHistoryNavigation,
+} from "./lib/mouseHistoryNavigation"
 
 const router = createRouter({
   routeTree,
@@ -24,8 +27,12 @@ declare module "@tanstack/react-router" {
 
 export function App() {
   useEffect(() => {
-    if (!window.flowm.platform.isMac) return
-    return installMouseHistoryNavigation(router.history)
+    const removeMouse = installMouseHistoryNavigation(router.history)
+    const removeKeyboard = installKeyboardHistoryNavigation(router.history)
+    return () => {
+      removeMouse()
+      removeKeyboard()
+    }
   }, [])
 
   return <RouterProvider router={router} />

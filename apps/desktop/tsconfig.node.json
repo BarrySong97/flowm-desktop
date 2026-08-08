@@ -1,9 +1,18 @@
 {
-  "extends": "@electron-toolkit/tsconfig/tsconfig.node.json",
   "compilerOptions": {
     "composite": true,
+    "target": "ES2022",
+    "module": "ESNext",
     "moduleResolution": "bundler",
-    "types": ["node", "electron-vite/node"]
+    "types": ["node"],
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmit": true
   },
-  "include": ["electron.vite.config.ts", "src/main/**/*.ts", "src/preload/**/*.ts"]
+  "include": [
+    "vite.config.ts",
+    "vite.sidecar.config.ts",
+    "src/main/**/*.ts",
+    "src/tauri-sidecar/**/*.ts"
+  ]
 }

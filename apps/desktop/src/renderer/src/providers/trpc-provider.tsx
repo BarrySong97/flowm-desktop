@@ -1,8 +1,8 @@
 /**
  * @purpose Provide trpc provider wiring for renderer React context.
  * @role    Top-level renderer provider used by App.
- * @deps    React context, tRPC client, and preload IPC link.
- * @gotcha  Keep provider setup browser-safe and typed against preload APIs.
+ * @deps    React context, tRPC client, and the Tauri renderer bridge.
+ * @gotcha  Keep provider setup browser-safe and typed against window.flowm.
  */
 
 import { useEffect, type ReactNode } from "react"

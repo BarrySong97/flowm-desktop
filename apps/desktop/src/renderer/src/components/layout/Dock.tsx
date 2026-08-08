@@ -78,7 +78,6 @@ export function Dock() {
     <nav
       className="absolute left-1/2 bottom-[18px] -translate-x-1/2 z-20 flex items-stretch gap-0.5 p-1.5 rounded-2xl border border-black/10 shadow-[0_14px_40px_-12px_rgba(20,40,30,0.28)]"
       style={{ background: "rgba(255,255,255,0.88)", backdropFilter: "blur(16px)" }}
-      data-electron-no-drag-region
     >
       {NAV.map((item, i) => (
         <span key={item.href} style={{ display: "contents" }}>

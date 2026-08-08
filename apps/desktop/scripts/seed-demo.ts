@@ -2,7 +2,7 @@
  * @purpose Seed the current desktop SQLite database with Flowm demo data.
  * @role    Developer CLI for local demo/reset workflows.
  * @deps    better-sqlite3, Drizzle migrations, @flowm/api seed helpers, and @flowm/db schema.
- * @gotcha  Uses the Electron app data path by default; do not point at user data casually.
+ * @gotcha  Uses the production app data path by default; do not point at user data casually.
  */
 
 import { existsSync, mkdirSync } from "node:fs"

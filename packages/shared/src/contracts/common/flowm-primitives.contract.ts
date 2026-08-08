@@ -2,7 +2,7 @@
  * @purpose Define browser-safe Flowm contract primitives shared by renderer and API.
  * @role    Common DTO foundation for transport inputs and summaries.
  * @deps    TypeScript type-only declarations.
- * @gotcha  Keep this file free of Electron, DOM, SQLite, and API runtime imports.
+ * @gotcha  Keep this file free of Tauri, DOM, SQLite, and API runtime imports.
  */
 
 export type FlowmId = string | number
