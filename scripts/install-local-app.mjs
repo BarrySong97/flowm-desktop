@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * @purpose Package FlowM Desktop and install the built app on the local machine.
- * @role    Developer convenience script wrapping electron-builder output installation.
+ * @role    Developer convenience script wrapping the Tauri app-bundle output.
  * @deps    Node child_process/fs/path and the repository pnpm package script.
  * @gotcha  This installs the app bundle only; user data under Application Support is untouched.
  */
@@ -43,17 +43,17 @@ function run(command, args, options = {}) {
 }
 
 function findBuiltApp() {
-  const candidates =
-    process.arch === "arm64"
-      ? ["apps/desktop/release/mac-arm64/FlowM.app", "apps/desktop/release/mac/FlowM.app"]
-      : ["apps/desktop/release/mac/FlowM.app", "apps/desktop/release/mac-arm64/FlowM.app"]
+  const candidates = [
+    "apps/desktop/src-tauri/target/release/bundle/macos/FlowM.app",
+    "apps/desktop/src-tauri/target/debug/bundle/macos/FlowM.app",
+  ]
 
   for (const candidate of candidates) {
     const fullPath = join(repoRoot, candidate)
     if (existsSync(fullPath)) return fullPath
   }
 
-  throw new Error(`Built ${appName} was not found under apps/desktop/release`)
+  throw new Error(`Built ${appName} was not found under apps/desktop/src-tauri/target`)
 }
 
 function quitAppIfRequested(shouldRestart) {

@@ -1,7 +1,6 @@
 name: Release
 
-# Cuts a GitHub Release with signed installers + electron-updater metadata
-# whenever a v* tag is pushed. Bump apps/desktop/package.json first, then tag.
+# Builds Tauri installers and uploads them to a published GitHub Release whenever a v* tag is pushed.
 on:
   push:
     tags:
@@ -9,12 +8,12 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Release tag to build, for example v0.1.11"
+        description: "Release tag to build, for example v0.1.13"
         required: true
         type: string
 
 permissions:
-  contents: write # needed for the GITHUB_TOKEN to create/upload the Release
+  contents: write
 
 jobs:
   create-release:
@@ -44,8 +43,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: macos-latest # Apple Silicon → builds arm64 dmg + zip, signs + notarizes
-          - os: windows-latest # builds nsis installer
+          - os: macos-latest
+            bundles: dmg
+            asset_pattern: FlowM-[version]-arm64.[ext]
+          - os: windows-latest
+            bundles: nsis
+            asset_pattern: FlowM-[version]-x64[setup].[ext]
     runs-on: ${{ matrix.os }}
     env:
       RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
@@ -66,16 +69,18 @@ jobs:
           node-version: 22
           cache: pnpm
 
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust build
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Rebuild native modules for Electron
-        run: pnpm -F desktop exec electron-builder install-app-deps
-
-      - name: Build renderer/main/preload
-        run: pnpm -F desktop build
-
-      - name: Configure Apple signing (optional)
+      - name: Configure Apple signing and notarization
         if: runner.os == 'macOS'
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
@@ -84,33 +89,49 @@ jobs:
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
           APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
         run: |
-          if [ -z "$APPLE_CERTIFICATE" ]; then
-            echo "::warning::No APPLE_CERTIFICATE secret - building unsigned and un-notarized."
-            echo "CSC_IDENTITY_AUTO_DISCOVERY=false" >> "$GITHUB_ENV"
-            echo "ELECTRON_BUILDER_EXTRA_ARGS=-c.mac.notarize=false" >> "$GITHUB_ENV"
-            exit 0
+          set -euo pipefail
+          for required_name in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_API_ISSUER APPLE_API_KEY APPLE_API_KEY_P8; do
+            if [ -z "${!required_name}" ]; then
+              echo "Missing required macOS release secret: $required_name" >&2
+              exit 1
+            fi
+          done
+
+          CERTIFICATE_PATH="$RUNNER_TEMP/flowm-certificate.p12"
+          KEYCHAIN_PATH="$RUNNER_TEMP/flowm-build.keychain-db"
+          KEYCHAIN_PASSWORD="flowm-ci-keychain"
+          printf '%s' "$APPLE_CERTIFICATE" | base64 --decode > "$CERTIFICATE_PATH"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$CERTIFICATE_PATH" -P "$APPLE_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security list-keychain -d user -s "$KEYCHAIN_PATH"
+          SIGNING_IDENTITY="$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" | sed -n 's/.*"\([^"]*\)".*/\1/p' | head -1)"
+          if [ -z "$SIGNING_IDENTITY" ]; then
+            echo "No code-signing identity found after importing APPLE_CERTIFICATE" >&2
+            exit 1
           fi
+          echo "APPLE_SIGNING_IDENTITY=$SIGNING_IDENTITY" >> "$GITHUB_ENV"
 
           KEY_PATH="$RUNNER_TEMP/AuthKey_${APPLE_API_KEY}.p8"
           printf '%s' "$APPLE_API_KEY_P8" > "$KEY_PATH"
-          append_env() {
-            local name="$1"
-            local value="$2"
-            local marker="${name}_EOF"
-            {
-              echo "$name<<$marker"
-              printf '%s\n' "$value"
-              echo "$marker"
-            } >> "$GITHUB_ENV"
-          }
+          echo "APPLE_API_KEY_PATH=$KEY_PATH" >> "$GITHUB_ENV"
 
-          append_env "CSC_LINK" "$APPLE_CERTIFICATE"
-          append_env "CSC_KEY_PASSWORD" "$APPLE_CERTIFICATE_PASSWORD"
-          append_env "APPLE_API_KEY" "$KEY_PATH"
-          append_env "APPLE_API_KEY_ID" "$APPLE_API_KEY"
-          append_env "APPLE_API_ISSUER" "$APPLE_API_ISSUER"
-
-      - name: Build and publish
-        run: pnpm -F desktop exec electron-builder --publish always $ELECTRON_BUILDER_EXTRA_ARGS
+      - name: Build and upload Tauri installer
+        uses: tauri-apps/tauri-action@v1
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_PATH: ${{ env.APPLE_API_KEY_PATH }}
+          APPLE_SIGNING_IDENTITY: ${{ env.APPLE_SIGNING_IDENTITY }}
+        with:
+          projectPath: apps/desktop
+          tauriScript: pnpm tauri
+          tagName: ${{ env.RELEASE_TAG }}
+          releaseName: FlowM ${{ env.RELEASE_TAG }}
+          releaseDraft: false
+          uploadUpdaterJson: false
+          releaseAssetNamePattern: ${{ matrix.asset_pattern }}
+          args: --bundles ${{ matrix.bundles }}

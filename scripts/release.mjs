@@ -21,9 +21,14 @@ const NOTES_FILE = env(
 const VERSION_FILES = env("FLOWM_RELEASE_VERSION_FILES", [
   "package.json",
   "apps/desktop/package.json",
+  "apps/desktop/src-tauri/tauri.conf.json",
   "apps/web/package.json",
   "packages/cli/package.json",
 ])
+const CARGO_VERSION_FILE = env(
+  "FLOWM_RELEASE_CARGO_VERSION_FILE",
+  "apps/desktop/src-tauri/Cargo.toml",
+)
 const TAP_REPO = env("FLOWM_RELEASE_TAP_REPO", "")
 const CASK_PATH = env("FLOWM_RELEASE_CASK_PATH", "Casks/flowm.rb")
 const CASK_ASSET_NAME = env("FLOWM_RELEASE_DMG", "FlowM-${version}-arm64.dmg")
@@ -67,10 +72,11 @@ function main() {
   ensureTagDoesNotExist(tag)
 
   for (const file of VERSION_FILES) bumpPackageVersion(file, version)
+  bumpFile(CARGO_VERSION_FILE, /(^version\s*=\s*")[^"]+("\s*$)/m, `$1${version}$2`)
 
   if (!noChecks) runQualityGates()
 
-  mut("git", ["add", NOTES_FILE, ...VERSION_FILES])
+  mut("git", ["add", NOTES_FILE, ...VERSION_FILES, CARGO_VERSION_FILE])
   mut("git", ["commit", "-m", `chore(release): ${tag}`])
   mut("git", ["push", "origin", MAIN_BRANCH])
   mut("git", ["tag", tag])
