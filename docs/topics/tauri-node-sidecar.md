@@ -39,6 +39,9 @@ the CLI, and the sidecar build.
 ## Packaging Invariants
 
 - The build runs under Node 22 and rejects another major version.
+- The pkg JavaScript entry runs through `process.execPath`; do not spawn the
+  `pnpm.cmd` shim directly because Node rejects that batch-file invocation on
+  Windows runners.
 - The sidecar filename ends with the Rust host triple expected by Tauri.
 - `src-tauri/binaries/` is generated and ignored by Git.
 - The final app contains the executable as `flowm-sidecar` plus bundled
