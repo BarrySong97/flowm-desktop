@@ -19,10 +19,40 @@ export type ReleaseNote = {
 
 export const RELEASES: ReleaseNote[] = [
   {
+    version: "0.1.13",
+    date: "2026-08-08",
+    head: "桌面端从 Electron 迁移到更轻量的 Tauri，保留现有界面、业务能力和本地账本。",
+    badge: "latest",
+    groups: [
+      {
+        title: "桌面应用",
+        items: [
+          "使用 Tauri 原生窗口替换 Electron，现有 React 界面和财务功能保持不变",
+          "本机实测应用体积从约 480 MB 降至 83 MB，运行内存从约 341 MB 降至 137 MB",
+          "文件选择、导入账本、在 Finder 中显示和前进后退导航均已迁移到新的原生能力",
+          "调整 macOS 窗口左上角 traffic light 位置，使标题栏留白更协调",
+        ],
+      },
+      {
+        title: "数据与命令行",
+        items: [
+          "继续使用原有 Drizzle/SQLite 数据模型和生产数据目录，安装新版后直接读取现有账本",
+          "命令行工具继续直接访问当前账本，并通过本地刷新通道通知桌面应用更新界面",
+        ],
+      },
+      {
+        title: "安装与更新",
+        items: [
+          "发布包改为 Tauri 的 macOS ARM64 DMG 和 Windows x64 NSIS 安装包",
+          "应用内自动更新已移除，后续版本通过设置页前往 GitHub Releases 下载最新版",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.1.12",
     date: "2026-08-07",
     head: "订阅预测改为直接根据计划实时生成，真实扣款只由绑定流水记录。",
-    badge: "latest",
     groups: [
       {
         title: "订阅",
