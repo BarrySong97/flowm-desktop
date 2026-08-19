@@ -12,7 +12,6 @@ import { Link, useRouter } from "@tanstack/react-router"
 import { trpc } from "@/lib/trpc"
 import { usePagePerf } from "@/lib/debug/perf"
 import { useCurrencyMoney, useMoney, useSignedMoney } from "@/lib/useMoney"
-import { Dock } from "../components/layout/Dock"
 import { ScrollArea } from "../components/ui/ScrollArea"
 import { Kicker } from "../components/ui/Kicker"
 import { BigNumber } from "../components/ui/BigNumber"
@@ -237,7 +236,6 @@ export function AnalysisPage() {
           </div>
         </div>
       </ScrollArea>
-      <Dock />
     </div>
   )
 }

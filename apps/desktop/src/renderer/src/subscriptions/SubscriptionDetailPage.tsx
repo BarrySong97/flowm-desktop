@@ -6,7 +6,6 @@
  */
 
 import { useNavigate } from "@tanstack/react-router"
-import { Dock } from "../components/layout/Dock"
 import { ScrollArea } from "../components/ui/ScrollArea"
 import { Route } from "../routes/subscriptions.$id"
 import { SubscriptionDetailPanel } from "./SubscriptionDetailPanel"
@@ -28,7 +27,6 @@ export function SubscriptionDetailPage() {
       <ScrollArea className="h-full" style={{ flex: 1, minHeight: 0 }}>
         <SubscriptionDetailPanel id={id} onBack={() => navigate({ to: "/subscriptions" })} />
       </ScrollArea>
-      <Dock />
     </div>
   )
 }

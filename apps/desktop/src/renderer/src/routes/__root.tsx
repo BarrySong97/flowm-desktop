@@ -10,6 +10,7 @@ import { Toaster } from "@flowm/ui"
 import { createRootRoute, Outlet, useRouterState } from "@tanstack/react-router"
 import { NuqsAdapter } from "nuqs/adapters/tanstack-router"
 import { TitleBar } from "../components/layout/TitleBar"
+import { TopNavigation } from "../components/layout/TopNavigation"
 import { DemoLedgerBanner } from "../components/layout/DemoLedgerBanner"
 import { GlobalConfirmModal } from "../components/ui/ConfirmModal"
 import { flowmPerfLog, roundMs } from "../lib/debug/perf"
@@ -35,8 +36,8 @@ function RootLayout() {
   }, [href])
 
   return (
-    <div className="flex h-screen w-screen flex-col overflow-hidden bg-[var(--bg)]">
-      <TitleBar />
+    <TitleBar>
+      <TopNavigation />
       <DemoLedgerBanner />
       <div className="min-h-0 flex-1 overflow-hidden">
         <NuqsAdapter>
@@ -45,6 +46,6 @@ function RootLayout() {
       </div>
       <Toaster />
       <GlobalConfirmModal />
-    </div>
+    </TitleBar>
   )
 }

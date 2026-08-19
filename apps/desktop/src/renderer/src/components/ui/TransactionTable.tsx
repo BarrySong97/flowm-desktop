@@ -2,7 +2,7 @@
  * @purpose Render the transaction table renderer UI primitive.
  * @role    Local desktop UI atom shared across feature pages.
  * @deps    React props, CSS tokens, and small formatting helpers.
- * @gotcha  Keep product data fetching out of reusable UI atoms.
+ * @gotcha  Keep product data fetching out of reusable UI atoms; use compact mode only in constrained summary panes.
  */
 
 import { DataTable, DataTableRow, DataTableCell } from "./DataTable"
@@ -25,6 +25,7 @@ interface TxRow {
 
 interface Props {
   rows: TxRow[]
+  variant?: "full" | "compact"
 }
 
 function SourceBadge({ source }: { source?: string }) {
@@ -45,18 +46,28 @@ function SourceBadge({ source }: { source?: string }) {
   )
 }
 
-export function TransactionTable({ rows }: Props) {
+export function TransactionTable({ rows, variant = "full" }: Props) {
   const fmt = useMoney()
+  const compact = variant === "compact"
   return (
     <DataTable
-      columns={[
-        { label: "日期", width: 62 },
-        { label: "项目" },
-        { label: "类别", width: 80 },
-        { label: "标签", width: 72 },
-        { label: "来源", width: 108 },
-        { label: "金额", width: 96, align: "right" },
-      ]}
+      columns={
+        compact
+          ? [
+              { label: "日期", width: 56 },
+              { label: "项目" },
+              { label: "类别", width: 72 },
+              { label: "金额", width: 96, align: "right" },
+            ]
+          : [
+              { label: "日期", width: 62 },
+              { label: "项目" },
+              { label: "类别", width: 80 },
+              { label: "标签", width: 72 },
+              { label: "来源", width: 108 },
+              { label: "金额", width: 96, align: "right" },
+            ]
+      }
     >
       {rows.map((t, i) => {
         const amt = Math.abs(Number(t.amount))
@@ -76,12 +87,18 @@ export function TransactionTable({ rows }: Props) {
                 {t.categoryName ?? "其他"}
               </span>
             </DataTableCell>
-            <DataTableCell>
-              <span className="text-[11px] text-[var(--ink-4)]">{t.tag ? `#${t.tag}` : "—"}</span>
-            </DataTableCell>
-            <DataTableCell>
-              <SourceBadge source={t.source} />
-            </DataTableCell>
+            {!compact && (
+              <>
+                <DataTableCell>
+                  <span className="text-[11px] text-[var(--ink-4)]">
+                    {t.tag ? `#${t.tag}` : "—"}
+                  </span>
+                </DataTableCell>
+                <DataTableCell>
+                  <SourceBadge source={t.source} />
+                </DataTableCell>
+              </>
+            )}
             <DataTableCell
               align="right"
               className={`font-['IBM_Plex_Mono'] ${isIncome ? "text-[var(--green)]" : isTransfer ? "text-[var(--ink-3)]" : "text-[var(--red)]"}`}

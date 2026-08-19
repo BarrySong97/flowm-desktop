@@ -15,7 +15,6 @@ import { usePagePerf } from "@/lib/debug/perf"
 import { ASSET_GROUP_COLORS, ASSET_GROUPS } from "@/lib/domainDisplay"
 import { useMoney } from "@/lib/useMoney"
 import { todayKey } from "@/lib/dates"
-import { Dock } from "../components/layout/Dock"
 import { ScrollArea } from "../components/ui/ScrollArea"
 import { Kicker } from "../components/ui/Kicker"
 import { BigNumber } from "../components/ui/BigNumber"
@@ -698,8 +697,6 @@ export function AssetsPage() {
           </ScrollArea>
         </Panel>
       </PanelGroup>
-
-      <Dock />
 
       <AddAssetModal
         open={showForm}

@@ -12,6 +12,12 @@ Flowm is a work-focused personal finance desktop app. The UI should feel calm, d
 ## Layout
 
 - The app is a desktop workbench first. Prefer predictable navigation, scan-friendly tables, and side/detail panels over marketing-style sections.
+- Keep primary routes in one persistent top tab bar; feature pages must not repeat or float
+  their own navigation controls.
+- Reserve a dedicated title-bar drag band above the route tabs. Keep the tab row aligned to the
+  overview content inset instead of shifting the whole navigation around macOS traffic lights.
+- On the overview, keep cross-layer summaries in a left workbench and past cashflow in a
+  separate right-hand table so proximity never implies reconciliation.
 - Repeated finance items belong in tables, lists, or compact cards. Avoid cards nested inside cards.
 - Fixed-format controls such as nav items, icon buttons, tabs, and counters need stable dimensions so hover/loading states do not shift layout.
 

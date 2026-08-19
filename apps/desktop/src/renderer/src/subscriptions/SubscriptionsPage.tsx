@@ -10,7 +10,6 @@ import { Button, Input, Label, Modal } from "@heroui/react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Outlet, useRouterState } from "@tanstack/react-router"
 import { Controller, useForm } from "react-hook-form"
-import { Dock } from "../components/layout/Dock"
 import { ScrollArea } from "../components/ui/ScrollArea"
 import { trpc } from "@/lib/trpc"
 import { usePagePerf } from "@/lib/debug/perf"
@@ -660,7 +659,6 @@ export function SubscriptionsPage() {
         </ScrollArea>
       </div>
 
-      <Dock />
       <AddSubModal open={showAdd} onClose={() => setShowAdd(false)} onSave={handleSave} />
     </div>
   )

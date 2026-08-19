@@ -31,7 +31,6 @@ import { CATEGORY_COLORS, SOURCE_BADGES } from "@/lib/domainDisplay"
 import { addDays, dateKey, monthStart } from "@/lib/dates"
 import { useMoney } from "@/lib/useMoney"
 import { ScrollArea } from "../components/ui/ScrollArea"
-import { Dock } from "../components/layout/Dock"
 import { TxDetailPanel, type Tx } from "./TxDetailPanel"
 import { AddTxModal, emptyTxForm, type TxForm } from "./AddTxModal"
 import { DateRangeFilter, FILTER_LABEL_CLASS, FilterSelectField } from "./filterControls"
@@ -1298,7 +1297,6 @@ export function ImportsPage() {
           )}
         </ScrollArea>
       </div>
-      <Dock />
       <AddTxModal
         open={showAddTx}
         categories={categoriesQuery.data ?? []}

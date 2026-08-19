@@ -9,7 +9,8 @@
 
 import { useState } from "react"
 import type { ReactNode } from "react"
-import { DockMock } from "./DockMock"
+import { useAtom } from "jotai"
+import { TopNavigationMock } from "./TopNavigationMock"
 import { TrafficLights } from "./TrafficLights"
 import { AssetsPage } from "@mock/assets/AssetsPage"
 import { assetsData } from "@mock/assets/assetsData"
@@ -26,6 +27,7 @@ import { settingsData } from "@mock/settings/settingsData"
 import { SubscriptionsPage } from "@mock/subscriptions/SubscriptionsPage"
 import { subscriptionsData } from "@mock/subscriptions/subscriptionsData"
 import { MockProvider } from "@mock/lib/trpc"
+import { amountsHiddenAtom } from "@mock/lib/state/uiAtoms"
 
 function page(path: string, data: Record<string, unknown>, node: ReactNode): ReactNode {
   return (
@@ -50,17 +52,23 @@ const PAGES: Record<string, { title: string; render: () => ReactNode }> = {
 
 export function AppMock() {
   const [page, setPage] = useState("overview")
+  const [amountsHidden, setAmountsHidden] = useAtom(amountsHiddenAtom)
   const current = PAGES[page] ?? PAGES.overview
 
   return (
     <div className="flex h-full w-full flex-col overflow-hidden rounded-[16px] border border-hair bg-surface text-left shadow-[0_30px_70px_-34px_rgba(20,40,30,0.34)]">
-      {/* 无窗口外框：内容从顶部开始，Dock 悬浮固定 */}
-      <div className="relative min-h-0 flex-1 bg-white">
+      <div className="relative flex min-h-0 flex-1 flex-col bg-white">
         <TrafficLights />
-        <div key={page} className="h-full">
+        <div aria-hidden="true" className="h-6 shrink-0 bg-white" />
+        <TopNavigationMock
+          active={page}
+          amountsHidden={amountsHidden}
+          onSelect={setPage}
+          onToggleAmounts={() => setAmountsHidden((value) => !value)}
+        />
+        <div key={page} className="min-h-0 flex-1">
           {current.render()}
         </div>
-        <DockMock active={page} onSelect={setPage} />
       </div>
     </div>
   )

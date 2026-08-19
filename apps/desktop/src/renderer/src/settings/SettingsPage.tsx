@@ -9,7 +9,6 @@ import { useEffect, useState } from "react"
 import { useAtom } from "jotai"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
-import { Dock } from "../components/layout/Dock"
 import { ScrollArea } from "../components/ui/ScrollArea"
 import { CurrencySelect } from "../components/ui/CurrencySelect"
 import { LedgerSection } from "./LedgerSection"
@@ -178,8 +177,6 @@ export function SettingsPage() {
           </div>
         </div>
       </ScrollArea>
-
-      <Dock />
     </div>
   )
 }

@@ -14,7 +14,6 @@ import type { CashflowEventSummary, CategorySummary } from "@flowm/api"
 import { trpc } from "@/lib/trpc"
 import { usePagePerf } from "@/lib/debug/perf"
 import { useMoney } from "@/lib/useMoney"
-import { Dock } from "../components/layout/Dock"
 import { ScrollArea } from "../components/ui/ScrollArea"
 import { BackButton } from "../components/ui/BackButton"
 import { useConfirm } from "../components/ui/ConfirmModal"
@@ -596,7 +595,6 @@ export function CategoriesPage() {
           />
         </div>
       </ScrollArea>
-      <Dock />
       <CategoryModal
         open={showCategoryForm}
         category={editingCategory}

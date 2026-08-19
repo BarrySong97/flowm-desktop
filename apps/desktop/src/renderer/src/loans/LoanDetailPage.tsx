@@ -13,7 +13,6 @@ import { Controller, useForm } from "react-hook-form"
 import { CurrencySelect } from "../components/ui/CurrencySelect"
 import { BackButton } from "../components/ui/BackButton"
 import { currencySymbol } from "@flowm/shared"
-import { Dock } from "../components/layout/Dock"
 import { ScrollArea } from "../components/ui/ScrollArea"
 import { useConfirm } from "../components/ui/ConfirmModal"
 import { trpc } from "@/lib/trpc"
@@ -674,7 +673,6 @@ export function LoanDetailPage() {
           onClose={() => setLinkOpen(false)}
         />
       )}
-      <Dock />
     </div>
   )
 }

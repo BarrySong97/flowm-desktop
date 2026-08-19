@@ -37,6 +37,7 @@ import {
 type CashflowRangeKey = "this_month" | "last_month" | "last_30" | "last_90" | "year" | "all"
 const DEFAULT_CASHFLOW_RANGE_KEY: CashflowRangeKey = "this_month"
 const CASHFLOW_RANGE_STORAGE_KEY = "flowm:overview:cashflow-range"
+const MOCK_NOW = new Date(2026, 5, 21, 12)
 
 const CASHFLOW_RANGE_OPTIONS: Array<{ key: CashflowRangeKey; label: string }> = [
   { key: "this_month", label: "本月" },
@@ -255,9 +256,9 @@ export function OverviewPage() {
   const fmt = useMoney()
   const signed = useSignedMoney()
   const [cashflowRangeKey, setCashflowRangeKey] = useState<CashflowRangeKey>(readCashflowRangeKey)
-  const today = dateKey(new Date())
-  const range = cashflowRange(cashflowRangeKey)
-  const futureThrough = dateKey(addDays(new Date(), 60))
+  const today = localDateKey(MOCK_NOW)
+  const range = cashflowRange(cashflowRangeKey, MOCK_NOW)
+  const futureThrough = localDateKey(addDays(MOCK_NOW, 60))
   const cashflowQuery = useQuery(
     trpc.cashflow.list.queryOptions({
       dateFrom: range.dateFrom,
@@ -328,12 +329,14 @@ export function OverviewPage() {
     spent: Number(row.referenceUsed),
     limit: Number(row.budgeted),
   }))
+  const visibleBudgets = budgets.slice(0, 4)
 
   const upcoming = useUpcoming(
     subscriptionsQuery.data ?? [],
     loansQuery.data ?? [],
     loanOccurrencesQuery.data ?? [],
   )
+  const visibleUpcoming = upcoming.slice(0, 4)
 
   const upSum = upcoming.reduce((s, u) => s + (toDisplay(u.amt, u.cur) ?? 0), 0)
   const monthlyFixed = Number(futurePressureQuery.data?.total ?? upSum)
@@ -344,7 +347,7 @@ export function OverviewPage() {
   const scaleMax = Math.max(...budgets.map((b) => Math.max(b.spent, b.limit)), 1)
 
   const _recentTx = useMemo(
-    () => [...events].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 30),
+    () => [...events].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 12),
     [events],
   )
   const recentTx = _recentTx
@@ -358,26 +361,26 @@ export function OverviewPage() {
   }))
 
   return (
-    <div className="relative flex flex-col h-full overflow-hidden bg-white">
-      <ScrollArea className="flex-1 min-h-0">
-        <div className="flex flex-col px-[34px] pt-[30px] pb-10">
+    <div className="relative grid h-full min-h-0 grid-cols-[minmax(430px,1.2fr)_minmax(360px,0.8fr)] overflow-hidden bg-white">
+      <ScrollArea className="min-h-0 border-r border-[var(--hair)]">
+        <div className="flex min-h-full flex-col px-7 py-6">
           {/* ── 净资产 + 趋势 ── */}
-          <div className="flex items-stretch gap-9 pb-[18px]">
+          <section className="flex items-stretch gap-7 border-b border-[var(--hair-2)] pb-5">
             <div>
               <Kicker className="mb-1.5">净资产</Kicker>
-              <BigNumber className="text-[48px]">
-                <span className="text-[21px] font-medium text-[var(--ink-3)] mr-1.5">
+              <BigNumber className="text-[clamp(34px,3vw,46px)] leading-none">
+                <span className="mr-1.5 text-[19px] font-medium text-[var(--ink-3)]">
                   {baseSymbol}
                 </span>
                 {fmt(netWorth)}
               </BigNumber>
-              <div className="flex gap-[30px] mt-3">
+              <div className="mt-3 flex gap-6">
                 <StatBlock label="流动资产" value={`${baseSymbol}${fmt(liquidAssets)}`} />
                 <StatBlock label="总资产" value={`${baseSymbol}${fmt(totalAssets)}`} />
                 <StatBlock label="欠款" value={`${baseSymbol}${fmt(totalLiab)}`} />
               </div>
             </div>
-            <div className="ml-auto flex flex-col w-1/2 text-right">
+            <div className="ml-auto hidden min-w-[180px] flex-1 flex-col text-right min-[1120px]:flex">
               <Dim className="text-[11.5px] mb-2 block">
                 近 12 个月{" "}
                 <span className="font-['IBM_Plex_Mono'] text-[var(--green)] ml-1">
@@ -389,11 +392,11 @@ export function OverviewPage() {
                 <NetWorthTrend data={_netTrend} />
               </div>
             </div>
-          </div>
+          </section>
 
           {/* ── 本月结余 + 日柱 ── */}
-          <div className="mt-[22px] pb-6">
-            <div className="flex items-start mb-3">
+          <section className="border-b border-[var(--hair-2)] py-5">
+            <div className="mb-3 flex items-start gap-4">
               <div>
                 <Kicker className="mb-1.5">
                   <span className="inline-flex items-center gap-0.5">
@@ -436,7 +439,7 @@ export function OverviewPage() {
                   {signed(monthNet)}
                 </BigNumber>
               </div>
-              <Dim className="text-[10.5px] ml-auto pt-[1px]">
+              <Dim className="ml-auto hidden pt-[1px] text-right text-[10.5px] leading-5 min-[1120px]:block">
                 {range.caption} · 消费{" "}
                 <span className="font-['IBM_Plex_Mono'] text-[var(--red)]">−¥{fmt(monthOut)}</span>
                 {" · "}收入{" "}
@@ -457,27 +460,26 @@ export function OverviewPage() {
                 {range.axisEnd}
               </span>
             </div>
-          </div>
+          </section>
 
           {/* ── 两列：预算 + 即将扣费 ── */}
-          <div className="grid grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)] gap-[60px] mt-[22px]">
+          <section className="grid grid-cols-1 gap-6 pt-5 min-[1120px]:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] min-[1120px]:gap-7">
             {/* 左：消费预算 */}
             <div className="overflow-hidden">
-              <div className="flex items-baseline mb-[15px]">
+              <div className="mb-3 flex items-baseline">
                 <SectionTitle>消费 · 本月预算</SectionTitle>
-                <Dim className="text-[10.5px] ml-auto whitespace-nowrap">
-                  还能花{" "}
+                <Dim className="ml-auto whitespace-nowrap text-[10.5px]">
+                  余{" "}
                   <b className="font-['IBM_Plex_Mono'] text-[var(--ink)] font-semibold">
                     ¥{fmt(budgetRemain)}
                   </b>
-                  {" · "}已用 {budgetTotal > 0 ? Math.round((budgetSpent / budgetTotal) * 100) : 0}%
                 </Dim>
               </div>
               {budgets.length === 0 ? (
                 <Dim className="text-[12px]">暂无消费记录 · 导入账单后自动统计</Dim>
               ) : (
-                <div className="flex flex-col gap-[11px]">
-                  {budgets.map((b, i) => (
+                <div className="flex flex-col gap-2.5">
+                  {visibleBudgets.map((b, i) => (
                     <BudgetBar
                       key={i}
                       color={b.color}
@@ -487,25 +489,33 @@ export function OverviewPage() {
                       scaleMax={scaleMax}
                     />
                   ))}
+                  {budgets.length > visibleBudgets.length && (
+                    <Link
+                      to="/budget"
+                      className="pt-1 text-right text-[11px] text-[var(--accent)] transition-opacity hover:opacity-75"
+                    >
+                      查看全部预算 →
+                    </Link>
+                  )}
                 </div>
               )}
             </div>
 
             {/* 右：即将扣费 */}
             <div className="overflow-hidden">
-              <div className="flex items-baseline mb-[14px]">
+              <div className="mb-3 flex items-baseline">
                 <SectionTitle>即将扣费</SectionTitle>
                 <Dim className="text-[10.5px] ml-auto whitespace-nowrap">
                   未来 30 天 · {upcoming.length} 笔
                 </Dim>
               </div>
-              <div className="flex items-baseline gap-2 mb-3">
-                <span className="font-['IBM_Plex_Mono'] text-[22px] font-semibold text-[var(--ink)]">
+              <div className="mb-3 flex items-baseline gap-2">
+                <span className="font-['IBM_Plex_Mono'] text-[20px] font-semibold text-[var(--ink)]">
                   {baseSymbol}
                   {fmt(upSum)}
                 </span>
-                <Dim className="text-[11px] ml-auto whitespace-nowrap">
-                  月固定支出{" "}
+                <Dim className="ml-auto whitespace-nowrap text-[10.5px]">
+                  月固定{" "}
                   <b className="font-['IBM_Plex_Mono'] text-[var(--ink)] font-semibold">
                     {baseSymbol}
                     {fmt(monthlyFixed)}
@@ -516,7 +526,7 @@ export function OverviewPage() {
                 <Dim className="text-[12px]">未来 30 天暂无定期扣费</Dim>
               ) : (
                 <div>
-                  {upcoming.map((u, i) => (
+                  {visibleUpcoming.map((u, i) => (
                     <UpcomingRow
                       key={i}
                       date={u.d}
@@ -526,45 +536,49 @@ export function OverviewPage() {
                       amount={`${currencySymbol(u.cur)}${fmt(u.amt)}`}
                     />
                   ))}
+                  {upcoming.length > visibleUpcoming.length && (
+                    <Link
+                      to="/subscriptions"
+                      className="block pt-2 text-right text-[11px] text-[var(--accent)] transition-opacity hover:opacity-75"
+                    >
+                      展示更多 →
+                    </Link>
+                  )}
                 </div>
               )}
             </div>
-          </div>
-
-          {/* ── 分隔线 ── */}
-          <div className="flex items-center gap-3 my-7">
-            <div className="flex-1 h-px bg-[var(--hair-2)]" />
-            <Dim className="text-[10.5px] tracking-[0.04em]">查看最近流水</Dim>
-            <div className="flex-1 h-px bg-[var(--hair-2)]" />
-          </div>
-
-          {/* ── 流水全表 ── */}
-          <div className="overflow-hidden">
-            <div className="flex items-baseline mb-2.5">
-              <SectionTitle>流水</SectionTitle>
-              {recentTx.length > 0 && (
-                <Dim className="text-[11px] ml-2">最近 {recentTx.length} 笔</Dim>
-              )}
-              <Link
-                to="/imports"
-                className="ml-auto cursor-pointer text-[11px] text-[var(--accent)] hover:opacity-75 transition-opacity"
-              >
-                查看全部流水 →
-              </Link>
-            </div>
-            {recentTx.length === 0 ? (
-              <div className="mt-4 text-center py-8">
-                <Dim className="text-[12px] block">暂无流水记录</Dim>
-                <Dim className="text-[11px] block mt-1">前往「流水」页面导入账单</Dim>
-              </div>
-            ) : (
-              <div className="overflow-hidden mt-2.5">
-                <TransactionTable rows={transactionRows} />
-              </div>
-            )}
-          </div>
+          </section>
         </div>
       </ScrollArea>
+
+      {/* ── 右栏：最近流水 ── */}
+      <section className="flex min-h-0 flex-col bg-white">
+        <div className="flex h-[66px] shrink-0 items-center border-b border-[var(--hair)] px-6">
+          <div>
+            <div className="flex items-baseline gap-2">
+              <SectionTitle>最近流水</SectionTitle>
+              {recentTx.length > 0 && <Dim className="text-[11px]">最近 {recentTx.length} 笔</Dim>}
+            </div>
+            <Dim className="mt-1 block text-[10.5px]">过去现金流 · 不用于推算当前资产余额</Dim>
+          </div>
+          <Link
+            to="/imports"
+            className="ml-auto text-[11px] text-[var(--accent)] transition-opacity hover:opacity-75"
+          >
+            查看全部 →
+          </Link>
+        </div>
+        <ScrollArea className="min-h-0 flex-1 px-5 py-3 [&_td]:py-3">
+          {recentTx.length === 0 ? (
+            <div className="py-12 text-center">
+              <Dim className="block text-[12px]">暂无流水记录</Dim>
+              <Dim className="mt-1 block text-[11px]">前往「流水」页面导入账单</Dim>
+            </div>
+          ) : (
+            <TransactionTable rows={transactionRows} />
+          )}
+        </ScrollArea>
+      </section>
     </div>
   )
 }

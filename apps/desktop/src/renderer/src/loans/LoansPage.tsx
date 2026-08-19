@@ -10,7 +10,6 @@ import { Button, Input, Modal } from "@heroui/react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Outlet, useNavigate, useRouterState } from "@tanstack/react-router"
 import { Controller, useForm } from "react-hook-form"
-import { Dock } from "../components/layout/Dock"
 import { ScrollArea } from "../components/ui/ScrollArea"
 import { trpc } from "@/lib/trpc"
 import { usePagePerf } from "@/lib/debug/perf"
@@ -561,7 +560,6 @@ export function LoansPage() {
         </div>
       </ScrollArea>
 
-      <Dock />
       <AddLoanModal open={showAdd} onClose={() => setShowAdd(false)} onSave={handleSave} />
     </div>
   )

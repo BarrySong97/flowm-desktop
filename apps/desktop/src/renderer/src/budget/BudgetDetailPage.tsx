@@ -9,7 +9,6 @@ import { useMemo, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 import { Button } from "@heroui/react"
-import { Dock } from "../components/layout/Dock"
 import { ScrollArea } from "../components/ui/ScrollArea"
 import { BackButton } from "../components/ui/BackButton"
 import { trpc } from "@/lib/trpc"
@@ -530,7 +529,6 @@ export function BudgetDetailPage() {
           </div>
         </div>
       </ScrollArea>
-      <Dock />
       <AddBudgetModal
         open={showEdit}
         saving={saving}

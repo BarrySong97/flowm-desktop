@@ -35,15 +35,16 @@ renderer, routing, local app resources, and desktop packaging configuration.
 - `assets/` - present asset snapshot list, detail, edit, and archived-account workflows.
 - `analysis/` - long-range cashflow analysis for monthly income, expense, and net savings trends, with a history-aware back affordance for entry links from overview and imports.
 - `budget/` - budget list/detail workflows, expense-category scope editing, and budget query invalidation helpers.
-- `dashboard/` - cross-layer overview that composes cashflow, assets, and obligations,
-  including clickable daily expense bars that open same-period cashflow detail drawers.
+- `dashboard/` - cross-layer overview that composes cashflow, assets, and obligations in a
+  left summary workbench beside a persistent recent-cashflow table, including clickable daily
+  expense bars that open same-period cashflow detail drawers.
 - `imports/` - imported statement and cashflow event views.
 - `loans/` - future loan obligation views and schedule calculations.
 - `settings/` - ledger, category, and app configuration surfaces.
 - `subscriptions/` - recurring future obligation views that project calendar/list dates from plans at
   read time and show explicitly linked cashflow as separate actual-deduction history.
 - `components/charts/` - renderer chart components.
-- `components/layout/` - desktop shell, title bar, dock, and banners.
+- `components/layout/` - desktop shell, title bar, persistent top navigation, and banners.
 - `components/ui/` - renderer-local UI atoms that are more product-shaped than `@flowm/ui`, including `CurrencySelect` (autocomplete currency picker over the common-currency set), `DateInput` (HeroUI date picker for ISO date form values), `MoneyAmount` (currency-aware amount with hide-amounts masking), and `BackButton` (the one ghost back affordance — text variant `← 返回X` or icon-only — shared by every detail page/panel).
 - `lib/` - browser-safe renderer helpers, tRPC client wiring, command parsing, and UI state atoms; `lib/useCurrentRates.ts` exposes the base currency and a `toDisplay` conversion helper used by cross-currency totals.
 - `lib/mouseHistoryNavigation.ts` maps side buttons, browser history keys, and macOS Command+[ / Command+] to TanStack Router history on Tauri.
@@ -156,7 +157,18 @@ Update `apps/desktop/src/renderer/src/env.d.ts` whenever the `window.flowm` cont
   hint after the maintenance pass. This workflow never creates cashflow,
   changes occurrence status or stored principal, or modifies asset snapshots.
 - Multi-currency: single items render in their original currency symbol via `currencySymbol(entity.currency)` — this applies to list rows, detail panels (subscription/loan/asset detail), and per-loan widgets (e.g. the schedule bar). Aggregated totals (net worth, asset totals/treemap, subscription/loan summaries, future pressure) render in the base currency after conversion via `useCurrentRates().toDisplay`. The base currency is editable in settings, and opening a ledger triggers a background daily FX refresh. Past cashflow, imports, and budgets stay in native amounts and are not converted.
-- Hide amounts: a global, persisted preference (`amountsHiddenAtom`) masks every money amount to `⋯⋯` (currency symbols/signs stay) for demos, screenshots, or onlookers. Components must format money through the `useMoney` / `useSignedMoney` / `useCurrencyMoney` hooks (in `@/lib/useMoney`), never the pure `@/lib/format` functions, so toggling re-renders them. Toggle it from settings or the dock eye button.
+- Hide amounts: a global, persisted preference (`amountsHiddenAtom`) masks every money amount to `⋯⋯` (currency symbols/signs stay) for demos, screenshots, or onlookers. Components must format money through the `useMoney` / `useSignedMoney` / `useCurrencyMoney` hooks (in `@/lib/useMoney`), never the pure `@/lib/format` functions, so toggling re-renders them. Toggle it from settings or the top navigation.
+- Primary route navigation belongs to the root renderer shell. Feature pages must not mount
+  their own navigation, and dashboard summaries should remain independently scrollable from
+  the recent-cashflow table at reduced window heights. `TitleBar` is the outermost renderer DOM
+  boundary: its 24px top band and the non-interactive parts of the 52px navigation row use CSS
+  `app-region: drag`; only concrete links and buttons use `app-region: no-drag`. Never wrap the
+  route tree in a no-drag ancestor and then try to restore dragging below it. Do not add imperative
+  window-drag event handlers; Tauri's declarative `data-tauri-drag-region` still requires the
+  `core:window:allow-start-dragging` capability. The navigation row uses the same 28px horizontal
+  inset as overview content.
+- The overview uses `TransactionTable` compact mode so its narrow right pane shows date,
+  item, category, and amount. Full cashflow and detail surfaces keep the tag and source columns.
 - Asset account removal is an archive workflow. Archived accounts stay out of
   current asset totals, net worth, and asset composition, but remain viewable
   from the assets surface so users can inspect history or restore the account.

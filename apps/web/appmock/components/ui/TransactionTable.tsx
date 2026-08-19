@@ -30,8 +30,8 @@ export function TransactionTable({ rows }: Props) {
       columns={[
         { label: "日期", width: 56 },
         { label: "项目" },
-        { label: "类别" },
-        { label: "金额", align: "right" },
+        { label: "类别", width: 72 },
+        { label: "金额", width: 96, align: "right" },
       ]}
     >
       {rows.map((t, i) => {
