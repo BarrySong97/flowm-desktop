@@ -1,6 +1,6 @@
 [package]
 name = "flowm"
-version = "0.1.14"
+version = "0.1.15"
 description = "FlowM asymmetric personal finance desktop app"
 authors = ["FlowM"]
 edition = "2021"
