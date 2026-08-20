@@ -12,6 +12,7 @@ import { NuqsAdapter } from "nuqs/adapters/tanstack-router"
 import { TitleBar } from "../components/layout/TitleBar"
 import { TopNavigation } from "../components/layout/TopNavigation"
 import { DemoLedgerBanner } from "../components/layout/DemoLedgerBanner"
+import { AppUpdateTracker } from "../components/layout/AppUpdateTracker"
 import { GlobalConfirmModal } from "../components/ui/ConfirmModal"
 import { flowmPerfLog, roundMs } from "../lib/debug/perf"
 
@@ -45,6 +46,7 @@ function RootLayout() {
         </NuqsAdapter>
       </div>
       <Toaster />
+      <AppUpdateTracker />
       <GlobalConfirmModal />
     </TitleBar>
   )

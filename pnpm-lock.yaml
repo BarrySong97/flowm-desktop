@@ -125,6 +125,12 @@ importers:
       '@tauri-apps/plugin-opener':
         specifier: ^2.5.4
         version: 2.5.4
+      '@tauri-apps/plugin-process':
+        specifier: ^2.3.1
+        version: 2.3.1
+      '@tauri-apps/plugin-updater':
+        specifier: ^2.10.1
+        version: 2.10.1
       '@trpc/client':
         specifier: ^11.17.0
         version: 11.17.0(@trpc/server@11.17.0(typescript@5.8.3))(typescript@5.8.3)
@@ -2940,6 +2946,12 @@ packages:
 
   '@tauri-apps/plugin-opener@2.5.4':
     resolution: {integrity: sha512-1HnPkb+AmgO29HBazm4uPLKB+r7zzcTBW1d0fyYp1uP+jwtpoiNDGKMMzz58SFp49nOIrxdE3aUJtT57lfO9CQ==}
+
+  '@tauri-apps/plugin-process@2.3.1':
+    resolution: {integrity: sha512-nCa4fGVaDL/B9ai03VyPOjfAHRHSBz5v6F/ObsB73r/dA3MHHhZtldaDMIc0V/pnUw9ehzr2iEG+XkSEyC0JJA==}
+
+  '@tauri-apps/plugin-updater@2.10.1':
+    resolution: {integrity: sha512-NFYMg+tWOZPJdzE/PpFj2qfqwAWwNS3kXrb1tm1gnBJ9mYzZ4WDRrwy8udzWoAnfGCHLuePNLY1WVCNHnh3eRA==}
 
   '@trpc/client@11.17.0':
     resolution: {integrity: sha512-KpJBFrbKTDeVCFv/3ckL1XBBH5Yssn8hethI/rUy7GIpTj+VzjtPjykDqJpzobuVOz+d26cXCSu1t4I6MYI5Zg==}
@@ -7951,6 +7963,14 @@ snapshots:
     dependencies:
       '@tauri-apps/api': 2.11.1
 
+  '@tauri-apps/plugin-process@2.3.1':
+    dependencies:
+      '@tauri-apps/api': 2.11.1
+
+  '@tauri-apps/plugin-updater@2.10.1':
+    dependencies:
+      '@tauri-apps/api': 2.11.1
+
   '@trpc/client@11.17.0(@trpc/server@11.17.0(typescript@5.8.3))(typescript@5.8.3)':
     dependencies:
       '@trpc/server': 11.17.0(typescript@5.8.3)
@@ -8174,7 +8194,7 @@ snapshots:
       sirv: 3.0.2
       tinyglobby: 0.2.16
       tinyrainbow: 3.1.0
-      vitest: 4.1.7(@types/node@24.12.4)(@vitest/ui@4.1.7)(jsdom@27.4.0(@noble/hashes@1.8.0))(msw@2.14.6(@types/node@24.12.4)(typescript@5.8.3))(vite@8.0.14(@types/node@24.12.4)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.22.3))
+      vitest: 4.1.7(@types/node@24.12.4)(@vitest/ui@4.1.7)(jsdom@27.4.0(@noble/hashes@1.8.0))(msw@2.14.6(@types/node@24.12.4)(typescript@5.8.3))(vite@7.3.3(@types/node@24.12.4)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.49.0)(tsx@4.22.3))
 
   '@vitest/utils@4.1.7':
     dependencies:

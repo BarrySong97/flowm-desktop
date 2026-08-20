@@ -2,6 +2,7 @@
 
 - Status: accepted
 - Date: 2026-08-08
+- Update: the manual-update-only decision was superseded by [0012](0012-add-signed-tauri-updates.md) on 2026-08-19.
 
 ## Context
 

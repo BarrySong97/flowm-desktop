@@ -33,6 +33,7 @@
   },
   "bundle": {
     "active": true,
+    "createUpdaterArtifacts": true,
     "targets": "all",
     "externalBin": ["binaries/flowm-sidecar"],
     "resources": {
@@ -49,6 +50,17 @@
     ],
     "macOS": {
       "signingIdentity": "-"
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IENCREI1OEZGRDNCODIyOUEKUldTYUlyalQvMWpieTNQakx5ZG04d05qcmJTVU41Q2FSWlFIVjUwdG42NDYzdWxhM3JQRnE4aFcK",
+      "endpoints": [
+        "https://github.com/BarrySong97/flowm-desktop/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
     }
   }
 }

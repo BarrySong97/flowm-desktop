@@ -16,6 +16,9 @@ import { GroupLabel, LinkRow, Row, Toggle } from "./components"
 import { trpc } from "@/lib/trpc"
 import { usePagePerf } from "@/lib/debug/perf"
 import { amountsHiddenAtom } from "@/lib/state/uiAtoms"
+import { installAvailableUpdate } from "@/lib/appUpdate"
+
+type UpdateStatus = "idle" | "checking" | "up-to-date" | "available" | "installing" | "error"
 
 export function SettingsPage() {
   const navigate = useNavigate()
@@ -56,9 +59,58 @@ export function SettingsPage() {
   const ratesUpdatedLabel = asOf ? new Date(asOf).toLocaleString("zh-CN") : "尚未更新"
 
   const [appVersion, setAppVersion] = useState("")
+  const [updateStatus, setUpdateStatus] = useState<UpdateStatus>("idle")
+  const [availableVersion, setAvailableVersion] = useState<string | null>(null)
+  const [updateProgress, setUpdateProgress] = useState<number | null>(null)
   useEffect(() => {
     void window.flowm.getAppVersion().then(setAppVersion)
   }, [])
+
+  async function handleUpdateAction() {
+    if (updateStatus === "checking" || updateStatus === "installing") return
+
+    if (updateStatus === "available" && availableVersion) {
+      setUpdateStatus("installing")
+      try {
+        await installAvailableUpdate(availableVersion, setUpdateProgress)
+      } catch {
+        setUpdateStatus("error")
+      }
+      return
+    }
+
+    setUpdateStatus("checking")
+    setAvailableVersion(null)
+    setUpdateProgress(null)
+    try {
+      const update = await window.flowm.checkForUpdate()
+      setAvailableVersion(update?.version ?? null)
+      setUpdateStatus(update ? "available" : "up-to-date")
+    } catch {
+      setUpdateStatus("error")
+    }
+  }
+
+  const updateLabel =
+    updateStatus === "available" && availableVersion
+      ? `安装 v${availableVersion}`
+      : updateStatus === "installing"
+        ? "正在安装更新…"
+        : "检查更新"
+  const updateNote =
+    updateStatus === "checking"
+      ? "正在检查…"
+      : updateStatus === "up-to-date"
+        ? "已是最新版本"
+        : updateStatus === "available"
+          ? "下载、安装并重启"
+          : updateStatus === "installing"
+            ? updateProgress == null
+              ? "正在下载…"
+              : `${updateProgress}%`
+            : updateStatus === "error"
+              ? "检查或安装失败，可重试"
+              : "从 GitHub Releases 获取"
   return (
     <div
       style={{
@@ -151,11 +203,14 @@ export function SettingsPage() {
                 {appVersion ? `v${appVersion}` : "—"}
               </span>
             </Row>
+            <LinkRow note={updateNote} onClick={() => void handleUpdateAction()}>
+              {updateLabel}
+            </LinkRow>
             <LinkRow
-              note="在浏览器打开 GitHub Releases"
+              note="自动更新不可用时使用"
               onClick={() => void window.flowm.openDownloadPage()}
             >
-              下载最新版
+              手动下载最新版
             </LinkRow>
             <LinkRow>服务条款</LinkRow>
             <LinkRow>隐私政策</LinkRow>

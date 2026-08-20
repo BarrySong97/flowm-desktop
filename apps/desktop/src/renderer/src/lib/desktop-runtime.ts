@@ -6,9 +6,13 @@
  */
 
 import type { LedgerChangeEvent } from "@flowm/shared/ipc"
+import type { Update } from "@tauri-apps/plugin-updater"
 
 const LEDGER_CHANGE_POLL_MS = 1_000
 type RendererLedgerChangeEvent = LedgerChangeEvent & { receivedAt: string }
+type RendererUpdateProgress = Parameters<Window["flowm"]["installUpdate"]>[0]
+
+let pendingUpdate: Update | null = null
 
 function platform(): Window["flowm"]["platform"] {
   const userAgent = navigator.userAgent.toLowerCase()
@@ -97,6 +101,44 @@ export function installDesktopRuntimeBridge(): void {
     getAppVersion: async () => {
       const { getVersion } = await import("@tauri-apps/api/app")
       return getVersion()
+    },
+    checkForUpdate: async () => {
+      if (!import.meta.env.PROD) {
+        throw new Error("自动更新仅在正式安装版中可用")
+      }
+
+      await pendingUpdate?.close().catch(() => {})
+      const { check } = await import("@tauri-apps/plugin-updater")
+      pendingUpdate = await check()
+      if (!pendingUpdate) return null
+
+      return {
+        currentVersion: pendingUpdate.currentVersion,
+        version: pendingUpdate.version,
+        date: pendingUpdate.date ?? null,
+        body: pendingUpdate.body ?? null,
+      }
+    },
+    installUpdate: async (onProgress: RendererUpdateProgress) => {
+      if (!pendingUpdate) {
+        throw new Error("没有可安装的更新，请先检查更新")
+      }
+
+      const update = pendingUpdate
+      await update.downloadAndInstall((progress) => {
+        if (progress.event === "Started") {
+          onProgress({ event: "started", contentLength: progress.data.contentLength ?? null })
+        } else if (progress.event === "Progress") {
+          onProgress({ event: "progress", chunkLength: progress.data.chunkLength })
+        } else {
+          onProgress({ event: "finished" })
+        }
+      })
+
+      pendingUpdate = null
+      await update.close().catch(() => {})
+      const { relaunch } = await import("@tauri-apps/plugin-process")
+      await relaunch()
     },
     openDownloadPage: async () => {
       const { openUrl } = await import("@tauri-apps/plugin-opener")

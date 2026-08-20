@@ -19,10 +19,32 @@ export type ReleaseNote = {
 
 export const RELEASES: ReleaseNote[] = [
   {
+    version: "0.1.15",
+    date: "2026-08-19",
+    head: "恢复桌面端应用内更新，让后续版本可以在 FlowM 内完成校验、安装和重启。",
+    badge: "latest",
+    groups: [
+      {
+        title: "自动更新",
+        items: [
+          "启动正式安装版时自动检查 GitHub Releases，并在发现新版本后提供明确的更新并重启操作",
+          "设置页新增手动检查、下载进度和安装状态，同时保留浏览器手动下载作为失败兜底",
+          "更新包使用 FlowM 专用密钥签名，客户端会在安装前验证签名",
+        ],
+      },
+      {
+        title: "发布流程",
+        items: [
+          "macOS 和 Windows 发版会同时生成 updater 安装包、签名文件和 latest.json",
+          "CI 会校验两个桌面平台的更新元数据和直连下载地址，缺少签名密钥时直接停止发版",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.1.14",
     date: "2026-08-19",
     head: "重构桌面端主导航和首页工作台，在一个窗口内更快浏览财务概览与最近流水。",
-    badge: "latest",
     groups: [
       {
         title: "桌面应用",

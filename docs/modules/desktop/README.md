@@ -18,7 +18,7 @@ renderer, routing, local app resources, and desktop packaging configuration.
 - `apps/desktop/src/main/trpc/ledger-service.ts` - runtime-neutral ledger lifecycle contract.
 - `apps/desktop/src/renderer/src` - React renderer routes, feature pages, providers, and app styles.
 - `apps/desktop/src/renderer/src/env.d.ts` - typed `window.flowm` renderer contract.
-- `apps/desktop/src/renderer/src/lib/desktop-runtime.ts` - Tauri adapter for native commands, import/reveal, CLI refresh, version, and manual download.
+- `apps/desktop/src/renderer/src/lib/desktop-runtime.ts` - Tauri adapter for native commands, import/reveal, CLI refresh, version, signed updates, and manual download fallback.
 - `apps/desktop/resources/icons` - shared desktop app icon sources and macOS `.icns` asset.
 - `apps/desktop/src-tauri/icons/icon.ico` - generated Windows executable/installer resource icon required by `tauri-build`.
 - `apps/desktop/scripts/seed-demo.ts` - developer script for seeding local demo data.
@@ -80,11 +80,14 @@ Ledger switching changes the active SQLite connection in the sidecar, not a rend
 - `window.flowm.databaseExists()`
 - `window.flowm.onLedgerChanged(callback)` - renderer event hook used to invalidate cached queries after an external CLI commit against the active ledger.
 - `window.flowm.getAppVersion()` - resolves the running Tauri application version.
-- `window.flowm.openDownloadPage()` - opens the latest GitHub Release in the default browser.
+- `window.flowm.checkForUpdate()` - checks signed production release metadata.
+- `window.flowm.installUpdate(callback)` - downloads, verifies, installs, and relaunches after explicit confirmation.
+- `window.flowm.openDownloadPage()` - opens the latest GitHub Release as a fallback.
 
-Tauri's official dialog/opener plugins provide ledger import, file reveal, and
-the manual download page. The sidecar receives external CLI refresh hints and
-the renderer polls the narrow Rust drain command while subscribed.
+Tauri's official dialog/opener/updater/process plugins provide ledger import,
+file reveal, signed updates, relaunch, and the manual download fallback. The
+sidecar receives external CLI refresh hints and the renderer polls the narrow
+Rust drain command while subscribed.
 
 Developer and agent scripts can call the `@flowm/cli` workspace package through
 `pnpm flowm-cli ...` to inspect a ledger or apply a guarded agent ledger patch
@@ -141,6 +144,10 @@ Update `apps/desktop/src/renderer/src/env.d.ts` whenever the `window.flowm` cont
   `apps/web/components/releases/ReleaseTimeline.tsx`; the release script refuses
   to continue unless the first note and the single `latest` badge match the
   target version.
+- Updater releases require the long-lived FlowM signing key. Keep only its
+  public key in `tauri.conf.json`; CI secrets hold the encrypted private key and
+  password. Every release must publish signed updater artifacts plus a
+  `latest.json` containing macOS ARM64 and Windows x64 entries.
 - UI copy and flows must preserve the separation between cashflow, assets, and obligations. The
   subscription detail separates read-time 「扣费计划」 from 「实际扣款流水」; subscription/loan
   details use `cashflow-links/LinkedCashflowDrawer` (bound flows + 解绑) and
