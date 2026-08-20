@@ -57,7 +57,8 @@ describe("Tauri updater configuration", () => {
   it("requires the CI signing key and publishes updater metadata", () => {
     expect(workflow).toContain("TAURI_SIGNING_PRIVATE_KEY")
     expect(workflow).toContain("TAURI_SIGNING_PRIVATE_KEY_PASSWORD")
-    expect(workflow).toContain("includeUpdaterJson: true")
+    expect(workflow).toContain("uploadUpdaterJson: true")
+    expect(workflow).toContain("uploadUpdaterSignatures: true")
     expect(workflow).toContain('for (const platform of ["darwin-aarch64", "windows-x86_64"])')
     expect(workflow).toContain("signature uses a different updater key")
   })

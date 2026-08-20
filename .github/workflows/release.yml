@@ -146,9 +146,10 @@ jobs:
           tagName: ${{ env.RELEASE_TAG }}
           releaseName: FlowM ${{ env.RELEASE_TAG }}
           releaseDraft: false
-          includeUpdaterJson: true
+          uploadUpdaterJson: true
+          uploadUpdaterSignatures: true
           updaterJsonPreferNsis: true
-          assetNamePattern: ${{ matrix.asset_pattern }}
+          releaseAssetNamePattern: ${{ matrix.asset_pattern }}
           args: --bundles ${{ matrix.bundles }}
 
   normalize-updater-json:

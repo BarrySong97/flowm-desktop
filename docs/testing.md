@@ -89,7 +89,9 @@ For updater-enabled release builds also confirm:
 - Windows emits the NSIS installer plus its `.sig` file;
 - the published `latest.json` version matches the tag and contains signed
   `darwin-aarch64` and `windows-x86_64` entries with direct release-download
-  URLs.
+  URLs;
+- the release workflow uses the updater/signature and asset-pattern input names
+  accepted by the repository's pinned `tauri-action@v0` contract.
 
 Windows CI must build the x64 sidecar and NSIS installer on the Windows runner;
 native sidecar artifacts are not cross-OS reusable.
