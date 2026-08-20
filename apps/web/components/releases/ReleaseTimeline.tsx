@@ -19,10 +19,25 @@ export type ReleaseNote = {
 
 export const RELEASES: ReleaseNote[] = [
   {
+    version: "0.1.16",
+    date: "2026-08-20",
+    head: "补齐 Tauri 自动更新发布产物，让 macOS 和 Windows 都能稳定发现并安装新版本。",
+    badge: "latest",
+    groups: [
+      {
+        title: "更新可靠性",
+        items: [
+          "macOS 发版同时生成应用更新压缩包、签名和 DMG，避免只发布手动安装包",
+          "发布完成后自动校验 macOS ARM64 与 Windows x64 的更新元数据、签名密钥和下载直链",
+          "修正发布动作参数并增加回归检查，防止后续版本再次缺少 latest.json 所需产物",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.1.15",
     date: "2026-08-19",
     head: "恢复桌面端应用内更新，让后续版本可以在 FlowM 内完成校验、安装和重启。",
-    badge: "latest",
     groups: [
       {
         title: "自动更新",
