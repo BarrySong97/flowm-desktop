@@ -35,6 +35,10 @@ const CASK_PATH = env("FLOWM_RELEASE_CASK_PATH", "Casks/flowm.rb")
 const CASK_ASSET_NAME = env("FLOWM_RELEASE_DMG", "FlowM-${version}-arm64.dmg")
 const NPM_PACKAGE = env("FLOWM_RELEASE_NPM_PACKAGE", "@barrysongdev4real/flowm-cli")
 const NPM_PACKAGE_DIR = env("FLOWM_RELEASE_NPM_PACKAGE_DIR", "packages/cli/npm")
+const TAURI_CONFIG_FILE = env(
+  "FLOWM_RELEASE_TAURI_CONFIG_FILE",
+  "apps/desktop/src-tauri/tauri.conf.json",
+)
 
 const args = process.argv.slice(2)
 const version = args.find((arg) => !arg.startsWith("--"))
@@ -103,6 +107,7 @@ function main() {
   }
 
   validateRemoteRelease(tag)
+  validateUpdaterManifest(tag, version)
   validateNpmPackage(version)
   if (!noCask) validateCask(version)
 
@@ -275,6 +280,8 @@ function runQualityGates() {
   mut("pnpm", ["check-docs"])
   mut("pnpm", ["format:check"])
   mut("pnpm", ["lint"])
+  mut("pnpm", ["check-types"])
+  mut("pnpm", ["test"])
   mut("pnpm", ["build"])
 }
 
@@ -309,6 +316,52 @@ function validateRemoteRelease(tagName) {
   if (latestTag !== tagName) {
     fail(`Latest release validation failed: expected ${tagName}, got ${latestTag || "missing"}.`)
   }
+}
+
+function validateUpdaterManifest(tagName, expectedVersion) {
+  if (noPublish || dryRun) return
+  const dir = mkdtempSync(join(tmpdir(), "flowm-updater-"))
+  try {
+    mut("gh", [
+      "release",
+      "download",
+      tagName,
+      "--repo",
+      REPO,
+      "--pattern",
+      "latest.json",
+      "--dir",
+      dir,
+      "--clobber",
+    ])
+    const manifest = JSON.parse(readFileSync(join(dir, "latest.json"), "utf8"))
+    const tauriConfig = JSON.parse(readFileSync(TAURI_CONFIG_FILE, "utf8"))
+    const expectedKeyId = minisignKeyId(tauriConfig.plugins.updater.pubkey)
+    if (manifest.version !== expectedVersion) {
+      fail(
+        `Updater manifest version is ${manifest.version || "missing"}, expected ${expectedVersion}.`,
+      )
+    }
+    for (const platform of ["darwin-aarch64", "windows-x86_64"]) {
+      const entry = manifest.platforms?.[platform]
+      if (!entry?.signature || !entry?.url?.includes("/releases/download/")) {
+        fail(`Updater manifest is missing a direct signed download for ${platform}.`)
+      }
+      if (minisignKeyId(entry.signature) !== expectedKeyId) {
+        fail(`Updater manifest signature for ${platform} uses a different updater key.`)
+      }
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+}
+
+function minisignKeyId(encodedEnvelope) {
+  const envelope = Buffer.from(encodedEnvelope, "base64").toString("utf8").trim()
+  const payload = envelope.split(/\r?\n/)[1]
+  const raw = payload ? Buffer.from(payload, "base64") : Buffer.alloc(0)
+  if (raw.length < 10) fail("Invalid updater minisign envelope.")
+  return raw.subarray(2, 10).toString("hex")
 }
 
 function validateNpmPackage(nextVersion) {

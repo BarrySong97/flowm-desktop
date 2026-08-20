@@ -45,10 +45,10 @@ jobs:
         include:
           - os: macos-latest
             bundles: dmg
-            asset_pattern: FlowM-[version]-arm64.[ext]
+            asset_pattern: FlowM-[version]-arm64[ext]
           - os: windows-latest
             bundles: nsis
-            asset_pattern: FlowM-[version]-x64[setup].[ext]
+            asset_pattern: FlowM-[version]-x64[setup][ext]
     runs-on: ${{ matrix.os }}
     env:
       RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
@@ -79,6 +79,18 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Require updater signing key
+        shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -z "$TAURI_SIGNING_PRIVATE_KEY" ] || [ -z "$TAURI_SIGNING_PRIVATE_KEY_PASSWORD" ]; then
+            echo "Missing TAURI_SIGNING_PRIVATE_KEY or TAURI_SIGNING_PRIVATE_KEY_PASSWORD." >&2
+            exit 1
+          fi
 
       - name: Configure Apple signing and notarization
         if: runner.os == 'macOS'
@@ -126,12 +138,93 @@ jobs:
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
           APPLE_API_KEY_PATH: ${{ env.APPLE_API_KEY_PATH }}
           APPLE_SIGNING_IDENTITY: ${{ env.APPLE_SIGNING_IDENTITY }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           projectPath: apps/desktop
           tauriScript: pnpm tauri
           tagName: ${{ env.RELEASE_TAG }}
           releaseName: FlowM ${{ env.RELEASE_TAG }}
           releaseDraft: false
-          uploadUpdaterJson: false
-          releaseAssetNamePattern: ${{ matrix.asset_pattern }}
+          includeUpdaterJson: true
+          updaterJsonPreferNsis: true
+          assetNamePattern: ${{ matrix.asset_pattern }}
           args: --bundles ${{ matrix.bundles }}
+
+  normalize-updater-json:
+    name: Normalize and validate updater metadata
+    needs: release
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+    steps:
+      - name: Checkout updater public key
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+
+      - name: Replace API asset URLs and require supported platforms
+        shell: bash
+        run: |
+          set -euo pipefail
+          updater_dir="$RUNNER_TEMP/flowm-updater"
+          mkdir -p "$updater_dir"
+          gh release download "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern latest.json \
+            --dir "$updater_dir" \
+            --clobber
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" \
+            > "$updater_dir/release.json"
+
+          UPDATER_DIR="$updater_dir" node <<'NODE'
+          const fs = require("node:fs")
+          const path = require("node:path")
+
+          const updaterDir = process.env.UPDATER_DIR
+          const latestPath = path.join(updaterDir, "latest.json")
+          const latest = JSON.parse(fs.readFileSync(latestPath, "utf8"))
+          const release = JSON.parse(fs.readFileSync(path.join(updaterDir, "release.json"), "utf8"))
+          const tauriConfig = JSON.parse(
+            fs.readFileSync("apps/desktop/src-tauri/tauri.conf.json", "utf8"),
+          )
+          const assetsById = new Map(
+            release.assets.map((asset) => [String(asset.id), asset.browser_download_url]),
+          )
+          const minisignKeyId = (encodedEnvelope) => {
+            const envelope = Buffer.from(encodedEnvelope, "base64").toString("utf8").trim()
+            const payload = envelope.split(/\r?\n/)[1]
+            const raw = payload ? Buffer.from(payload, "base64") : Buffer.alloc(0)
+            if (raw.length < 10) throw new Error("Invalid minisign envelope")
+            return raw.subarray(2, 10).toString("hex")
+          }
+          const expectedKeyId = minisignKeyId(tauriConfig.plugins.updater.pubkey)
+
+          for (const [platform, entry] of Object.entries(latest.platforms ?? {})) {
+            const assetId = entry.url.match(/\/releases\/assets\/(\d+)$/)?.[1]
+            if (assetId) {
+              const directUrl = assetsById.get(assetId)
+              if (!directUrl) throw new Error(`Updater asset ${assetId} for ${platform} was not found`)
+              entry.url = directUrl
+            } else if (!entry.url.includes("/releases/download/")) {
+              throw new Error(`Unsupported updater URL for ${platform}: ${entry.url}`)
+            }
+          }
+
+          for (const platform of ["darwin-aarch64", "windows-x86_64"]) {
+            const entry = latest.platforms?.[platform]
+            if (!entry?.signature || !entry?.url) {
+              throw new Error(`latest.json is missing ${platform} updater metadata`)
+            }
+            if (minisignKeyId(entry.signature) !== expectedKeyId) {
+              throw new Error(`latest.json ${platform} signature uses a different updater key`)
+            }
+          }
+
+          fs.writeFileSync(latestPath, `${JSON.stringify(latest, null, 2)}\n`)
+          NODE
+
+          gh release upload "$RELEASE_TAG" "$updater_dir/latest.json" \
+            --repo "$GITHUB_REPOSITORY" \
+            --clobber

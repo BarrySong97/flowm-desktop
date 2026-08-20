@@ -62,7 +62,9 @@ Confirm:
 - Reveal opens the selected ledger in Finder/Explorer.
 - CLI `--commit` refresh hints invalidate renderer queries for the active
   database only.
-- Settings show the app version and a manual “下载最新版” link.
+- Settings show the app version, a manual update check/install action, and a
+  browser download fallback. Development builds must reject production update
+  checks.
 
 Use a disposable ledger for writes. File selection and reveal may be tested on
 known development data; do not overwrite or delete production data.
@@ -80,6 +82,14 @@ Also confirm the macOS bundle contains:
 - `Contents/Resources/migrations/`
 - `Contents/Resources/resources/flowm-demo.sqlite3`
 - `CFBundleIdentifier = com.flowm.desktop`
+
+For updater-enabled release builds also confirm:
+
+- macOS emits `FlowM.app.tar.gz` plus its `.sig` file;
+- Windows emits the NSIS installer plus its `.sig` file;
+- the published `latest.json` version matches the tag and contains signed
+  `darwin-aarch64` and `windows-x86_64` entries with direct release-download
+  URLs.
 
 Windows CI must build the x64 sidecar and NSIS installer on the Windows runner;
 native sidecar artifacts are not cross-OS reusable.

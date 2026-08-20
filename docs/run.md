@@ -103,8 +103,12 @@ The script bumps root/desktop/web/CLI versions plus Tauri JSON/Cargo versions,
 runs checks, commits, pushes `main`, tags `v<version>`, and waits for GitHub
 Actions. CI creates the GitHub Release, builds target-native Node sidecars,
 creates Tauri DMG/NSIS installers, signs/notarizes where configured, and uploads
-them. The first Tauri release and later updates are installed by downloading
-the latest artifact; there is no in-app updater.
+them. The first updater-enabled Tauri release must be installed by downloading
+the latest artifact. Later releases are discovered from the signed `latest.json`
+on GitHub Releases and can be installed from the startup prompt or Settings.
+Release CI requires `TAURI_SIGNING_PRIVATE_KEY` and
+`TAURI_SIGNING_PRIVATE_KEY_PASSWORD`; retain a secure offline backup of the
+matching FlowM updater key.
 
 Supported release flags include `--dry-run`, `--no-publish`, `--no-npm`,
 `--no-cask`, `--no-wait`, and `--no-checks`.
