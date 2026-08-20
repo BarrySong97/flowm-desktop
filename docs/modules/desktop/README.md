@@ -146,8 +146,10 @@ Update `apps/desktop/src/renderer/src/env.d.ts` whenever the `window.flowm` cont
   target version.
 - Updater releases require the long-lived FlowM signing key. Keep only its
   public key in `tauri.conf.json`; CI secrets hold the encrypted private key and
-  password. Every release must publish signed updater artifacts plus a
-  `latest.json` containing macOS ARM64 and Windows x64 entries.
+  password. The macOS release job must build both `app` and `dmg`, because the
+  signed updater archive comes from the app bundle. Every release must publish
+  signed updater artifacts plus a `latest.json` containing macOS ARM64 and
+  Windows x64 entries.
 - UI copy and flows must preserve the separation between cashflow, assets, and obligations. The
   subscription detail separates read-time 「扣费计划」 from 「实际扣款流水」; subscription/loan
   details use `cashflow-links/LinkedCashflowDrawer` (bound flows + 解绑) and

@@ -44,7 +44,9 @@ jobs:
       matrix:
         include:
           - os: macos-latest
-            bundles: dmg
+            # The updater archive is generated from the app bundle; dmg alone
+            # only produces the manual installer and leaves latest.json without macOS.
+            bundles: app,dmg
             asset_pattern: FlowM-[version]-arm64[ext]
           - os: windows-latest
             bundles: nsis

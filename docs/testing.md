@@ -86,6 +86,9 @@ Also confirm the macOS bundle contains:
 For updater-enabled release builds also confirm:
 
 - macOS emits `FlowM.app.tar.gz` plus its `.sig` file;
+- the macOS release job explicitly builds both `app` and `dmg`; the updater
+  archive is generated from the app bundle and a DMG-only build cannot populate
+  the `darwin-aarch64` entry in `latest.json`;
 - Windows emits the NSIS installer plus its `.sig` file;
 - the published `latest.json` version matches the tag and contains signed
   `darwin-aarch64` and `windows-x86_64` entries with direct release-download
